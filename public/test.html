@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Test Telegram Login</title>
+    <script>
+      // Функция, которая должна быть вызвана после входа
+      function onTelegramAuth(user) {
+        console.log("Telegram user:", user);
+        alert("Успешный вход! Данные: " + JSON.stringify(user));
+        // Для теста не будем делать редирект, просто покажем данные
+      }
+    </script>
+  </head>
+  <body>
+    <h2>Нажмите кнопку для входа через Telegram</h2>
+    <!-- Подключаем Telegram Login Widget -->
+    <script async src="https://telegram.org/js/telegram-widget.js?15"
+            data-telegram-login="Fegefeuerbot"  <!-- Замените YOUR_BOT_USERNAME на имя вашего бота без @ -->
+            data-size="large"
+            data-userpic="false"
+            data-request-access="write"
+            data-callback="onTelegramAuth">
+    </script>
+  </body>
+</html>

@@ -1,0 +1,59 @@
+/* Общий контейнер для всех блоков */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+/* Контейнер для Active и Passive колонок (наверху) */
+.active-passive-container {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+/* Базовые стили для колонок */
+.column {
+  background-color: #f0f0f0;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* В контейнере active-passive каждая колонка занимает примерно 50% ширины */
+.active-passive-container .column {
+  flex: 1 1 calc(50% - 10px);
+  max-width: calc(50% - 10px);
+}
+
+/* Колонка с классом full-width (Purgatory) занимает 100% ширины */
+.full-width {
+  flex: 1 1 100%;
+  max-width: 100%;
+}
+
+/* Центрирование заголовков в колонках */
+.column h2 {
+  text-align: center;
+}
+
+/* Адаптация для мобильных устройств */
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .active-passive-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .active-passive-container .column,
+  .full-width {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+}

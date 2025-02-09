@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Test Telegram Login</title>
+    <!-- Этот мета-тег настраивает политику безопасности, чтобы разрешить загрузку скриптов и фреймов с telegram.org -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self' https://telegram.org https://oauth.telegram.org;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org;
+      style-src 'self' 'unsafe-inline';
+      frame-src https://oauth.telegram.org;
+    ">
+    <!-- Функция onTelegramAuth объявлена здесь, чтобы быть доступной до загрузки виджета -->
+    <script>
+      function onTelegramAuth(user) {
+        console.log("Telegram user:", user);
+        alert("Успешный вход! Данные: " + JSON.stringify(user));
+        // Если хочешь выполнить редирект, можно раскомментировать строки ниже:
+        // const params = new URLSearchParams(user).toString();
+        // window.location.href = "/?" + params;
+      }
+    </script>
+  </head>
+  <body>
+    <!-- Здесь может быть контейнер для твоего приложения, если оно есть -->
+    <div id="root"></div>
+    <!-- Telegram Login Widget -->
+    <script async src="https://telegram.org/js/telegram-widget.js?7"
+        data-telegram-login="Fegefeuerbot"
+        data-size="large"
+        data-radius="5"
+        data-auth-url="https://dulcet-yeot-cb2d95.netlify.app/.netlify/functions/auth"
+        data-request-access="write"></script>
+  </body>
+</html>
