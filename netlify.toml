@@ -1,3 +1,12 @@
+# netlify.toml
+
+[build]
+  command = "CI= npm run build"
+  publish = "build"
+
+[build.environment]
+  NODE_OPTIONS = "--openssl-legacy-provider"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
