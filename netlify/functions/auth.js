@@ -31,7 +31,7 @@ exports.handler = async (event) => {
     // Инициализация Firebase (если ещё не сделано)
     if (!admin.apps.length) {
       let firebaseCredentials;
-      
+
       try {
         // Проверяем, корректно ли парсится JSON
         firebaseCredentials = JSON.parse(process.env.FIREBASE_CREDENTIALS);
@@ -41,7 +41,10 @@ exports.handler = async (event) => {
       }
 
       admin.initializeApp({
-        credential: admin.credential.cert(firebaseCredentials),
+        credential: admin.credential.cert({
+          ...firebaseCredentials,
+          private_key: firebaseCredentials.private_key.replace(/\\n/g, '\n'),
+        }),
       });
     }
 
