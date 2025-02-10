@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { getFirestore, collection, doc, setDoc } = require("firebase-admin/firestore");
+const { getFirestore, doc, setDoc } = require("firebase-admin/firestore");
 const admin = require("firebase-admin");
 
 // Переопределение eval для отладки
@@ -9,7 +9,6 @@ global.eval = function (...args) {
   return originalEval(...args);
 };
 
-// Остальной код auth.js
 exports.handler = async (event) => {
   const TELEGRAM_BOT_TOKEN = "8002603933:AAHawX2-DfShfNw-0iUGgjUtZGBngOjBKgM";
 
@@ -50,7 +49,7 @@ exports.handler = async (event) => {
     const username = params.get("username") || "NoUsername"; // Имя пользователя (или значение по умолчанию)
 
     // Используем коллекцию "users" и документ с ID пользователя
-    await setDoc(doc(collection(db, "users"), userId), { username });
+    await setDoc(doc(db, "users", userId), { username });
 
     return {
       statusCode: 200,
