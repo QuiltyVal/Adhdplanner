@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { getFirestore, doc, setDoc } = require("firebase-admin/firestore");
+const { getFirestore } = require("firebase-admin/firestore");
 const admin = require("firebase-admin");
 
 // Переопределение eval для отладки
@@ -49,7 +49,7 @@ exports.handler = async (event) => {
     const username = params.get("username") || "NoUsername"; // Имя пользователя (или значение по умолчанию)
 
     // Используем коллекцию "users" и документ с ID пользователя
-    await setDoc(doc(db, "users", userId), { username });
+    await db.doc(`users/${userId}`).set({ username });
 
     return {
       statusCode: 200,
