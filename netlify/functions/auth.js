@@ -13,17 +13,17 @@ exports.handler = async (event) => {
     }
 
     // Проверяем подпись (безопасность!)
-    const secret = crypto.createHmac("sha256", "WebAppData").update(TELEGRAM_BOT_TOKEN).digest();
     const dataCheckString = [...params.entries()]
       .filter(([key]) => key !== "hash")
       .map(([key, value]) => `${key}=${value}`)
       .sort()
       .join("\n");
 
-    const hmac = crypto.createHmac("sha256", secret).update(dataCheckString).digest("hex");
+    const secretKey = crypto.createHash("sha256").update(TELEGRAM_BOT_TOKEN).digest();
+    const hmac = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
 
     if (hmac !== hash) {
-      return { statusCode: 403, body: "Invalid data" };
+      return { statusCode: 403, body: "Invalid hash" };
     }
 
     // Всё ок! Сохраняем пользователя в Firebase
