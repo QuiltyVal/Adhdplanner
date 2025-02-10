@@ -2,6 +2,14 @@ const crypto = require("crypto");
 const { getFirestore, collection, doc, setDoc } = require("firebase-admin/firestore");
 const admin = require("firebase-admin");
 
+// Переопределение eval для отладки
+const originalEval = global.eval;
+global.eval = function (...args) {
+  console.warn("Eval called with:", args);
+  return originalEval(...args);
+};
+
+// Остальной код auth.js
 exports.handler = async (event) => {
   const TELEGRAM_BOT_TOKEN = "8002603933:AAHawX2-DfShfNw-0iUGgjUtZGBngOjBKgM";
 
@@ -49,6 +57,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ success: true, userId, username }),
     };
   } catch (error) {
+    console.error("Server error:", error);
     return { statusCode: 500, body: `Server error: ${error.message}` };
   }
 };
