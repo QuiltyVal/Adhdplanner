@@ -32,7 +32,7 @@ exports.handler = async (event) => {
 
     if (!admin.apps.length) {
       admin.initializeApp({
-        credential: admin.credential.cert(require("../firebase-admin.json")),
+        credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_CREDENTIALS)),
       });
     }
 
