@@ -1,10 +1,19 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import App from './App';
+import React from "react";
+import ReactDOM from "react-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom"; // Импорт маршрутов
+import App from "./App"; // Основное приложение
+import Login from "./Login"; // Страница логина
 
 ReactDOM.render(
   <React.StrictMode>
-    <App />
+    <Router>
+      <Routes>
+        {/* Главная страница */}
+        <Route path="/" element={<App />} />
+        {/* Страница логина */}
+        <Route path="/login" element={<Login />} />
+      </Routes>
+    </Router>
   </React.StrictMode>,
-  document.getElementById('root')
+  document.getElementById("root")
 );
