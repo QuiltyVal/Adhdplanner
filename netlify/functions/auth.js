@@ -1,4 +1,6 @@
 const crypto = require("crypto");
+const { getFirestore, collection, doc, setDoc } = require("firebase-admin/firestore");
+const admin = require("firebase-admin");
 
 exports.handler = async (event) => {
   const TELEGRAM_BOT_TOKEN = "8002603933:AAHawX2-DfShfNw-0iUGgjUtZGBngOjBKgM";
@@ -26,21 +28,21 @@ exports.handler = async (event) => {
       return { statusCode: 403, body: "Invalid hash" };
     }
 
-    // Всё ок! Сохраняем пользователя в Firebase
-    const { getFirestore, doc, setDoc } = require("firebase-admin/firestore");
-    const admin = require("firebase-admin");
-
+    // Инициализация Firebase (если ещё не сделано)
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_CREDENTIALS)),
       });
     }
 
-    const db = getFirestore();
-    const userId = params.get("id");
-    const username = params.get("username") || "NoUsername";
+    const db = getFirestore(); // Получаем доступ к Firestore
 
-    await setDoc(doc(db, "users", userId), { username });
+    // Сохраняем данные пользователя
+    const userId = params.get("id"); // ID пользователя
+    const username = params.get("username") || "NoUsername"; // Имя пользователя (или значение по умолчанию)
+
+    // Используем коллекцию "users" и документ с ID пользователя
+    await setDoc(doc(collection(db, "users"), userId), { username });
 
     return {
       statusCode: 200,
