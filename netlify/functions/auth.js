@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 
 exports.handler = async (event) => {
-  const TELEGRAM_BOT_TOKEN = "ВАШ_ТОКЕН_БОТА";
+  const TELEGRAM_BOT_TOKEN = "8002603933:AAHawX2-DfShfNw-0iUGgjUtZGBngOjBKgM";
 
   try {
     // Получаем параметры из URL (Telegram отправляет их как GET-параметры)
