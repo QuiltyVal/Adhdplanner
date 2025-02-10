@@ -33,7 +33,7 @@ exports.handler = async (event) => {
       let firebaseCredentials;
 
       try {
-        // Проверяем, корректно ли парсится JSON
+        // Получаем конфигурацию из переменной окружения (вы должны задать FIREBASE_CREDENTIALS в настройках Netlify)
         firebaseCredentials = JSON.parse(process.env.FIREBASE_CREDENTIALS);
       } catch (jsonError) {
         console.error("Ошибка парсинга FIREBASE_CREDENTIALS:", jsonError);
@@ -43,7 +43,7 @@ exports.handler = async (event) => {
       admin.initializeApp({
         credential: admin.credential.cert({
           ...firebaseCredentials,
-          private_key: firebaseCredentials.private_key.replace(/\\n/g, '\n'),
+          private_key: firebaseCredentials.private_key.replace(/\\n/g, "\n"),
         }),
       });
     }
@@ -52,15 +52,21 @@ exports.handler = async (event) => {
 
     // Сохраняем данные пользователя
     const userId = params.get("id"); // ID пользователя
-    const username = params.get("username") || "NoUsername"; // Имя пользователя (или значение по умолчанию)
+    const username = params.get("username") || "NoUsername";
 
-    // Используем коллекцию "users" и документ с ID пользователя
-    await db.doc(`users/${userId}`).set({ username });
+    // Сохраняем или обновляем пользователя в Firestore
+    await db.doc(`users/${userId}`).set({ username }, { merge: true });
 
+    // Перенаправляем пользователя на страницу /main, передавая все GET-параметры
+    const queryString = new URLSearchParams(event.queryStringParameters).toString();
     return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, userId, username }),
+      statusCode: 302,
+      headers: {
+        Location: `https://dulcet-yeot-cb2d95.netlify.app/main?${queryString}`
+      },
+      body: ""
     };
+
   } catch (error) {
     console.error("Server error:", error);
     return { statusCode: 500, body: `Server error: ${error.message}` };
