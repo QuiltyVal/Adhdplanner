@@ -2,13 +2,6 @@ const crypto = require("crypto");
 const { getFirestore } = require("firebase-admin/firestore");
 const admin = require("firebase-admin");
 
-// Переопределение eval для отладки
-const originalEval = global.eval;
-global.eval = function (...args) {
-  console.warn("Eval called with:", args);
-  return originalEval(...args);
-};
-
 exports.handler = async (event) => {
   const TELEGRAM_BOT_TOKEN = "8002603933:AAHawX2-DfShfNw-0iUGgjUtZGBngOjBKgM";
 
@@ -37,10 +30,18 @@ exports.handler = async (event) => {
 
     // Инициализация Firebase (если ещё не сделано)
     if (!admin.apps.length) {
+      let firebaseCredentials;
+      
+      try {
+        // Проверяем, корректно ли парсится JSON
+        firebaseCredentials = JSON.parse(process.env.FIREBASE_CREDENTIALS);
+      } catch (jsonError) {
+        console.error("Ошибка парсинга FIREBASE_CREDENTIALS:", jsonError);
+        return { statusCode: 500, body: "Ошибка конфигурации Firebase" };
+      }
+
       admin.initializeApp({
-        credential: admin.credential.cert(
-          JSON.parse(process.env.FIREBASE_CREDENTIALS.replace(/\\n/g, '\n'))
-        ),
+        credential: admin.credential.cert(firebaseCredentials),
       });
     }
 
