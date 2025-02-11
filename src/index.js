@@ -2,7 +2,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import App from "./App";   // Основное приложение (интерфейс с задачами)
+import App from "./App";     // Основное приложение
 import Login from "./Login"; // Страница логина
 import "./index.css";
 

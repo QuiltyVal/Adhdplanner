@@ -6,8 +6,8 @@ import TaskColumn from "./TaskColumn";
 import "./App.css";
 import { addUserIfNotExists, getUserTasks, updateUserTasks } from "./firestoreUtils";
 
-// Функция для получения данных пользователя из URL-параметров
-function getTelegramUserFromUrl(search) {
+// Функция для получения данных пользователя из строки запроса
+function getTelegramUserFromSearch(search) {
   const params = new URLSearchParams(search);
   if (params.get("id")) {
     return {
@@ -31,30 +31,32 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
-    // Сначала пытаемся получить данные из localStorage
-    const storedUser = localStorage.getItem("telegramUser");
-    if (storedUser) {
-      console.log("User from localStorage:", storedUser);
-      setUser(JSON.parse(storedUser));
-      return;
-    }
-    // Если в localStorage нет, пробуем получить из URL
-    const urlUser = getTelegramUserFromUrl(location.search);
+    // Попробуем получить данные из URL
+    const urlUser = getTelegramUserFromSearch(location.search);
     if (urlUser) {
-      console.log("User from URL:", urlUser);
+      console.log("Получены данные из URL:", urlUser);
+      // Сохраним их в localStorage
       localStorage.setItem("telegramUser", JSON.stringify(urlUser));
       setUser(urlUser);
-      // Если очистка URL вызывает проблемы, можно оставить параметры на время первого рендера
-      // window.history.replaceState({}, document.title, window.location.pathname);
-      return;
+      // Не очищаем URL сразу – пусть данные остаются на первый рендер для отладки
+    } else {
+      // Если в URL нет данных, попробуем получить из localStorage
+      const stored = localStorage.getItem("telegramUser");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        console.log("Получены данные из localStorage:", parsed);
+        setUser(parsed);
+      } else {
+        console.log("Данные о пользователе не найдены. Переходим на /login");
+        navigate("/login");
+      }
     }
-    console.log("No user found, redirecting to login");
-    navigate("/login");
-  }, [location, navigate]);
+  }, [location.search, navigate]);
 
   useEffect(() => {
     async function init() {
       if (user) {
+        console.log("Инициализация пользователя с id:", user.id);
         await addUserIfNotExists(user.id, user.first_name);
         const userTasks = await getUserTasks(user.id);
         setTasks(userTasks);
