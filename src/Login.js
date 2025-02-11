@@ -5,16 +5,16 @@ export default function Login() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Получаем параметры из URL (они приходят от Telegram после входа)
         const params = new URLSearchParams(window.location.search);
         const userData = Object.fromEntries(params.entries()); // Преобразуем в объект
 
-        console.log("URL parameters:", userData); // Проверяем, приходят ли данные в консоль
+        console.log("URL parameters:", userData); // ЛОГ - проверяем, приходят ли данные
 
         if (userData.id) {
-            console.log("Saving to localStorage:", userData); // Проверяем, что данные попали в проверку
-            localStorage.setItem("telegramUser", JSON.stringify(userData)); // Сохраняем данные
-            navigate("/main"); // Перенаправляем пользователя на главную страницу
+            console.log("Saving to localStorage:", userData); // ЛОГ - проверяем, что данные попали в проверку
+            localStorage.setItem("telegramUser", JSON.stringify(userData)); // Сохраняем в localStorage
+            console.log("Saved in localStorage:", localStorage.getItem("telegramUser")); // Проверяем, записалось ли
+            navigate("/main"); // Перенаправляем на главную страницу
         } else {
             console.log("No Telegram data found."); // Если данных нет, логируем это в консоль
         }
