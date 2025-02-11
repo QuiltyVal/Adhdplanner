@@ -7,6 +7,7 @@ import { addUserIfNotExists, getUserTasks, updateUserTasks } from "./firestoreUt
 
 // Функция для получения данных пользователя из URL-параметров
 function getTelegramUserFromUrl() {
+  console.log("📥 Функция getTelegramUserFromUrl вызвана!"); // Проверяем, вызывается ли функция
   const params = new URLSearchParams(window.location.search);
   if (params.has("id")) {
     return {
@@ -23,7 +24,7 @@ function getTelegramUserFromUrl() {
 }
 
 export default function App() {
-  console.log("✅ App.js is running!"); // Проверяем, загружается ли App.js
+  console.log("✅ App.js запущен!"); // Проверяем, загружается ли App.js
   
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]); // Массив задач
@@ -32,23 +33,26 @@ export default function App() {
 
   // Проверка на данные Telegram и редирект на логин при отсутствии
   useEffect(() => {
-    console.log("🔍 Checking Telegram user...");
-    const telegramUser = getTelegramUserFromUrl();
+    console.log("🔍 Проверяем Telegram пользователя...");
+    
+    let telegramUser = getTelegramUserFromUrl();
+
     if (telegramUser) {
-      console.log("✅ Telegram user found:", telegramUser);
+      console.log("✅ Найден Telegram пользователь:", telegramUser);
       setUser(telegramUser);
-      window.history.replaceState({}, document.title, "/"); // Убираем параметры из URL
+      localStorage.setItem("telegramUser", JSON.stringify(telegramUser)); // Сохраняем данные
+      window.history.replaceState({}, document.title, "/"); // Очищаем URL
     } else {
-      console.log("❌ No Telegram user, redirecting to /login...");
-      navigate("/login"); // Перенаправляем на логин, если данных нет
+      console.log("❌ Пользователь не найден, редирект на /login...");
+      navigate("/login"); // Перенаправляем на страницу входа
     }
   }, [navigate]);
 
-  // Инициализация пользователя и загрузка задач
+  // Загружаем задачи пользователя из Firebase
   useEffect(() => {
     async function init() {
       if (user) {
-        console.log("🔄 Loading tasks for user:", user.id);
+        console.log("🔄 Загружаем задачи для пользователя:", user.id);
         await addUserIfNotExists(user.id, user.first_name);
         const userTasks = await getUserTasks(user.id);
         setTasks(userTasks);
@@ -80,18 +84,10 @@ export default function App() {
         <div className="container">
           <div className="active-passive-container">
             <div className="column">
-              <TaskColumn
-                columnId="active"
-                title="Active Projects"
-                tasks={activeTasks}
-              />
+              <TaskColumn columnId="active" title="Active Projects" tasks={activeTasks} />
             </div>
             <div className="column">
-              <TaskColumn
-                columnId="passive"
-                title="Passive Projects"
-                tasks={passiveTasks}
-              />
+              <TaskColumn columnId="passive" title="Passive Projects" tasks={passiveTasks} />
             </div>
           </div>
           <div className="column full-width">
