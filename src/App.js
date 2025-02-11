@@ -7,10 +7,12 @@ import { addUserIfNotExists, getUserTasks, updateUserTasks } from "./firestoreUt
 
 // Функция для получения данных пользователя из URL-параметров
 function getTelegramUserFromUrl() {
-  console.log("📥 Функция getTelegramUserFromUrl вызвана!"); // Проверяем, вызывается ли функция
+  console.log("📥 getTelegramUserFromUrl() вызвана!");
+  console.log("🔍 URL-параметры:", window.location.search);
+
   const params = new URLSearchParams(window.location.search);
   if (params.has("id")) {
-    return {
+    const user = {
       id: params.get("id"),
       first_name: params.get("first_name"),
       last_name: params.get("last_name"),
@@ -19,28 +21,37 @@ function getTelegramUserFromUrl() {
       auth_date: params.get("auth_date"),
       hash: params.get("hash"),
     };
+    console.log("✅ Данные Telegram пользователя:", user);
+    return user;
   }
+  console.log("❌ Данных Telegram нет в URL");
   return null;
 }
 
 export default function App() {
   console.log("✅ App.js запущен!"); // Проверяем, загружается ли App.js
-  
+
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]); // Массив задач
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate(); // Хук для редиректа
 
-  // Проверка на данные Telegram и редирект на логин при отсутствии
+  // Проверяем, есть ли пользовательские данные в URL и localStorage
   useEffect(() => {
     console.log("🔍 Проверяем Telegram пользователя...");
-    
-    let telegramUser = getTelegramUserFromUrl();
 
+    let telegramUser = getTelegramUserFromUrl();
+    
     if (telegramUser) {
       console.log("✅ Найден Telegram пользователь:", telegramUser);
       setUser(telegramUser);
-      localStorage.setItem("telegramUser", JSON.stringify(telegramUser)); // Сохраняем данные
+
+      console.log("💾 Сохраняем в localStorage...");
+      localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
+
+      console.log("🔍 Проверяем, сохранилось ли в localStorage...");
+      console.log("📦 localStorage:", localStorage.getItem("telegramUser"));
+
       window.history.replaceState({}, document.title, "/"); // Очищаем URL
     } else {
       console.log("❌ Пользователь не найден, редирект на /login...");
@@ -64,10 +75,6 @@ export default function App() {
 
   if (loading) return <div>Загрузка... Подождите!</div>;
 
-  const activeTasks = tasks.filter((task) => task.columnId === "active");
-  const passiveTasks = tasks.filter((task) => task.columnId === "passive");
-  const purgatoryTasks = tasks.filter((task) => task.columnId === "purgatory");
-
   return (
     <DndContext onDragEnd={() => {}}>
       <div
@@ -81,19 +88,6 @@ export default function App() {
       >
         <h1 style={{ textAlign: "center" }}>Task Planner для ADHD</h1>
         <p>Привет, {user?.first_name || "Гость"}!</p>
-        <div className="container">
-          <div className="active-passive-container">
-            <div className="column">
-              <TaskColumn columnId="active" title="Active Projects" tasks={activeTasks} />
-            </div>
-            <div className="column">
-              <TaskColumn columnId="passive" title="Passive Projects" tasks={passiveTasks} />
-            </div>
-          </div>
-          <div className="column full-width">
-            <TaskColumn columnId="purgatory" title="Purgatory" tasks={purgatoryTasks} />
-          </div>
-        </div>
       </div>
     </DndContext>
   );
