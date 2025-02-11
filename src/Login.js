@@ -1,28 +1,41 @@
 // src/Login.js
 import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
+  const navigate = useNavigate();
+
   useEffect(() => {
-    // Создаем скрипт
-    const script = document.createElement('script');
+    // Создаем скрипт Telegram Login Widget динамически
+    const script = document.createElement("script");
     script.src = "https://telegram.org/js/telegram-widget.js?7";
     script.async = true;
-    script.setAttribute('data-telegram-login', 'Fegefeuerbot');
-    script.setAttribute('data-size', 'large');
-    script.setAttribute('data-radius', '5');
-    script.setAttribute('data-auth-url', 'https://dulcet-yeot-cb2d95.netlify.app/netlify/functions/auth');
-    script.setAttribute('data-request-access', 'write');
+    script.setAttribute("data-telegram-login", "Fegefeuerbot"); // Имя бота без @
+    script.setAttribute("data-size", "large");
+    script.setAttribute("data-radius", "5");
+    // data-auth-url указывает на URL, куда Telegram отправляет данные после логина (например, на эту же страницу)
+    script.setAttribute("data-auth-url", "https://dulcet-yeot-cb2d95.netlify.app/login");
+    script.setAttribute("data-request-access", "write");
+    document.getElementById("telegram-login-container").appendChild(script);
     
-    // Добавляем скрипт на страницу
-    document.getElementById('telegram-login-container').appendChild(script);
-
-    // Очистка при размонтировании
     return () => {
       if (script.parentNode) {
         script.parentNode.removeChild(script);
       }
     };
   }, []);
+
+  // После авторизации Telegram перенаправит на URL с параметрами
+  // Здесь читаем их и сохраняем в localStorage, затем перенаправляем на /main
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const userData = Object.fromEntries(params.entries());
+    console.log("URL parameters in Login:", userData);
+    if (userData.id) {
+      localStorage.setItem("telegramUser", JSON.stringify(userData));
+      navigate("/main");
+    }
+  }, [navigate]);
 
   return (
     <div style={{ textAlign: "center", marginTop: "50px" }}>

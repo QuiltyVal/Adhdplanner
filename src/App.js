@@ -6,6 +6,7 @@ import TaskColumn from "./TaskColumn";
 import "./App.css";
 import { addUserIfNotExists, getUserTasks, updateUserTasks } from "./firestoreUtils";
 
+// Функция для получения данных пользователя из URL-параметров
 function getTelegramUserFromUrl(search) {
   const params = new URLSearchParams(search);
   if (params.get("id")) {
@@ -30,33 +31,25 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
-    console.log("Current location:", location);
-    console.log("URL parameters:", location.search);
-    
-    const initUser = async () => {
-      // Проверяем параметры в URL
-      const urlUser = getTelegramUserFromUrl(location.search);
-      if (urlUser) {
-        console.log("Found user in URL:", urlUser);
-        localStorage.setItem("telegramUser", JSON.stringify(urlUser));
-        setUser(urlUser);
-        return;
-      }
-
-      // Если нет в URL, проверяем localStorage
-      const storedUser = localStorage.getItem("telegramUser");
-      if (storedUser) {
-        console.log("Found user in localStorage:", storedUser);
-        setUser(JSON.parse(storedUser));
-        return;
-      }
-
-      // Если нигде нет пользователя, редиректим на логин
-      console.log("No user found, redirecting to login");
-      navigate("/login");
-    };
-
-    initUser();
+    // Сначала пытаемся получить данные из localStorage
+    const storedUser = localStorage.getItem("telegramUser");
+    if (storedUser) {
+      console.log("User from localStorage:", storedUser);
+      setUser(JSON.parse(storedUser));
+      return;
+    }
+    // Если в localStorage нет, пробуем получить из URL
+    const urlUser = getTelegramUserFromUrl(location.search);
+    if (urlUser) {
+      console.log("User from URL:", urlUser);
+      localStorage.setItem("telegramUser", JSON.stringify(urlUser));
+      setUser(urlUser);
+      // Если очистка URL вызывает проблемы, можно оставить параметры на время первого рендера
+      // window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+    console.log("No user found, redirecting to login");
+    navigate("/login");
   }, [location, navigate]);
 
   useEffect(() => {
