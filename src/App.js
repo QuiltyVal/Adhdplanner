@@ -1,17 +1,16 @@
+// src/App.js
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom"; // Для редиректа
 import { DndContext } from "@dnd-kit/core";
 import TaskColumn from "./TaskColumn";
 import "./App.css";
 import { addUserIfNotExists, getUserTasks, updateUserTasks } from "./firestoreUtils";
 
+// Функция для получения данных из URL (если вдруг они там ещё есть)
 function getTelegramUserFromUrl() {
-  console.log("📥 Проверяем URL...");
-  console.log("🔍 URL:", window.location.search);
-
   const params = new URLSearchParams(window.location.search);
-  if (params.has("id")) {
-    const user = {
+  if (params.get("id")) {
+    return {
       id: params.get("id"),
       first_name: params.get("first_name"),
       last_name: params.get("last_name"),
@@ -20,54 +19,40 @@ function getTelegramUserFromUrl() {
       auth_date: params.get("auth_date"),
       hash: params.get("hash"),
     };
-    console.log("✅ Данные из URL:", user);
-    return user;
   }
-  console.log("❌ Нет данных в URL");
   return null;
 }
 
 export default function App() {
-  console.log("✅ App.js запустился!");
-
   const [user, setUser] = useState(null);
-  const [tasks, setTasks] = useState([]); 
+  const [tasks, setTasks] = useState([]); // Массив задач
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // При загрузке пытаемся получить данные пользователя:
   useEffect(() => {
-    console.log("🔍 Проверяем sessionStorage...");
-    let savedUser = sessionStorage.getItem("telegramUser");
-
-    if (savedUser) {
-      console.log("📦 Найден пользователь в sessionStorage:", JSON.parse(savedUser));
-      setUser(JSON.parse(savedUser));
+    // Сначала пытаемся прочитать из URL (на случай, если пользователь только что авторизовался)
+    const telegramUser = getTelegramUserFromUrl();
+    if (telegramUser) {
+      setUser(telegramUser);
+      // Сохраняем данные в localStorage для дальнейших запусков
+      localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
+      window.history.replaceState({}, document.title, "/"); // очищаем URL от параметров
     } else {
-      console.log("❌ Нет данных в sessionStorage, проверяем URL...");
-      let telegramUser = getTelegramUserFromUrl();
-
-      if (telegramUser) {
-        console.log("✅ Найден Telegram пользователь:", telegramUser);
-        setUser(telegramUser);
-
-        console.log("💾 Сохраняем в sessionStorage...");
-        sessionStorage.setItem("telegramUser", JSON.stringify(telegramUser));
-
-        console.log("🔍 Проверяем сохранение...");
-        console.log("📦 sessionStorage после записи:", sessionStorage.getItem("telegramUser"));
-
-        window.history.replaceState({}, document.title, "/"); 
+      // Если данных в URL нет, читаем их из localStorage
+      const storedUser = localStorage.getItem("telegramUser");
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
       } else {
-        console.log("❌ Нет пользователя, редирект на /login...");
-        navigate("/login"); 
+        navigate("/login"); // Если нет данных – переходим на страницу логина
       }
     }
   }, [navigate]);
 
+  // После того, как пользователь установлен, инициализируем задачи
   useEffect(() => {
     async function init() {
       if (user) {
-        console.log("🔄 Загружаем задачи для пользователя:", user.id);
         await addUserIfNotExists(user.id, user.first_name);
         const userTasks = await getUserTasks(user.id);
         setTasks(userTasks);
@@ -78,6 +63,34 @@ export default function App() {
   }, [user]);
 
   if (loading) return <div>Загрузка... Подождите!</div>;
+
+  // Разбиваем задачи по колонкам
+  const activeTasks = tasks.filter((task) => task.columnId === "active");
+  const passiveTasks = tasks.filter((task) => task.columnId === "passive");
+  const purgatoryTasks = tasks.filter((task) => task.columnId === "purgatory");
+
+  // Функции для обработки задач (редактирование, добавление и т.п.) остаются как есть...
+  const handleAddTask = async (columnId, newTask) => {
+    const updatedTasks = [...tasks, { ...newTask, columnId }];
+    setTasks(updatedTasks);
+    await updateUserTasks(user.id, updatedTasks);
+  };
+
+  const handleTaskEdit = (taskId, newText) => {
+    const updatedTasks = tasks.map((task) =>
+      task.id === taskId ? { ...task, text: newText, lastUpdated: Date.now() } : task
+    );
+    setTasks(updatedTasks);
+    updateUserTasks(user.id, updatedTasks);
+  };
+
+  const handleHeatChange = (taskId, newHeat) => {
+    const updatedTasks = tasks.map((task) =>
+      task.id === taskId ? { ...task, heat: newHeat, lastUpdated: Date.now() } : task
+    );
+    setTasks(updatedTasks);
+    updateUserTasks(user.id, updatedTasks);
+  };
 
   return (
     <DndContext onDragEnd={() => {}}>
@@ -92,6 +105,39 @@ export default function App() {
       >
         <h1 style={{ textAlign: "center" }}>Task Planner для ADHD</h1>
         <p>Привет, {user?.first_name || "Гость"}!</p>
+        <div className="container">
+          <div className="active-passive-container">
+            <div className="column">
+              <TaskColumn
+                columnId="active"
+                title="Active Projects"
+                tasks={activeTasks}
+                onEdit={handleTaskEdit}
+                onHeatChange={handleHeatChange}
+                onAddTask={(newTask) => handleAddTask("active", newTask)}
+              />
+            </div>
+            <div className="column">
+              <TaskColumn
+                columnId="passive"
+                title="Passive Projects"
+                tasks={passiveTasks}
+                onEdit={handleTaskEdit}
+                onHeatChange={handleHeatChange}
+                onAddTask={(newTask) => handleAddTask("passive", newTask)}
+              />
+            </div>
+          </div>
+          <div className="column full-width">
+            <TaskColumn
+              columnId="purgatory"
+              title="Purgatory"
+              tasks={purgatoryTasks}
+              onEdit={handleTaskEdit}
+              onHeatChange={handleHeatChange}
+            />
+          </div>
+        </div>
       </div>
     </DndContext>
   );
