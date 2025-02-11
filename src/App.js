@@ -1,6 +1,6 @@
 // src/App.js
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; // Для редиректа
+import { useNavigate } from "react-router-dom";
 import { DndContext } from "@dnd-kit/core";
 import TaskColumn from "./TaskColumn";
 import "./App.css";
@@ -29,28 +29,23 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // При загрузке пытаемся получить данные пользователя из URL или из localStorage
   useEffect(() => {
-    // Сначала пробуем взять из URL
-    const telegramUser = getTelegramUserFromUrl();
-    if (telegramUser) {
-      setUser(telegramUser);
-      // Сохраняем данные в localStorage для дальнейших запусков
-      localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
-      // Очищаем URL от параметров, чтобы не потерять данные (но они уже сохранены)
-      window.history.replaceState({}, document.title, "/");
+    // Сначала пробуем взять данные из localStorage
+    const storedUser = localStorage.getItem("telegramUser");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
     } else {
-      // Если в URL нет, пробуем взять из localStorage
-      const storedUser = localStorage.getItem("telegramUser");
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      // Если в localStorage нет, пробуем взять из URL
+      const telegramUser = getTelegramUserFromUrl();
+      if (telegramUser) {
+        setUser(telegramUser);
+        localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
       } else {
         navigate("/login");
       }
     }
   }, [navigate]);
 
-  // Инициализация пользователя и загрузка задач
   useEffect(() => {
     async function init() {
       if (user) {
@@ -63,7 +58,6 @@ export default function App() {
     init();
   }, [user]);
 
-  // Обновление задач (пример логики обновления)
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(() => {
@@ -85,7 +79,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [tasks, user]);
 
-  // Обработчики для задач (добавление, редактирование, изменение)
   const handleAddTask = async (columnId, newTask) => {
     const updatedTasks = [...tasks, { ...newTask, columnId }];
     setTasks(updatedTasks);
