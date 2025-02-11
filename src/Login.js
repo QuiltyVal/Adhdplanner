@@ -25,7 +25,7 @@ export default function Login() {
         data-telegram-login="Fegefeuerbot"
         data-size="large"
         data-radius="5"
-        data-auth-url="https://dulcet-yeot-cb2d95.netlify.app/login"
+        data-auth-url="https://dulcet-yeot-cb2d95.netlify.app/.netlify/functions/auth"
         data-request-access="write"
       ></script>
     </div>
