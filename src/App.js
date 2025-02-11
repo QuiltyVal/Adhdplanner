@@ -1,14 +1,13 @@
 // src/App.js
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { DndContext } from "@dnd-kit/core";
 import TaskColumn from "./TaskColumn";
 import "./App.css";
 import { addUserIfNotExists, getUserTasks, updateUserTasks } from "./firestoreUtils";
 
-// Функция для получения данных пользователя из URL-параметров
-function getTelegramUserFromUrl() {
-  const params = new URLSearchParams(window.location.search);
+function getTelegramUserFromUrl(search) {
+  const params = new URLSearchParams(search);
   if (params.get("id")) {
     return {
       id: params.get("id"),
@@ -25,26 +24,40 @@ function getTelegramUserFromUrl() {
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [tasks, setTasks] = useState([]); // Массив задач
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    // Сначала пробуем взять данные из localStorage
-    const storedUser = localStorage.getItem("telegramUser");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      // Если в localStorage нет, пробуем взять из URL
-      const telegramUser = getTelegramUserFromUrl();
-      if (telegramUser) {
-        setUser(telegramUser);
-        localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
-      } else {
-        navigate("/login");
+    console.log("Current location:", location);
+    console.log("URL parameters:", location.search);
+    
+    const initUser = async () => {
+      // Проверяем параметры в URL
+      const urlUser = getTelegramUserFromUrl(location.search);
+      if (urlUser) {
+        console.log("Found user in URL:", urlUser);
+        localStorage.setItem("telegramUser", JSON.stringify(urlUser));
+        setUser(urlUser);
+        return;
       }
-    }
-  }, [navigate]);
+
+      // Если нет в URL, проверяем localStorage
+      const storedUser = localStorage.getItem("telegramUser");
+      if (storedUser) {
+        console.log("Found user in localStorage:", storedUser);
+        setUser(JSON.parse(storedUser));
+        return;
+      }
+
+      // Если нигде нет пользователя, редиректим на логин
+      console.log("No user found, redirecting to login");
+      navigate("/login");
+    };
+
+    initUser();
+  }, [location, navigate]);
 
   useEffect(() => {
     async function init() {
