@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom"; // Для редиректа
+import { useNavigate } from "react-router-dom"; 
 import { DndContext } from "@dnd-kit/core";
 import TaskColumn from "./TaskColumn";
 import "./App.css";
 import { addUserIfNotExists, getUserTasks, updateUserTasks } from "./firestoreUtils";
 
-// Функция для получения данных из URL
 function getTelegramUserFromUrl() {
-  console.log("📥 getTelegramUserFromUrl() вызвана!");
-  console.log("🔍 URL-параметры:", window.location.search);
+  console.log("📥 Проверяем URL...");
+  console.log("🔍 URL:", window.location.search);
 
   const params = new URLSearchParams(window.location.search);
   if (params.has("id")) {
@@ -21,42 +20,41 @@ function getTelegramUserFromUrl() {
       auth_date: params.get("auth_date"),
       hash: params.get("hash"),
     };
-    console.log("✅ Данные Telegram пользователя:", user);
+    console.log("✅ Данные из URL:", user);
     return user;
   }
-  console.log("❌ Данных Telegram нет в URL");
+  console.log("❌ Нет данных в URL");
   return null;
 }
 
 export default function App() {
-  console.log("✅ App.js запущен!"); 
+  console.log("✅ App.js запустился!");
 
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]); 
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Проверяем данные в localStorage
   useEffect(() => {
-    console.log("🔍 Проверяем данные в localStorage...");
-    let savedUser = localStorage.getItem("telegramUser");
-    
+    console.log("🔍 Проверяем sessionStorage...");
+    let savedUser = sessionStorage.getItem("telegramUser");
+
     if (savedUser) {
-      console.log("📦 Найден пользователь в localStorage:", savedUser);
+      console.log("📦 Найден пользователь в sessionStorage:", JSON.parse(savedUser));
       setUser(JSON.parse(savedUser));
     } else {
-      console.log("❌ Нет данных в localStorage, проверяем URL...");
+      console.log("❌ Нет данных в sessionStorage, проверяем URL...");
       let telegramUser = getTelegramUserFromUrl();
 
       if (telegramUser) {
         console.log("✅ Найден Telegram пользователь:", telegramUser);
         setUser(telegramUser);
 
-        console.log("💾 Сохраняем в localStorage...");
-        localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
+        console.log("💾 Сохраняем в sessionStorage...");
+        sessionStorage.setItem("telegramUser", JSON.stringify(telegramUser));
 
         console.log("🔍 Проверяем сохранение...");
-        console.log("📦 localStorage после записи:", localStorage.getItem("telegramUser"));
+        console.log("📦 sessionStorage после записи:", sessionStorage.getItem("telegramUser"));
 
         window.history.replaceState({}, document.title, "/"); 
       } else {
