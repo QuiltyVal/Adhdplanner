@@ -23,6 +23,8 @@ function getTelegramUserFromUrl() {
 }
 
 export default function App() {
+  console.log("✅ App.js is running!"); // Проверяем, загружается ли App.js
+  
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]); // Массив задач
   const [loading, setLoading] = useState(true);
@@ -30,11 +32,14 @@ export default function App() {
 
   // Проверка на данные Telegram и редирект на логин при отсутствии
   useEffect(() => {
+    console.log("🔍 Checking Telegram user...");
     const telegramUser = getTelegramUserFromUrl();
     if (telegramUser) {
+      console.log("✅ Telegram user found:", telegramUser);
       setUser(telegramUser);
       window.history.replaceState({}, document.title, "/"); // Убираем параметры из URL
     } else {
+      console.log("❌ No Telegram user, redirecting to /login...");
       navigate("/login"); // Перенаправляем на логин, если данных нет
     }
   }, [navigate]);
@@ -43,6 +48,7 @@ export default function App() {
   useEffect(() => {
     async function init() {
       if (user) {
+        console.log("🔄 Loading tasks for user:", user.id);
         await addUserIfNotExists(user.id, user.first_name);
         const userTasks = await getUserTasks(user.id);
         setTasks(userTasks);
@@ -51,53 +57,6 @@ export default function App() {
     }
     init();
   }, [user]);
-
-  // Обновление задач в зависимости от времени
-  useEffect(() => {
-    if (!user) return;
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const updatedTasks = tasks.map((task) => {
-        if (task.columnId === "active" && now - task.lastUpdated > 5 * 24 * 60 * 60 * 1000) {
-          return { ...task, columnId: "passive", lastUpdated: now };
-        }
-        if (task.columnId === "passive" && now - task.lastUpdated > 5 * 24 * 60 * 60 * 1000) {
-          return { ...task, columnId: "purgatory", lastUpdated: now };
-        }
-        return task;
-      });
-      if (JSON.stringify(updatedTasks) !== JSON.stringify(tasks)) {
-        setTasks(updatedTasks);
-        updateUserTasks(user.id, updatedTasks);
-      }
-    }, 60 * 1000);
-    return () => clearInterval(interval);
-  }, [tasks, user]);
-
-  // Добавление новой задачи
-  const handleAddTask = async (columnId, newTask) => {
-    const updatedTasks = [...tasks, { ...newTask, columnId }];
-    setTasks(updatedTasks);
-    await updateUserTasks(user.id, updatedTasks);
-  };
-
-  // Редактирование текста задачи
-  const handleTaskEdit = (taskId, newText) => {
-    const updatedTasks = tasks.map((task) =>
-      task.id === taskId ? { ...task, text: newText, lastUpdated: Date.now() } : task
-    );
-    setTasks(updatedTasks);
-    updateUserTasks(user.id, updatedTasks);
-  };
-
-  // Изменение "нагрева" задачи
-  const handleHeatChange = (taskId, newHeat) => {
-    const updatedTasks = tasks.map((task) =>
-      task.id === taskId ? { ...task, heat: newHeat, lastUpdated: Date.now() } : task
-    );
-    setTasks(updatedTasks);
-    updateUserTasks(user.id, updatedTasks);
-  };
 
   if (loading) return <div>Загрузка... Подождите!</div>;
 
@@ -125,9 +84,6 @@ export default function App() {
                 columnId="active"
                 title="Active Projects"
                 tasks={activeTasks}
-                onEdit={handleTaskEdit}
-                onHeatChange={handleHeatChange}
-                onAddTask={(newTask) => handleAddTask("active", newTask)}
               />
             </div>
             <div className="column">
@@ -135,20 +91,11 @@ export default function App() {
                 columnId="passive"
                 title="Passive Projects"
                 tasks={passiveTasks}
-                onEdit={handleTaskEdit}
-                onHeatChange={handleHeatChange}
-                onAddTask={(newTask) => handleAddTask("passive", newTask)}
               />
             </div>
           </div>
           <div className="column full-width">
-            <TaskColumn
-              columnId="purgatory"
-              title="Purgatory"
-              tasks={purgatoryTasks}
-              onEdit={handleTaskEdit}
-              onHeatChange={handleHeatChange}
-            />
+            <TaskColumn columnId="purgatory" title="Purgatory" tasks={purgatoryTasks} />
           </div>
         </div>
       </div>
