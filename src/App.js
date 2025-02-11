@@ -5,7 +5,7 @@ import TaskColumn from "./TaskColumn";
 import "./App.css";
 import { addUserIfNotExists, getUserTasks, updateUserTasks } from "./firestoreUtils";
 
-// Функция для получения данных пользователя из URL-параметров
+// Функция для получения данных из URL
 function getTelegramUserFromUrl() {
   console.log("📥 getTelegramUserFromUrl() вызвана!");
   console.log("🔍 URL-параметры:", window.location.search);
@@ -29,37 +29,43 @@ function getTelegramUserFromUrl() {
 }
 
 export default function App() {
-  console.log("✅ App.js запущен!"); // Проверяем, загружается ли App.js
+  console.log("✅ App.js запущен!"); 
 
   const [user, setUser] = useState(null);
-  const [tasks, setTasks] = useState([]); // Массив задач
+  const [tasks, setTasks] = useState([]); 
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate(); // Хук для редиректа
+  const navigate = useNavigate();
 
-  // Проверяем, есть ли пользовательские данные в URL и localStorage
+  // Проверяем данные в localStorage
   useEffect(() => {
-    console.log("🔍 Проверяем Telegram пользователя...");
-
-    let telegramUser = getTelegramUserFromUrl();
+    console.log("🔍 Проверяем данные в localStorage...");
+    let savedUser = localStorage.getItem("telegramUser");
     
-    if (telegramUser) {
-      console.log("✅ Найден Telegram пользователь:", telegramUser);
-      setUser(telegramUser);
-
-      console.log("💾 Сохраняем в localStorage...");
-      localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
-
-      console.log("🔍 Проверяем, сохранилось ли в localStorage...");
-      console.log("📦 localStorage:", localStorage.getItem("telegramUser"));
-
-      window.history.replaceState({}, document.title, "/"); // Очищаем URL
+    if (savedUser) {
+      console.log("📦 Найден пользователь в localStorage:", savedUser);
+      setUser(JSON.parse(savedUser));
     } else {
-      console.log("❌ Пользователь не найден, редирект на /login...");
-      navigate("/login"); // Перенаправляем на страницу входа
+      console.log("❌ Нет данных в localStorage, проверяем URL...");
+      let telegramUser = getTelegramUserFromUrl();
+
+      if (telegramUser) {
+        console.log("✅ Найден Telegram пользователь:", telegramUser);
+        setUser(telegramUser);
+
+        console.log("💾 Сохраняем в localStorage...");
+        localStorage.setItem("telegramUser", JSON.stringify(telegramUser));
+
+        console.log("🔍 Проверяем сохранение...");
+        console.log("📦 localStorage после записи:", localStorage.getItem("telegramUser"));
+
+        window.history.replaceState({}, document.title, "/"); 
+      } else {
+        console.log("❌ Нет пользователя, редирект на /login...");
+        navigate("/login"); 
+      }
     }
   }, [navigate]);
 
-  // Загружаем задачи пользователя из Firebase
   useEffect(() => {
     async function init() {
       if (user) {
