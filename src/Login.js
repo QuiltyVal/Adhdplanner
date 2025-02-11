@@ -6,14 +6,14 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Создаем скрипт для Telegram Login Widget динамически
+    // Динамически добавляем скрипт Telegram Login Widget
     const script = document.createElement("script");
     script.src = "https://telegram.org/js/telegram-widget.js?7";
     script.async = true;
     script.setAttribute("data-telegram-login", "Fegefeuerbot"); // Имя бота без @
     script.setAttribute("data-size", "large");
     script.setAttribute("data-radius", "5");
-    // data-auth-url указывает на эту же страницу, чтобы после логина Telegram вернул данные в URL
+    // Указываем, что после логина Telegram должен перенаправить на этот же маршрут с GET-параметрами
     script.setAttribute("data-auth-url", "https://dulcet-yeot-cb2d95.netlify.app/login");
     script.setAttribute("data-request-access", "write");
     document.getElementById("telegram-login-container").appendChild(script);
@@ -25,9 +25,8 @@ export default function Login() {
     };
   }, []);
 
-  // После авторизации Telegram перенаправляет на этот же маршрут с GET-параметрами.
-  // Здесь мы читаем их и перенаправляем на /main, сохраняя данные в localStorage.
   useEffect(() => {
+    // После логина Telegram перенаправляет на /login с параметрами
     const params = new URLSearchParams(window.location.search);
     const userData = Object.fromEntries(params.entries());
     console.log("URL parameters in Login:", userData);

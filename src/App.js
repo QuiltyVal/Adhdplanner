@@ -31,32 +31,31 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
-    // Попробуем получить данные из URL
+    // Сначала пытаемся прочитать данные из localStorage
+    const storedUser = localStorage.getItem("telegramUser");
+    if (storedUser) {
+      console.log("User from localStorage:", storedUser);
+      setUser(JSON.parse(storedUser));
+      return;
+    }
+    // Если нет в localStorage, читаем из URL
     const urlUser = getTelegramUserFromSearch(location.search);
     if (urlUser) {
-      console.log("Получены данные из URL:", urlUser);
-      // Сохраним их в localStorage
+      console.log("User from URL:", urlUser);
       localStorage.setItem("telegramUser", JSON.stringify(urlUser));
       setUser(urlUser);
-      // Не очищаем URL сразу – пусть данные остаются на первый рендер для отладки
-    } else {
-      // Если в URL нет данных, попробуем получить из localStorage
-      const stored = localStorage.getItem("telegramUser");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        console.log("Получены данные из localStorage:", parsed);
-        setUser(parsed);
-      } else {
-        console.log("Данные о пользователе не найдены. Переходим на /login");
-        navigate("/login");
-      }
+      // Можно очистить URL, если нужно, но оставим для отладки
+      // window.history.replaceState({}, document.title, window.location.pathname);
+      return;
     }
+    console.log("No user found, redirecting to /login");
+    navigate("/login");
   }, [location.search, navigate]);
 
   useEffect(() => {
     async function init() {
       if (user) {
-        console.log("Инициализация пользователя с id:", user.id);
+        console.log("Initializing user with id:", user.id);
         await addUserIfNotExists(user.id, user.first_name);
         const userTasks = await getUserTasks(user.id);
         setTasks(userTasks);

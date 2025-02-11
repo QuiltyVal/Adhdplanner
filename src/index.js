@@ -1,12 +1,15 @@
 // src/index.js
 import React from "react";
-import ReactDOM from "react-dom";
+import ReactDOM from "react-dom/client";  // Используем createRoot из ReactDOM/client
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import App from "./App";     // Основное приложение
+import App from "./App";     // Основное приложение (интерфейс с задачами)
 import Login from "./Login"; // Страница логина
 import "./index.css";
 
-ReactDOM.render(
+const rootElement = document.getElementById("root");
+const root = ReactDOM.createRoot(rootElement);
+
+root.render(
   <React.StrictMode>
     <Router>
       <Routes>
@@ -15,6 +18,5 @@ ReactDOM.render(
         <Route path="/" element={<App />} />
       </Routes>
     </Router>
-  </React.StrictMode>,
-  document.getElementById("root")
+  </React.StrictMode>
 );
