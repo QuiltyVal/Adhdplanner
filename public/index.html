@@ -12,11 +12,10 @@
       connect-src 'self' https://firestore.googleapis.com https://*.googleapis.com;
       frame-src 'self' https://oauth.telegram.org;
     ">
-    <!-- Если нужен обратный вызов от Telegram (опционально) -->
     <script>
       function onTelegramAuth(user) {
         console.log("Telegram user:", user);
-        // Дополнительные действия при успешном входе (если нужны)
+        // Если нужен дополнительный обработчик – разместите его здесь.
       }
     </script>
   </head>

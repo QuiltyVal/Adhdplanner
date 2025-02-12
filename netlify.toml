@@ -1,16 +1,4 @@
-# netlify.toml
-
-[build]
-  command = "CI= npm run build"
-  publish = "build"
-
-[build.environment]
-  NODE_OPTIONS = "--openssl-legacy-provider"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-[functions]
-  directory = "netlify/functions"
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self' https://telegram.org https://oauth.telegram.org https://dulcet-yeot-cb2d95.netlify.app; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://t.me https://firebasestorage.googleapis.com; connect-src 'self' https://firestore.googleapis.com https://*.googleapis.com; frame-src 'self' https://oauth.telegram.org;"
