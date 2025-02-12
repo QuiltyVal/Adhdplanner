@@ -31,21 +31,20 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
-    // Сначала пытаемся прочитать данные из localStorage
+    // Сначала пробуем прочитать данные из localStorage
     const storedUser = localStorage.getItem("telegramUser");
     if (storedUser) {
       console.log("User from localStorage:", storedUser);
       setUser(JSON.parse(storedUser));
       return;
     }
-    // Если нет в localStorage, читаем из URL
+    // Если нет в localStorage, пробуем прочитать из URL
     const urlUser = getTelegramUserFromSearch(location.search);
     if (urlUser) {
       console.log("User from URL:", urlUser);
       localStorage.setItem("telegramUser", JSON.stringify(urlUser));
       setUser(urlUser);
-      // Можно очистить URL, если нужно, но оставим для отладки
-      // window.history.replaceState({}, document.title, window.location.pathname);
+      // Не очищаем URL для отладки
       return;
     }
     console.log("No user found, redirecting to /login");

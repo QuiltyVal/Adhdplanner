@@ -11,9 +11,9 @@ export async function addUserIfNotExists(userId, name) {
     const userDocSnap = await getDoc(userDocRef);
     if (!userDocSnap.exists()) {
       await setDoc(userDocRef, { name, tasks: [] });
-      console.log("Новый пользователь создан");
+      console.log("Новый пользователь создан:", userId);
     } else {
-      console.log("Пользователь уже существует");
+      console.log("Пользователь уже существует:", userId);
     }
   } catch (error) {
     console.error("Ошибка при создании пользователя:", error);
@@ -28,9 +28,11 @@ export async function getUserTasks(userId) {
     const userDocRef = doc(db, "Users", userId);
     const userDocSnap = await getDoc(userDocRef);
     if (userDocSnap.exists()) {
-      return userDocSnap.data().tasks || [];
+      const tasks = userDocSnap.data().tasks || [];
+      console.log("Получены задачи для пользователя", userId, ":", tasks);
+      return tasks;
     } else {
-      console.log("Пользователь не найден");
+      console.log("Пользователь не найден:", userId);
       return [];
     }
   } catch (error) {
@@ -46,7 +48,7 @@ export async function updateUserTasks(userId, tasks) {
   try {
     const userDocRef = doc(db, "Users", userId);
     await updateDoc(userDocRef, { tasks });
-    console.log("Задачи обновлены");
+    console.log("Задачи обновлены для пользователя", userId, ":", tasks);
   } catch (error) {
     console.error("Ошибка при обновлении задач:", error);
   }
