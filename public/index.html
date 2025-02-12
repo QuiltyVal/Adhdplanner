@@ -2,34 +2,33 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <title>Test Telegram Login</title>
-    <!-- Этот мета-тег настраивает политику безопасности, чтобы разрешить загрузку скриптов и фреймов с telegram.org -->
+    <title>Task Planner для ADHD</title>
+    <!-- Обновлённый мета-тег CSP для разрешения подключения к Firestore и Google API -->
     <meta http-equiv="Content-Security-Policy" content="
-      default-src 'self' https://telegram.org https://oauth.telegram.org;
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org;
+      default-src 'self' https://telegram.org https://oauth.telegram.org https://dulcet-yeot-cb2d95.netlify.app https://firestore.googleapis.com https://*.googleapis.com;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://apis.google.com;
       style-src 'self' 'unsafe-inline';
-      frame-src https://oauth.telegram.org;
+      img-src 'self' data: https://t.me;
+      connect-src 'self' https://firestore.googleapis.com https://*.googleapis.com;
+      frame-src 'self' https://oauth.telegram.org;
     ">
-    <!-- Функция onTelegramAuth объявлена здесь, чтобы быть доступной до загрузки виджета -->
+    <!-- Функция onTelegramAuth (если нужна для виджета) -->
     <script>
       function onTelegramAuth(user) {
         console.log("Telegram user:", user);
-        alert("Успешный вход! Данные: " + JSON.stringify(user));
-        // Если хочешь выполнить редирект, можно раскомментировать строки ниже:
-        // const params = new URLSearchParams(user).toString();
-        // window.location.href = "/?" + params;
+        // Здесь можно выполнить дополнительные действия при успешном входе
       }
     </script>
   </head>
   <body>
-    <!-- Здесь может быть контейнер для твоего приложения, если оно есть -->
     <div id="root"></div>
-    <!-- Telegram Login Widget -->
+    <!-- Telegram Login Widget, с data-auth-url, указывающим на Netlify Function -->
     <script async src="https://telegram.org/js/telegram-widget.js?7"
-        data-telegram-login="Fegefeuerbot"
-        data-size="large"
-        data-radius="5"
-        data-auth-url="https://dulcet-yeot-cb2d95.netlify.app/.netlify/functions/auth"
-        data-request-access="write"></script>
+      data-telegram-login="Fegefeuerbot"
+      data-size="large"
+      data-radius="5"
+      data-auth-url="https://dulcet-yeot-cb2d95.netlify.app/.netlify/functions/auth"
+      data-request-access="write">
+    </script>
   </body>
 </html>
