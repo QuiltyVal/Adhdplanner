@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DndContext } from "@dnd-kit/core";
 import TaskColumn from "./TaskColumn";
+import LogoutButton from "./LogoutButton"; // Импортируем кнопку выхода
 import "./App.css";
 import { addUserIfNotExists, getUserTasks, updateUserTasks } from "./firestoreUtils";
 
@@ -124,7 +125,11 @@ export default function App() {
           minHeight: "100vh",
         }}
       >
-        <h1 style={{ textAlign: "center" }}>Task Planner для ADHD</h1>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1>Task Planner для ADHD</h1>
+          {/* Кнопка выхода */}
+          <LogoutButton />
+        </div>
         <p>Привет, {user?.first_name || "Гость"}!</p>
         <div className="container">
           <div className="active-passive-container">
