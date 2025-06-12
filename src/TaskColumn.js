@@ -40,7 +40,7 @@ export default function TaskColumn({ columnId, title, tasks, onEdit, onHeatChang
             <input
               type="text"
               value={task.text}
-              onChange={(e) => onEdit(columnId, task.id, e.target.value)}
+              onChange={(e) => onEdit(task.id, e.target.value)}
               style={{ padding: "5px", border: "1px solid #ccc", borderRadius: "4px" }}
             />
             <br />
@@ -50,7 +50,7 @@ export default function TaskColumn({ columnId, title, tasks, onEdit, onHeatChang
               min="1"
               max="10"
               value={task.heat}
-              onChange={(e) => onHeatChange(columnId, task.id, parseInt(e.target.value))}
+              onChange={(e) => onHeatChange(task.id, parseInt(e.target.value))}
             />
           </div>
         ))}
