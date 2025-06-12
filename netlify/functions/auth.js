@@ -4,7 +4,9 @@ const { getFirestore } = require("firebase-admin/firestore");
 const admin = require("firebase-admin");
 
 exports.handler = async (event) => {
-  const TELEGRAM_BOT_TOKEN = "8002603933:AAHawX2-DfShfNw-0iUGgjUtZGBngOjBKgM";
+  // Telegram bot token should be supplied via an environment variable to avoid
+  // committing secrets to the repository.
+  const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
   try {
     const params = new URLSearchParams(event.queryStringParameters);
