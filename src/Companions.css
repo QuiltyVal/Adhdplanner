@@ -111,3 +111,30 @@
     padding: 8px 12px;
   }
 }
+
+@media (max-width: 480px) {
+  .companions-container {
+    padding: 0 10px;
+    bottom: 10px;
+  }
+  .avatar {
+    font-size: 1.8rem;
+    width: 52px;
+    height: 52px;
+  }
+  .speech-bubble {
+    font-size: 0.78rem;
+    max-width: 120px;
+    padding: 6px 10px;
+    bottom: 70px;
+  }
+  /* Prevent bubbles from going off-screen */
+  .angel-bubble {
+    left: 0;
+    max-width: min(120px, 40vw);
+  }
+  .devil-bubble {
+    right: 0;
+    max-width: min(120px, 40vw);
+  }
+}

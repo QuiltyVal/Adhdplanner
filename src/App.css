@@ -147,41 +147,53 @@
 
 @media (max-width: 600px) {
   .app-wrapper {
-    padding: 10px;
-    padding-bottom: 130px;
+    padding: 8px;
+    padding-top: 60px; /* room for score panel */
+    padding-bottom: 140px;
   }
 
   .score-panel {
-    top: 10px;
-    right: 10px;
+    top: 8px;
+    right: 8px;
     padding: 5px 10px;
     border-radius: 12px;
+    gap: 6px;
   }
 
-  .score-icon { font-size: 1.1rem; }
-  .score-value { font-size: 1rem; }
+  .score-icon { font-size: 1rem; }
+  .score-value { font-size: 0.95rem; }
 
   .header-container {
-    padding: 10px;
-    margin-top: 48px;
-    margin-bottom: 10px;
+    padding: 10px 12px;
+    margin-top: 0;
+    margin-bottom: 8px;
+    max-width: 100%;
   }
 
-  .app-title { font-size: 1.3rem; }
-  .greeting-text { font-size: 0.85rem; }
+  .app-title { font-size: 1.25rem; }
+  .greeting-text { font-size: 0.82rem; }
 
   .tabs-navigation {
     gap: 4px;
     padding: 5px;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
     border-radius: 14px;
+    max-width: 100%;
   }
 
   .tab-btn {
-    font-size: 0.78rem;
-    padding: 9px 4px;
+    font-size: 0.75rem;
+    padding: 10px 2px;
     border-radius: 10px;
     min-height: 44px;
     touch-action: manipulation;
+    line-height: 1.2;
   }
+}
+
+@media (max-width: 360px) {
+  .tab-btn {
+    font-size: 0.65rem;
+  }
+  .app-title { font-size: 1.1rem; }
 }

@@ -75,10 +75,8 @@ export default function TaskColumn({
 
   const renderTaskCard = (task, isPurgatory, heatColor) => (
     <div key={task.id} className={`task-card animated-fade-in ${isPurgatory ? 'purgatory' : ''}`}>
-      <button 
-        style={{position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.4, transition: 'opacity 0.2s'}} 
-        onMouseOver={(e) => e.target.style.opacity = 1}
-        onMouseOut={(e) => e.target.style.opacity = 0.4}
+      <button
+        className="kill-btn"
         onClick={() => onKill(task.id)}
         title="Убрать на кладбище"
       >
