@@ -4,10 +4,12 @@ import { useNavigate } from "react-router-dom";
 import TaskColumn from "./TaskColumn";
 import LogoutButton from "./LogoutButton";
 import Companions from "./Companions";
+import LoadingScreen from "./LoadingScreen";
 import { getUserData, updateUserData } from "./firestoreUtils";
 import "./App.css";
 
 const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+const MIN_LOADING_MS = 2200;
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -15,10 +17,17 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [activeTab, setActiveTab] = useState("active");
   const [loading, setLoading] = useState(true);
-  
+  const [minLoadDone, setMinLoadDone] = useState(false);
+
   // Flag to distinct first load from component updates
   const [dataLoaded, setDataLoaded] = useState(false);
   const navigate = useNavigate();
+
+  // Minimum loading screen duration
+  useEffect(() => {
+    const t = setTimeout(() => setMinLoadDone(true), MIN_LOADING_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   // Load User & Data from Cloud
   useEffect(() => {
@@ -178,7 +187,7 @@ export default function App() {
     setScore(s => s - 2);
   };
 
-  if (loading) return <div>Подключение к облаку...</div>;
+  if (loading || !minLoadDone) return <LoadingScreen />;
 
   const activeTasks = tasks.filter(t => t.status === "active");
   const completedTasks = tasks.filter(t => t.status === "completed");
