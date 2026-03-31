@@ -1,55 +1,36 @@
 // firestoreUtils.js
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 /**
- * Если документа пользователя (userId) нет, создаём его с именем и пустым массивом tasks.
+ * Получаем задачи и очки пользователя из облака
  */
-export async function addUserIfNotExists(userId, name) {
+export async function getUserData(userId, email, name) {
   try {
     const userDocRef = doc(db, "Users", userId);
     const userDocSnap = await getDoc(userDocRef);
     if (!userDocSnap.exists()) {
-      await setDoc(userDocRef, { name, tasks: [] });
-      console.log("Новый пользователь создан:", userId);
+      // Инициализация нового аккаунта
+      const initialData = { name, email, tasks: [], score: 0 };
+      await setDoc(userDocRef, initialData);
+      return initialData;
     } else {
-      console.log("Пользователь уже существует:", userId);
+      return userDocSnap.data();
     }
   } catch (error) {
-    console.error("Ошибка при создании пользователя:", error);
+    console.error("Ошибка при получении данных:", error);
+    return null;
   }
 }
 
 /**
- * Получаем задачи пользователя.
+ * Обновляем задачи и очки
  */
-export async function getUserTasks(userId) {
+export async function updateUserData(userId, tasks, score) {
   try {
     const userDocRef = doc(db, "Users", userId);
-    const userDocSnap = await getDoc(userDocRef);
-    if (userDocSnap.exists()) {
-      const tasks = userDocSnap.data().tasks || [];
-      console.log("Получены задачи для пользователя", userId, ":", tasks);
-      return tasks;
-    } else {
-      console.log("Пользователь не найден:", userId);
-      return [];
-    }
+    await setDoc(userDocRef, { tasks, score }, { merge: true });
   } catch (error) {
-    console.error("Ошибка при получении задач:", error);
-    return [];
-  }
-}
-
-/**
- * Обновляем задачи пользователя.
- */
-export async function updateUserTasks(userId, tasks) {
-  try {
-    const userDocRef = doc(db, "Users", userId);
-    await updateDoc(userDocRef, { tasks });
-    console.log("Задачи обновлены для пользователя", userId, ":", tasks);
-  } catch (error) {
-    console.error("Ошибка при обновлении задач:", error);
+    console.error("Ошибка при обновлении данных:", error);
   }
 }

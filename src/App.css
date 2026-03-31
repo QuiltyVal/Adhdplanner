@@ -1,59 +1,146 @@
-/* Общий контейнер для всех блоков */
-.container {
+/* App.css */
+.app-wrapper {
+  min-height: 100vh;
+  padding: 30px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 10px;
-  box-sizing: border-box;
+  align-items: center;
+  position: relative;
+  padding-bottom: 120px; /* space for companions */
 }
 
-/* Контейнер для Active и Passive колонок (наверху) */
-.active-passive-container {
+/* Score Panel */
+.score-panel {
+  position: absolute;
+  top: 30px;
+  right: 30px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 10px 20px;
   display: flex;
+  align-items: center;
   gap: 10px;
+  box-shadow: var(--glass-shadow);
+  z-index: 50;
+}
+
+.score-icon {
+  font-size: 1.5rem;
+  animation: pulse-icon 2s infinite;
+}
+
+.score-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+@keyframes pulse-icon {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.header-container {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  margin-bottom: 20px;
+  margin-top: 40px; /* Space for absolute score on mobile */
+}
+
+.app-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #d8b4fe, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+
+.greeting-text {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+}
+
+/* Tabs Navigation */
+.tabs-navigation {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 30px;
+  background: rgba(0,0,0,0.2);
+  padding: 8px;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  max-width: 800px;
+  width: 100%;
   justify-content: space-between;
 }
 
-/* Базовые стили для колонок */
-.column {
-  background-color: #f0f0f0;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 12px 0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* В контейнере active-passive каждая колонка занимает примерно 50% ширины */
-.active-passive-container .column {
-  flex: 1 1 calc(50% - 10px);
-  max-width: calc(50% - 10px);
+.tab-btn:hover {
+  background: rgba(255,255,255,0.05);
 }
 
-/* Колонка с классом full-width (Purgatory) занимает 100% ширины */
-.full-width {
-  flex: 1 1 100%;
-  max-width: 100%;
+.tab-btn.active.tab-active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3));
+  color: var(--text-main);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.4);
 }
 
-/* Центрирование заголовков в колонках */
-.column h2 {
-  text-align: center;
+.tab-btn.active.tab-heaven {
+  background: linear-gradient(135deg, rgba(253, 230, 138, 0.2), rgba(251, 191, 36, 0.2));
+  color: #fde68a;
+  box-shadow: 0 0 15px rgba(251, 191, 36, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.4);
 }
 
-/* Адаптация для мобильных устройств */
-@media (max-width: 768px) {
-  .container {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .active-passive-container {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .active-passive-container .column,
-  .full-width {
-    flex: 1 1 100%;
-    max-width: 100%;
-  }
+.tab-btn.active.tab-cemetery {
+  background: linear-gradient(135deg, rgba(107, 114, 128, 0.3), rgba(75, 85, 99, 0.3));
+  color: #e5e7eb;
+  box-shadow: 0 0 15px rgba(75, 85, 99, 0.2);
+  border: 1px solid rgba(107, 114, 128, 0.4);
+}
+
+/* Lists container */
+.columns-wrapper {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animated-fade-in {
+  animation: slideInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (max-width: 850px) {
+  .app-wrapper { padding: 15px; padding-bottom: 120px; }
+  .score-panel { top: 15px; right: 15px; padding: 6px 12px; }
+  .score-value { font-size: 1.2rem; }
+  .tab-btn { font-size: 0.95rem; }
 }

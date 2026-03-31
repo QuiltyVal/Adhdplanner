@@ -1,170 +1,236 @@
 // src/App.js
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { DndContext } from "@dnd-kit/core";
+import { useNavigate } from "react-router-dom";
 import TaskColumn from "./TaskColumn";
-import LogoutButton from "./LogoutButton"; // Импортируем кнопку выхода
+import LogoutButton from "./LogoutButton";
+import Companions from "./Companions";
+import { getUserData, updateUserData } from "./firestoreUtils";
 import "./App.css";
-import { addUserIfNotExists, getUserTasks, updateUserTasks } from "./firestoreUtils";
 
-// Функция для получения данных пользователя из строки запроса
-function getTelegramUserFromSearch(search) {
-  const params = new URLSearchParams(search);
-  if (params.get("id")) {
-    return {
-      id: params.get("id"),
-      first_name: params.get("first_name"),
-      last_name: params.get("last_name"),
-      username: params.get("username"),
-      photo_url: params.get("photo_url"),
-      auth_date: params.get("auth_date"),
-      hash: params.get("hash"),
-    };
-  }
-  return null;
-}
+const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [score, setScore] = useState(0);
+  const [activeTab, setActiveTab] = useState("active");
   const [loading, setLoading] = useState(true);
+  
+  // Flag to distinct first load from component updates
+  const [dataLoaded, setDataLoaded] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
 
+  // Load User & Data from Cloud
   useEffect(() => {
-    // Сначала пробуем прочитать данные из localStorage
-    const storedUser = localStorage.getItem("telegramUser");
-    if (storedUser) {
-      console.log("User from localStorage:", storedUser);
-      setUser(JSON.parse(storedUser));
+    const storedUser = localStorage.getItem("adhdUser");
+    if (!storedUser) {
+      navigate("/login");
       return;
     }
-    // Если нет в localStorage, пробуем прочитать из URL
-    const urlUser = getTelegramUserFromSearch(location.search);
-    if (urlUser) {
-      console.log("User from URL:", urlUser);
-      localStorage.setItem("telegramUser", JSON.stringify(urlUser));
-      setUser(urlUser);
-      // Не очищаем URL для отладки
-      return;
-    }
-    console.log("No user found, redirecting to /login");
-    navigate("/login");
-  }, [location.search, navigate]);
 
-  useEffect(() => {
-    async function init() {
-      if (user) {
-        console.log("Initializing user with id:", user.id);
-        await addUserIfNotExists(user.id, user.first_name);
-        const userTasks = await getUserTasks(user.id);
-        setTasks(userTasks);
-        setLoading(false);
+    const parsedUser = JSON.parse(storedUser);
+    setUser(parsedUser);
+
+    const loadCloudData = async () => {
+      // If guest mode (offline)
+      if (parsedUser.id.startsWith("guest_")) {
+        const localTasks = JSON.parse(localStorage.getItem("adhd_planner_tasks")) || [];
+        const localScore = parseInt(localStorage.getItem("adhd_planner_score"), 10) || 0;
+        setTasks(localTasks);
+        setScore(localScore);
+      } else {
+        // Fetch from Firestore
+        const data = await getUserData(parsedUser.id, parsedUser.email, parsedUser.first_name);
+        if (data) {
+          setTasks(data.tasks || []);
+          setScore(data.score || 0);
+        }
       }
-    }
-    init();
-  }, [user]);
+      setLoading(false);
+      setDataLoaded(true);
+    };
 
+    loadCloudData();
+  }, [navigate]);
+
+  // Sync to Cloud / Local Storage whenever tasks or score change
   useEffect(() => {
-    if (!user) return;
+    // Prevent overwriting DB with empty array before initial load
+    if (!dataLoaded || !user) return; 
+
+    // Guest mode saves to localStorage
+    if (user.id.startsWith("guest_")) {
+      localStorage.setItem("adhd_planner_tasks", JSON.stringify(tasks));
+      localStorage.setItem("adhd_planner_score", score.toString());
+    } else {
+      // Cloud mode saves to Firestore
+      updateUserData(user.id, tasks, score);
+    }
+  }, [tasks, score, dataLoaded, user]);
+
+  // Game tick (cooling tasks based on heatBase and lastUpdated)
+  useEffect(() => {
+    if (loading || tasks.length === 0) return;
     const interval = setInterval(() => {
       const now = Date.now();
-      const updatedTasks = tasks.map((task) => {
-        if (task.columnId === "active" && now - task.lastUpdated > 5 * 24 * 60 * 60 * 1000) {
-          return { ...task, columnId: "passive", lastUpdated: now };
-        }
-        if (task.columnId === "passive" && now - task.lastUpdated > 5 * 24 * 60 * 60 * 1000) {
-          return { ...task, columnId: "purgatory", lastUpdated: now };
+      let changed = false;
+      let newScore = score;
+      
+      const updatedTasks = tasks.map(task => {
+        if (task.status === "active") {
+          const timeElapsed = now - task.lastUpdated;
+          const currentHeatValue = Math.max(0, task.heatBase - (timeElapsed / FORTY_EIGHT_HOURS_MS) * 100);
+          
+          let newTask = { ...task, heatCurrent: currentHeatValue };
+          
+          if (currentHeatValue <= 0) {
+            newTask.status = "dead";
+            newScore -= 5;
+            changed = true;
+          } else if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
+            changed = true;
+          }
+          return newTask;
         }
         return task;
       });
-      if (JSON.stringify(updatedTasks) !== JSON.stringify(tasks)) {
+
+      if (changed) {
         setTasks(updatedTasks);
-        updateUserTasks(user.id, updatedTasks);
+        if (newScore !== score) setScore(newScore);
       }
-    }, 60 * 1000);
+    }, 10000); 
     return () => clearInterval(interval);
-  }, [tasks, user]);
+  }, [tasks, score, loading]);
 
-  const handleAddTask = async (columnId, newTask) => {
-    const updatedTasks = [...tasks, { ...newTask, columnId }];
-    setTasks(updatedTasks);
-    await updateUserTasks(user.id, updatedTasks);
+  const handleAddTask = (text) => {
+    const newTask = {
+      id: Date.now().toString(),
+      text,
+      lastUpdated: Date.now(),
+      heatBase: 50, // Starts WARM
+      heatCurrent: 50,
+      status: "active",
+      subtasks: []
+    };
+    setTasks([newTask, ...tasks]);
   };
 
-  const handleTaskEdit = (taskId, newText) => {
-    const updatedTasks = tasks.map((task) =>
-      task.id === taskId ? { ...task, text: newText, lastUpdated: Date.now() } : task
-    );
-    setTasks(updatedTasks);
-    updateUserTasks(user.id, updatedTasks);
+  const handleTouch = (taskId) => {
+    setTasks(tasks.map(t => {
+      if (t.id === taskId) {
+        const newHeatBase = Math.min(100, t.heatCurrent + 15);
+        return { ...t, lastUpdated: Date.now(), heatBase: newHeatBase, heatCurrent: newHeatBase };
+      }
+      return t;
+    }));
   };
 
-  const handleHeatChange = (taskId, newHeat) => {
-    const updatedTasks = tasks.map((task) =>
-      task.id === taskId ? { ...task, heat: newHeat, lastUpdated: Date.now() } : task
-    );
-    setTasks(updatedTasks);
-    updateUserTasks(user.id, updatedTasks);
+  const handleAddSubtask = (taskId, text) => {
+    setTasks(tasks.map(t => {
+      if (t.id === taskId) {
+        const newSubtasks = [...(t.subtasks || []), { id: Date.now().toString(), text, completed: false }];
+        return { ...t, subtasks: newSubtasks };
+      }
+      return t;
+    }));
   };
 
-  if (loading) return <div>Загрузка... Подождите!</div>;
+  const handleToggleSubtask = (taskId, subtaskId) => {
+    setTasks(tasks.map(t => {
+      if (t.id === taskId) {
+        let isCompleting = false;
+        const newSubtasks = (t.subtasks || []).map(s => {
+          if (s.id === subtaskId) {
+            isCompleting = !s.completed;
+            return { ...s, completed: !s.completed };
+          }
+          return s;
+        });
+        
+        let newHeatBase = t.heatCurrent;
+        if (isCompleting) newHeatBase = Math.min(100, newHeatBase + 30);
+        
+        return { 
+          ...t, 
+          subtasks: newSubtasks, 
+          heatBase: newHeatBase, 
+          heatCurrent: newHeatBase,
+          lastUpdated: Date.now() 
+        };
+      }
+      return t;
+    }));
+  };
 
-  const activeTasks = tasks.filter((task) => task.columnId === "active");
-  const passiveTasks = tasks.filter((task) => task.columnId === "passive");
-  const purgatoryTasks = tasks.filter((task) => task.columnId === "purgatory");
+  const handleComplete = (taskId) => {
+    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: "completed" } : t));
+    setScore(s => s + 10);
+  };
+
+  const handleKill = (taskId) => {
+    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: "dead" } : t));
+    setScore(s => s - 5);
+  };
+
+  const handleResurrect = (taskId) => {
+    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: "active", heatBase: 50, heatCurrent: 50, lastUpdated: Date.now() } : t));
+    setScore(s => s - 2);
+  };
+
+  if (loading) return <div>Подключение к облаку...</div>;
+
+  const activeTasks = tasks.filter(t => t.status === "active");
+  const completedTasks = tasks.filter(t => t.status === "completed");
+  const deadTasks = tasks.filter(t => t.status === "dead");
 
   return (
-    <DndContext onDragEnd={() => {}}>
-      <div
-        style={{
-          padding: "20px",
-          fontFamily: "Arial, sans-serif",
-          backgroundColor: "#222",
-          color: "#eee",
-          minHeight: "100vh",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h1>Task Planner для ADHD</h1>
-          {/* Кнопка выхода */}
+    <div className="app-wrapper">
+      <div className="score-panel animated-fade-in">
+        <span className="score-icon">⚡</span>
+        <span className="score-value">{score}</span>
+      </div>
+
+      <header className="header-container animated-fade-in">
+        <div className="glass-panel" style={{padding: '15px 25px', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <div>
+            <h1 className="app-title">ADHD Planner</h1>
+            <p className="greeting-text">Привет, {user?.first_name || "Гость"}!</p>
+          </div>
           <LogoutButton />
         </div>
-        <p>Привет, {user?.first_name || "Гость"}!</p>
-        <div className="container">
-          <div className="active-passive-container">
-            <div className="column">
-              <TaskColumn
-                columnId="active"
-                title="Active Projects"
-                tasks={activeTasks}
-                onEdit={handleTaskEdit}
-                onHeatChange={handleHeatChange}
-                onAddTask={(newTask) => handleAddTask("active", newTask)}
-              />
-            </div>
-            <div className="column">
-              <TaskColumn
-                columnId="passive"
-                title="Passive Projects"
-                tasks={passiveTasks}
-                onEdit={handleTaskEdit}
-                onHeatChange={handleHeatChange}
-                onAddTask={(newTask) => handleAddTask("passive", newTask)}
-              />
-            </div>
-          </div>
-          <div className="column full-width">
-            <TaskColumn
-              columnId="purgatory"
-              title="Purgatory"
-              tasks={purgatoryTasks}
-              onEdit={handleTaskEdit}
-              onHeatChange={handleHeatChange}
-            />
-          </div>
-        </div>
+      </header>
+      
+      <div className="tabs-navigation animated-fade-in" style={{maxWidth: '1200px'}}>
+        <button className={`tab-btn ${activeTab === 'active' ? 'active tab-active' : ''}`} onClick={() => setActiveTab('active')}>
+          🔥 {activeTasks.length} В процессе
+        </button>
+        <button className={`tab-btn ${activeTab === 'heaven' ? 'active tab-heaven' : ''}`} onClick={() => setActiveTab('heaven')}>
+          ☁️ {completedTasks.length} Рай
+        </button>
+        <button className={`tab-btn ${activeTab === 'cemetery' ? 'active tab-cemetery' : ''}`} onClick={() => setActiveTab('cemetery')}>
+          🪦 {deadTasks.length} Кладбище
+        </button>
       </div>
-    </DndContext>
+
+      <div className="columns-wrapper" style={{maxWidth: '1200px', width: '100%'}}>
+        {activeTab === 'active' && (
+          <TaskColumn
+            type="active"
+            tasks={activeTasks}
+            onTouch={handleTouch}
+            onComplete={handleComplete}
+            onKill={handleKill}
+            onAddTask={handleAddTask}
+            onAddSubtask={handleAddSubtask}
+            onToggleSubtask={handleToggleSubtask}
+          />
+        )}
+        {activeTab === 'heaven' && <TaskColumn type="heaven" tasks={completedTasks} />}
+        {activeTab === 'cemetery' && <TaskColumn type="cemetery" tasks={deadTasks} onResurrect={handleResurrect} />}
+      </div>
+
+      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} />
+    </div>
   );
 }

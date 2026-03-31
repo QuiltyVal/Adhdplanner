@@ -1,0 +1,196 @@
+/* TaskColumn.css additions for heaven and cemetery */
+.task-column-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 50vh;
+  padding: 24px;
+}
+
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.tasks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  flex: 1;
+}
+
+.task-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.task-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Purgatory Warning State */
+.task-card.purgatory {
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: inset 0 0 20px rgba(245, 158, 11, 0.1);
+}
+
+/* Tombstone styling */
+.tombstone {
+  background: linear-gradient(to bottom, #4b5563, #1f2937);
+  border: 2px solid #374151;
+  border-top-left-radius: 60px;
+  border-top-right-radius: 60px;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  padding: 30px 15px 15px;
+  text-align: center;
+  position: relative;
+  box-shadow: 10px 10px 30px rgba(0,0,0,0.5);
+  color: #e5e7eb;
+}
+
+.tombstone-rip {
+  font-family: 'Creepster', cursive, sans-serif;
+  font-size: 2rem;
+  color: #9ca3af;
+  margin-bottom: 15px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.tombstone-task-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.resurrect-btn {
+  background: rgba(139, 92, 246, 0.2);
+  border: 1px solid #8b5cf6;
+  color: #c4b5fd;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  margin-top: 15px;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.resurrect-btn:hover {
+  background: rgba(139, 92, 246, 0.5);
+  color: white;
+}
+
+/* Cloud styling */
+.heaven-cloud {
+  background: linear-gradient(135deg, rgba(253, 230, 138, 0.15), rgba(251, 191, 36, 0.05));
+  border: 1px solid rgba(253, 230, 138, 0.4);
+  border-radius: 30px;
+  padding: 20px;
+  text-align: center;
+  color: #fde68a;
+  animation: cloud-float 4s ease-in-out infinite alternate;
+  box-shadow: 0 10px 25px rgba(251, 191, 36, 0.1);
+}
+
+.cloud-icon {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+}
+
+.heaven-task-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.points-badge {
+  color: #34d399;
+  font-size: 0.85rem;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+@keyframes cloud-float {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-8px); }
+}
+
+.task-input-field {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 1.05rem;
+  font-family: 'Inter', sans-serif;
+  width: 100%;
+  outline: none;
+  padding: 4px 0;
+}
+
+/* Action buttons on card */
+.task-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.action-btn {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  flex: 1;
+  margin: 0 4px;
+  transition: all 0.2s;
+}
+
+.action-btn.touch:hover { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border-color: #3b82f6;}
+.action-btn.complete:hover { background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: #10b981;}
+.action-btn.kill:hover { background: rgba(239, 68, 68, 0.2); color: #f87171; border-color: #ef4444;}
+
+.heat-slider-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.new-task-container { display: flex; gap: 12px; margin-top: 24px; background: rgba(0, 0, 0, 0.2); padding: 8px; border-radius: 12px;}
+.new-task-input { flex: 1; background: transparent; border: none; color: white; padding: 8px; outline: none; }
+.add-task-btn { background: var(--accent-color); color: white; border: none; border-radius: 8px; padding: 0 20px; cursor: pointer; transition: all 0.2s; }
+.add-task-btn:hover { background: var(--accent-hover); }
+
+/* Zones layout */
+.active-zones-wrapper { display: flex; flex-direction: column; padding: 20px; }
+.zones-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.zone-column { background: rgba(0,0,0,0.1); border-radius: 16px; padding: 15px; border: 1px dashed rgba(255,255,255,0.05); }
+.zone-title { text-align: center; margin-bottom: 20px; font-size: 1.1rem; color: var(--text-muted); font-weight: 700; }
+.focus-zone .zone-title { color: #10b981; }
+.passive-zone .zone-title { color: #3b82f6; }
+.purgatory-zone .zone-title { color: #ef4444; }
+.empty-zone { text-align: center; color: rgba(255,255,255,0.2); font-style: italic; padding: 20px 0; }
+
+/* Subtasks */
+.subtasks-container { background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.subtask-item { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; }
+.subtask-checkbox { width: 18px; height: 18px; accent-color: var(--accent-color); cursor: pointer; }
+.subtask-add-row { display: flex; gap: 10px; margin-top: 5px; }
+.subtask-input { flex: 1; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-main); outline: none; padding: 4px; font-size: 0.9rem; }
+.subtask-input:focus { border-bottom-color: var(--accent-color); }
+.subtask-add-btn { background: rgba(255,255,255,0.1); border: none; color: white; padding: 2px 8px; border-radius: 6px; cursor: pointer; }
+.subtask-add-btn:hover { background: var(--accent-color); }

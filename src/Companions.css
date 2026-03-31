@@ -1,0 +1,113 @@
+/* Companions.css */
+.companions-container {
+  position: fixed;
+  bottom: 30px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 40px;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.companion {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.avatar {
+  font-size: 3rem;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-radius: 50%;
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.angel-avatar {
+  border: 2px solid #fde68a;
+  box-shadow: 0 0 20px rgba(253, 230, 138, 0.4);
+  animation: float-bob 4s ease-in-out infinite;
+}
+
+.devil-avatar {
+  border: 2px solid #ef4444;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+  animation: shake-bob 5s ease-in-out infinite alternate;
+}
+
+.speech-bubble {
+  position: absolute;
+  bottom: 90px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  max-width: 200px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
+}
+
+.speech-bubble.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.angel-bubble {
+  background: rgba(253, 230, 138, 0.15);
+  border: 1px solid rgba(253, 230, 138, 0.4);
+  color: #fde68a;
+  left: 0;
+  transform-origin: bottom left;
+}
+
+.devil-bubble {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  right: 0;
+  transform-origin: bottom right;
+}
+
+@keyframes float-bob {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes shake-bob {
+  0% { transform: rotate(0deg) translateY(0px); }
+  25% { transform: rotate(-5deg) translateY(-5px); }
+  75% { transform: rotate(5deg) translateY(-2px); }
+  100% { transform: rotate(0deg) translateY(0px); }
+}
+
+@media (max-width: 768px) {
+  .companions-container {
+    padding: 0 15px;
+    bottom: 15px;
+  }
+  .avatar {
+    font-size: 2.2rem;
+    width: 60px;
+    height: 60px;
+  }
+  .speech-bubble {
+    font-size: 0.85rem;
+    max-width: 150px;
+    padding: 8px 12px;
+  }
+}

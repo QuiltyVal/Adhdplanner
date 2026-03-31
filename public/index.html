@@ -2,32 +2,16 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <title>Task Planner для ADHD</title>
-    <!-- Обновлённая политика безопасности (CSP) -->
-    <meta http-equiv="Content-Security-Policy" content="
-      default-src 'self' https://telegram.org https://oauth.telegram.org https://dulcet-yeot-cb2d95.netlify.app;
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://apis.google.com;
-      style-src 'self' 'unsafe-inline';
-      img-src 'self' data: https://t.me https://firebasestorage.googleapis.com;
-      connect-src 'self' https://firestore.googleapis.com https://*.googleapis.com;
-      frame-src 'self' https://oauth.telegram.org;
-    ">
-    <script>
-      function onTelegramAuth(user) {
-        console.log("Telegram user:", user);
-        // Если нужен дополнительный обработчик – разместите его здесь.
-      }
-    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ADHD Planner</title>
+    <meta name="description" content="Геймифицированный планировщик задач для людей с СДВГ" />
+    <meta name="theme-color" content="#0f0a1a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
   </head>
   <body>
     <div id="root"></div>
-    <!-- Виджет для входа через Telegram -->
-    <script async src="https://telegram.org/js/telegram-widget.js?7"
-      data-telegram-login="Fegefeuerbot"
-      data-size="large"
-      data-radius="5"
-      data-auth-url="https://dulcet-yeot-cb2d95.netlify.app/.netlify/functions/auth"
-      data-request-access="write">
-    </script>
   </body>
 </html>
