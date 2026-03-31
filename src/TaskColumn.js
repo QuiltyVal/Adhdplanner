@@ -41,7 +41,7 @@ export default function TaskColumn({
               <div className="points-badge">+10 points</div>
             </div>
           ))}
-          {tasks.length === 0 && <p style={{color: 'var(--text-muted)', textAlign: 'center', width: '100%'}}>Рай пуст. Завершите задачу!</p>}
+          {tasks.length === 0 && <p style={{color: '#3aedff', textAlign: 'center', width: '100%', fontFamily: "'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6}}>Рай пуст. Завершите задачу!</p>}
         </div>
       </div>
     );
@@ -62,7 +62,7 @@ export default function TaskColumn({
               </button>
             </div>
           ))}
-          {tasks.length === 0 && <p style={{color: 'var(--text-muted)', textAlign: 'center', width: '100%'}}>Кладбище пустует. Так держать!</p>}
+          {tasks.length === 0 && <p style={{color: '#8a1c1c', textAlign: 'center', width: '100%', fontFamily: "'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8}}>Кладбище пустует. Так держать!</p>}
         </div>
       </div>
     );
@@ -82,7 +82,7 @@ export default function TaskColumn({
       >
         ✖️
       </button>
-      <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '5px', paddingRight: '25px' }}>
+      <div style={{ fontSize: '1.4rem', marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'VT323', monospace", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
        {isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
        {task.text}
       </div>

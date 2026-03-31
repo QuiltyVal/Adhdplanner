@@ -23,7 +23,7 @@
 /* === TASK CARD === */
 .task-card {
   background: rgba(10, 10, 10, 0.95);
-  border: 2px solid #2a2a2a;
+  border: 2px solid #333;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -35,19 +35,19 @@
 }
 
 .task-card:hover {
-  border-color: #444;
+  border-color: #555;
 }
 
 /* Purgatory Warning State */
 .task-card.purgatory {
   border-color: #8a1c1c;
-  box-shadow: 3px 3px 0 #000, inset 0 0 20px rgba(138, 28, 28, 0.08);
+  box-shadow: 3px 3px 0 #000, inset 0 0 20px rgba(138, 28, 28, 0.1);
 }
 
 /* === TOMBSTONE === */
 .tombstone {
-  background: #1e1e1e;
-  border: 3px solid #141414;
+  background: #3a3a3a;
+  border: 3px solid #222;
   border-top-left-radius: 40px;
   border-top-right-radius: 40px;
   border-bottom-left-radius: 3px;
@@ -55,23 +55,24 @@
   padding: 28px 15px 18px;
   text-align: center;
   position: relative;
-  box-shadow: 5px 8px 0 #0a0a0a, 3px 3px 0 #000;
+  box-shadow: 5px 8px 0 #111, 3px 3px 0 #000;
   color: #c0c0c0;
 }
 
 .tombstone-rip {
   font-family: 'Press Start 2P', cursive;
   font-size: 0.65rem;
-  color: #444;
+  color: #8a1c1c;
   margin-bottom: 12px;
   letter-spacing: 3px;
   display: block;
+  text-shadow: 1px 1px 0 #000;
 }
 
 .tombstone-task-name {
   font-family: 'VT323', monospace;
-  font-size: 1.3rem;
-  color: #777;
+  font-size: 1.4rem;
+  color: #c0c0c0;
   margin-bottom: 8px;
   text-decoration: line-through;
   text-transform: uppercase;
@@ -80,11 +81,11 @@
 
 /* === RESURRECT BUTTON === */
 .resurrect-btn {
-  background: #0a0a0a;
-  border: 2px solid #444;
-  color: #808080;
+  background: #1a1a1a;
+  border: 2px solid #555;
+  color: #c0c0c0;
   font-family: 'VT323', monospace;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   padding: 8px 12px;
   cursor: pointer;
   margin-top: 12px;
@@ -96,19 +97,20 @@
 
 .resurrect-btn:hover,
 .resurrect-btn:active {
-  background: #0a0f1a;
+  background: #001520;
   border-color: #a0d6ff;
   color: #a0d6ff;
+  box-shadow: 0 0 10px rgba(160, 214, 255, 0.2);
 }
 
 /* === HEAVEN CLOUD === */
 .heaven-cloud {
-  background: rgba(0, 12, 20, 0.95);
-  border: 2px solid rgba(160, 214, 255, 0.5);
+  background: rgba(0, 20, 30, 0.95);
+  border: 2px solid #3aedff;
   padding: 20px;
   text-align: center;
-  color: #a0d6ff;
-  box-shadow: 0 0 20px rgba(160, 214, 255, 0.1), 3px 3px 0 #000;
+  color: #e0faff;
+  box-shadow: 0 0 20px rgba(58, 237, 255, 0.15), 3px 3px 0 #000;
   animation: cloud-float 4s ease-in-out infinite alternate;
 }
 
@@ -120,20 +122,21 @@
 
 .heaven-task-name {
   font-family: 'VT323', monospace;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   color: #e0faff;
   text-transform: uppercase;
   word-break: break-word;
+  text-shadow: 0 0 10px rgba(58, 237, 255, 0.4);
 }
 
 .points-badge {
-  color: #a0d6ff;
+  color: #3aedff;
   font-family: 'VT323', monospace;
-  font-size: 1rem;
+  font-size: 1.1rem;
   margin-top: 8px;
-  opacity: 0.6;
   text-transform: uppercase;
   letter-spacing: 1px;
+  text-shadow: 0 0 8px rgba(58, 237, 255, 0.5);
 }
 
 @keyframes cloud-float {
@@ -147,7 +150,7 @@
   border: none;
   color: #fff;
   font-family: 'VT323', monospace;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   width: 100%;
   outline: none;
   padding: 4px 0;
@@ -161,44 +164,35 @@
 }
 
 .action-btn {
-  background: #0a0a0a;
-  border: 1px solid #2a2a2a;
+  background: #c0c0c0;
+  border-top: 3px solid #fff;
+  border-left: 3px solid #fff;
+  border-right: 3px solid #404040;
+  border-bottom: 3px solid #404040;
   padding: 8px 10px;
-  color: #606060;
+  color: #000;
   font-family: 'VT323', monospace;
   font-size: 1.1rem;
   cursor: pointer;
   flex: 1;
   margin: 0 3px;
-  transition: all 0.15s;
+  transition: all 0.1s;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: bold;
 }
 
 .action-btn:active {
+  border-top: 3px solid #404040;
+  border-left: 3px solid #404040;
+  border-right: 3px solid #fff;
+  border-bottom: 3px solid #fff;
   transform: translateY(1px);
 }
 
-.action-btn.touch:hover,
-.action-btn.touch:active {
-  background: #001520;
-  border-color: #a0d6ff;
-  color: #a0d6ff;
-}
-
-.action-btn.complete:hover,
-.action-btn.complete:active {
-  background: #001510;
-  border-color: #34d399;
-  color: #34d399;
-}
-
-.action-btn.kill:hover,
-.action-btn.kill:active {
-  background: #150000;
-  border-color: #8a1c1c;
-  color: #f87171;
-}
+.action-btn.touch:hover { background: #a0d6ff; }
+.action-btn.complete:hover { background: #34d399; }
+.action-btn.kill:hover { background: #f87171; }
 
 /* === HEAT BAR === */
 .heat-slider-container {
@@ -207,8 +201,8 @@
   gap: 10px;
   margin-top: 4px;
   font-family: 'VT323', monospace;
-  font-size: 1rem;
-  color: #555;
+  font-size: 1.1rem;
+  color: #c0c0c0;
 }
 
 /* === KILL BUTTON === */
@@ -219,8 +213,8 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 0.85rem;
-  opacity: 0.25;
+  font-size: 0.9rem;
+  opacity: 0.35;
   transition: opacity 0.2s;
   width: 36px;
   height: 36px;
@@ -228,7 +222,7 @@
   align-items: center;
   justify-content: center;
   touch-action: manipulation;
-  color: #8a1c1c;
+  color: #fca5a5;
 }
 
 .kill-btn:hover,
@@ -241,47 +235,55 @@
   display: flex;
   gap: 10px;
   margin-top: 20px;
-  background: #0a0a0a;
+  background: #111;
   padding: 8px;
-  border: 1px solid #2a2a2a;
-  box-shadow: 2px 2px 0 #000;
+  border: 2px solid #333;
+  box-shadow: 3px 3px 0 #000;
 }
 
 .new-task-input {
   flex: 1;
   background: transparent;
   border: none;
-  color: #c0c0c0;
+  color: #e0e0e0;
   font-family: 'VT323', monospace;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   padding: 8px;
   outline: none;
 }
 
 .new-task-input::placeholder {
-  color: #333;
+  color: #555;
 }
 
 .add-task-btn {
-  background: #8a1c1c;
-  border: none;
-  color: #fff;
+  background: #c0c0c0;
+  border-top: 3px solid #fff;
+  border-left: 3px solid #fff;
+  border-right: 3px solid #404040;
+  border-bottom: 3px solid #404040;
+  color: #000;
   font-family: 'VT323', monospace;
   font-size: 1.1rem;
   padding: 0 16px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.1s;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
-}
-
-.add-task-btn:hover {
-  background: #a02222;
+  font-weight: bold;
 }
 
 .add-task-btn:active {
+  border-top: 3px solid #404040;
+  border-left: 3px solid #404040;
+  border-right: 3px solid #fff;
+  border-bottom: 3px solid #fff;
   transform: translateY(1px);
+}
+
+.add-task-btn:hover {
+  background: #d0d0d0;
 }
 
 /* === ZONES === */
@@ -299,7 +301,7 @@
 
 .zone-column {
   background: rgba(5, 5, 5, 0.9);
-  border: 1px solid #1a1a1a;
+  border: 1px solid #222;
   padding: 16px;
   box-shadow: 2px 2px 0 #000;
 }
@@ -309,29 +311,28 @@
   font-size: 0.5rem;
   text-align: center;
   margin-bottom: 16px;
-  color: #555;
   letter-spacing: 1px;
   line-height: 1.7;
 }
 
 .focus-zone .zone-title {
   color: #34d399;
-  text-shadow: 0 0 10px rgba(52, 211, 153, 0.3);
+  text-shadow: 0 0 12px rgba(52, 211, 153, 0.5);
 }
 
 .passive-zone .zone-title {
   color: #a0d6ff;
-  text-shadow: 0 0 10px rgba(160, 214, 255, 0.2);
+  text-shadow: 0 0 12px rgba(160, 214, 255, 0.4);
 }
 
 .purgatory-zone .zone-title {
   color: #f59e0b;
-  text-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
 }
 
 .empty-zone {
   text-align: center;
-  color: #252525;
+  color: #444;
   font-family: 'VT323', monospace;
   font-size: 1.1rem;
   padding: 20px 0;
@@ -342,7 +343,7 @@
 /* === SUBTASKS === */
 .subtasks-container {
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid #1a1a1a;
+  border: 1px solid #2a2a2a;
   padding: 10px;
   margin-top: 6px;
   display: flex;
@@ -355,7 +356,7 @@
   align-items: center;
   gap: 10px;
   font-family: 'VT323', monospace;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   color: #c0c0c0;
 }
 
@@ -376,10 +377,10 @@
   flex: 1;
   background: transparent;
   border: none;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid #333;
   color: #c0c0c0;
   font-family: 'VT323', monospace;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   outline: none;
   padding: 4px;
 }
@@ -389,24 +390,33 @@
 }
 
 .subtask-input::placeholder {
-  color: #2a2a2a;
+  color: #333;
 }
 
 .subtask-add-btn {
-  background: #141414;
-  border: 1px solid #333;
-  color: #808080;
+  background: #c0c0c0;
+  border-top: 2px solid #fff;
+  border-left: 2px solid #fff;
+  border-right: 2px solid #404040;
+  border-bottom: 2px solid #404040;
+  color: #000;
   font-family: 'VT323', monospace;
   font-size: 1.2rem;
   padding: 2px 10px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.1s;
+  font-weight: bold;
+}
+
+.subtask-add-btn:active {
+  border-top: 2px solid #404040;
+  border-left: 2px solid #404040;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
 }
 
 .subtask-add-btn:hover {
-  background: #8a1c1c;
-  border-color: #8a1c1c;
-  color: #fff;
+  background: #d0d0d0;
 }
 
 /* ── Mobile styles ── */
@@ -426,7 +436,7 @@
   .add-task-btn {
     width: 100%;
     padding: 14px;
-    font-size: 1.15rem;
+    font-size: 1.2rem;
     min-height: 48px;
     touch-action: manipulation;
   }
@@ -458,11 +468,6 @@
     font-size: 1rem;
     padding: 10px 6px;
     touch-action: manipulation;
-  }
-
-  .action-btn:active {
-    opacity: 0.8;
-    transform: translateY(1px);
   }
 
   .kill-btn {
@@ -502,7 +507,7 @@
   .resurrect-btn {
     min-height: 48px;
     touch-action: manipulation;
-    font-size: 1.15rem;
+    font-size: 1.2rem;
   }
 
   .heaven-cloud {

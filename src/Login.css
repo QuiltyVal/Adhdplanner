@@ -4,7 +4,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at center, #1a0000 0%, #050505 70%);
+  background: radial-gradient(circle at center, #200000 0%, #000 70%);
   position: relative;
   overflow: hidden;
 }
@@ -15,14 +15,14 @@
   border-radius: 50%;
   filter: blur(80px);
   z-index: 0;
-  opacity: 0.2;
+  opacity: 0.3;
   animation: float 20s infinite alternate;
 }
 
 .blob-1 {
   width: 400px;
   height: 400px;
-  background: rgba(138, 28, 28, 0.7);
+  background: rgba(138, 28, 28, 0.8);
   top: -100px;
   left: -100px;
   animation-delay: 0s;
@@ -31,7 +31,7 @@
 .blob-2 {
   width: 500px;
   height: 500px;
-  background: rgba(80, 0, 0, 0.6);
+  background: rgba(100, 0, 0, 0.6);
   bottom: -150px;
   right: -100px;
   animation-delay: -5s;
@@ -47,8 +47,8 @@
   position: relative;
   z-index: 10;
   background: #0a0a0a;
-  border: 2px solid #2a2a2a;
-  box-shadow: 6px 6px 0 #000, 0 0 30px rgba(138, 28, 28, 0.12);
+  border: 2px solid #333;
+  box-shadow: 6px 6px 0 #000, 0 0 40px rgba(138, 28, 28, 0.2);
   padding: 48px 36px;
   text-align: center;
   display: flex;
@@ -63,7 +63,7 @@
   font-family: 'Press Start 2P', cursive;
   font-size: 1.1rem;
   color: #fff;
-  text-shadow: 3px 3px 0 #8a1c1c;
+  text-shadow: 3px 3px 0 #8a1c1c, 0 0 20px rgba(160, 214, 255, 0.2);
   letter-spacing: -1px;
   line-height: 1.5;
   margin-bottom: 4px;
@@ -71,8 +71,8 @@
 
 .login-subtitle {
   font-family: 'VT323', monospace;
-  color: #808080;
-  font-size: 1.3rem;
+  color: #c0c0c0;
+  font-size: 1.4rem;
   line-height: 1.4;
   margin-bottom: 10px;
   text-transform: uppercase;
@@ -81,7 +81,7 @@
 
 .telegram-btn-wrapper {
   background: #111;
-  border: 1px solid #2a2a2a;
+  border: 1px solid #333;
   padding: 16px;
   width: 100%;
   display: flex;
@@ -90,7 +90,7 @@
 }
 
 .telegram-btn-wrapper:hover {
-  border-color: #555;
+  border-color: #666;
 }
 
 @media (max-width: 600px) {
@@ -110,7 +110,7 @@
   }
 
   .login-subtitle {
-    font-size: 1.15rem;
+    font-size: 1.2rem;
   }
 
   .telegram-btn-wrapper {
