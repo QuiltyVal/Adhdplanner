@@ -88,3 +88,26 @@
   transform: translateY(-5px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
+
+@media (max-width: 600px) {
+  .login-card {
+    padding: 30px 18px;
+    gap: 20px;
+    max-width: 100%;
+  }
+
+  .login-title {
+    font-size: 1.75rem;
+  }
+
+  .login-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .telegram-btn-wrapper {
+    padding: 14px;
+  }
+
+  .blob-1 { width: 250px; height: 250px; }
+  .blob-2 { width: 300px; height: 300px; }
+}

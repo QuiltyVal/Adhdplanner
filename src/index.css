@@ -35,6 +35,16 @@ input, button, textarea {
   font-family: inherit;
 }
 
+/* Mobile UX tweaks */
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+input, textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Glassmorphism utility classes */
 .glass-panel {
   background: var(--glass-bg);

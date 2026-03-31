@@ -194,3 +194,92 @@
 .subtask-input:focus { border-bottom-color: var(--accent-color); }
 .subtask-add-btn { background: rgba(255,255,255,0.1); border: none; color: white; padding: 2px 8px; border-radius: 6px; cursor: pointer; }
 .subtask-add-btn:hover { background: var(--accent-color); }
+
+/* ── Mobile styles ── */
+@media (max-width: 600px) {
+  /* Add task bar stacks vertically */
+  .new-task-container {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .new-task-input {
+    font-size: 16px; /* prevent iOS auto-zoom */
+    padding: 10px 6px;
+  }
+
+  .add-task-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 0.95rem;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Single-column zones on phones */
+  .zones-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .active-zones-wrapper {
+    padding: 10px;
+  }
+
+  .task-card {
+    padding: 12px;
+  }
+
+  /* Bigger tap targets for action buttons */
+  .action-btn {
+    min-height: 44px;
+    font-size: 0.9rem;
+    padding: 10px 8px;
+    touch-action: manipulation;
+  }
+
+  .action-btn:active {
+    opacity: 0.75;
+    transform: scale(0.97);
+  }
+
+  /* Kill button tap target */
+  .task-card > button[title="Убрать на кладбище"] {
+    padding: 8px;
+    top: 6px;
+    right: 6px;
+  }
+
+  /* Heaven/Cemetery grids → single column */
+  .tasks-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-column-container {
+    padding: 10px;
+    min-height: 30vh;
+  }
+
+  /* Subtask input — prevent iOS zoom */
+  .subtask-input {
+    font-size: 16px;
+  }
+
+  .subtask-checkbox {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .subtask-add-btn {
+    min-width: 36px;
+    min-height: 36px;
+    touch-action: manipulation;
+  }
+
+  .resurrect-btn {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+}

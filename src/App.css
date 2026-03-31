@@ -139,8 +139,49 @@
 }
 
 @media (max-width: 850px) {
-  .app-wrapper { padding: 15px; padding-bottom: 120px; }
-  .score-panel { top: 15px; right: 15px; padding: 6px 12px; }
+  .app-wrapper { padding: 15px; padding-bottom: 130px; }
+  .score-panel { top: 12px; right: 12px; padding: 6px 12px; }
   .score-value { font-size: 1.2rem; }
   .tab-btn { font-size: 0.95rem; }
+}
+
+@media (max-width: 600px) {
+  .app-wrapper {
+    padding: 10px;
+    padding-bottom: 130px;
+  }
+
+  .score-panel {
+    top: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    border-radius: 12px;
+  }
+
+  .score-icon { font-size: 1.1rem; }
+  .score-value { font-size: 1rem; }
+
+  .header-container {
+    padding: 10px;
+    margin-top: 48px;
+    margin-bottom: 10px;
+  }
+
+  .app-title { font-size: 1.3rem; }
+  .greeting-text { font-size: 0.85rem; }
+
+  .tabs-navigation {
+    gap: 4px;
+    padding: 5px;
+    margin-bottom: 14px;
+    border-radius: 14px;
+  }
+
+  .tab-btn {
+    font-size: 0.78rem;
+    padding: 9px 4px;
+    border-radius: 10px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
 }
