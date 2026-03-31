@@ -1,24 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
 
 :root {
-  --bg-gradient: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
-  --glass-bg: rgba(255, 255, 255, 0.04);
-  --glass-bg-hover: rgba(255, 255, 255, 0.08);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --accent-color: #7c3aed; /* Violet */
-  --accent-hover: #8b5cf6;
-  --danger-color: #ef4444;
-  --success-color: #10b981;
-  --cool-glow: 0 0 15px rgba(124, 58, 237, 0.3);
+  --bg-gradient: radial-gradient(ellipse at bottom, #1a0000 0%, #050505 100%);
+  --glass-bg: rgba(10, 10, 10, 0.95);
+  --glass-bg-hover: rgba(20, 20, 20, 0.95);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 4px 4px 0 rgba(0, 0, 0, 0.8);
+  --text-main: #ffffff;
+  --text-muted: #808080;
+  --accent-color: #8a1c1c;
+  --accent-hover: #a32222;
+  --danger-color: #8a1c1c;
+  --success-color: #a0d6ff;
+  --cool-glow: 0 0 15px rgba(138, 28, 28, 0.4);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
@@ -27,23 +28,36 @@ html, body {
 }
 
 body {
-  font-family: 'Inter', sans-serif;
-  background: var(--bg-gradient);
+  font-family: 'VT323', monospace;
+  background: #050505;
   background-attachment: fixed;
-  color: var(--text-main);
+  color: #ffffff;
   min-height: 100vh;
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
+}
+
+/* CRT scanlines overlay */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 9999;
 }
 
 input, button, textarea {
-  font-family: inherit;
+  font-family: 'VT323', monospace;
 }
 
-/* Mobile UX tweaks */
 button {
-  -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
 
@@ -51,12 +65,10 @@ input, textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Glassmorphism utility classes */
+/* Pixel panel utility */
 .glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  border-radius: 16px;
+  background: #0a0a0a;
+  border: 2px solid #2a2a2a;
+  box-shadow: 0 0 20px rgba(138, 28, 28, 0.08), 4px 4px 0 #000;
+  border-radius: 0;
 }

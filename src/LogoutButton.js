@@ -11,28 +11,31 @@ const LogoutButton = () => {
   };
 
   return (
-    <button 
-      onClick={handleLogout} 
-      style={{ 
+    <button
+      onClick={handleLogout}
+      style={{
         background: "transparent",
-        color: "var(--danger-color)",
-        border: "1px solid var(--danger-color)",
-        padding: "8px 16px",
-        borderRadius: "8px",
-        fontWeight: "600",
+        color: "#8a1c1c",
+        border: "2px solid #8a1c1c",
+        padding: "8px 14px",
+        fontFamily: "'Press Start 2P', cursive",
+        fontSize: "0.45rem",
         cursor: "pointer",
-        transition: "all 0.2s fade"
+        letterSpacing: "1px",
+        boxShadow: "2px 2px 0 #000",
+        transition: "all 0.15s",
+        textTransform: "uppercase",
       }}
       onMouseOver={(e) => {
-        e.currentTarget.style.background = "var(--danger-color)";
+        e.currentTarget.style.background = "#8a1c1c";
         e.currentTarget.style.color = "white";
       }}
       onMouseOut={(e) => {
         e.currentTarget.style.background = "transparent";
-        e.currentTarget.style.color = "var(--danger-color)";
+        e.currentTarget.style.color = "#8a1c1c";
       }}
     >
-      Выйти
+      EXIT
     </button>
   );
 };
