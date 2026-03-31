@@ -82,7 +82,7 @@ export default function TaskColumn({
       >
         ✖️
       </button>
-      <div style={{ fontSize: '1.4rem', marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'VT323', monospace", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <div className="task-text" style={{ fontSize: '1.4rem', marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'VT323', monospace", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
        {isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
        {task.text}
       </div>

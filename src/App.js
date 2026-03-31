@@ -18,6 +18,19 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("active");
   const [loading, setLoading] = useState(true);
   const [minLoadDone, setMinLoadDone] = useState(false);
+  const [isDark, setIsDark] = useState(
+    () => (localStorage.getItem('theme') || 'dark') === 'dark'
+  );
+
+  const toggleTheme = () => {
+    setIsDark(prev => {
+      const next = !prev;
+      const themeName = next ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', themeName);
+      localStorage.setItem('theme', themeName);
+      return next;
+    });
+  };
 
   // Flag to distinct first load from component updates
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -206,7 +219,12 @@ export default function App() {
             <h1 className="app-title">ADHD Planner</h1>
             <p className="greeting-text">Привет, {user?.first_name || "Гость"}!</p>
           </div>
-          <LogoutButton />
+          <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
+            <button onClick={toggleTheme} className="theme-toggle-btn" title="Сменить тему">
+              {isDark ? '☀️' : '🌙'}
+            </button>
+            <LogoutButton />
+          </div>
         </div>
       </header>
       

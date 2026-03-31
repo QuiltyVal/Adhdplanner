@@ -83,6 +83,14 @@
   transform-origin: bottom right;
 }
 
+@keyframes bounce-click {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); }
+  70%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.avatar.bounce { animation: bounce-click 0.4s ease forwards; }
+
 @keyframes float-bob {
   0% { transform: translateY(0px); }
   50% { transform: translateY(-8px); }

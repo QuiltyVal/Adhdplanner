@@ -144,6 +144,29 @@
   animation: slideInUp 0.35s ease forwards;
 }
 
+.theme-toggle-btn {
+  background: transparent;
+  border: 2px solid #555;
+  font-size: 1.2rem;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s;
+  box-shadow: 2px 2px 0 #000;
+  flex-shrink: 0;
+}
+.theme-toggle-btn:hover { border-color: #a0d6ff; }
+.theme-toggle-btn:active { transform: translateY(1px); }
+
+[data-theme="light"] .theme-toggle-btn {
+  border-color: #c084fc;
+  box-shadow: 2px 2px 0 rgba(192,132,252,0.3);
+}
+[data-theme="light"] .theme-toggle-btn:hover { border-color: #7c3aed; }
+
 @media (max-width: 850px) {
   .app-wrapper { padding: 15px; padding-bottom: 130px; }
   .score-panel { top: 12px; right: 12px; padding: 6px 12px; }
