@@ -15,6 +15,7 @@ export default function TaskColumn({
 }) {
   const [newTaskText, setNewTaskText] = useState("");
   const [newSubtaskText, setNewSubtaskText] = useState({}); // {taskId: text}
+  const [confirmTaskId, setConfirmTaskId] = useState(null);
 
   const addTask = () => {
     if (!newTaskText.trim()) return;
@@ -38,6 +39,15 @@ export default function TaskColumn({
             <div key={task.id} className="heaven-cloud animated-fade-in">
               <div className="cloud-icon">🕊️</div>
               <div className="heaven-task-name">{task.text}</div>
+              {task.subtasks && task.subtasks.length > 0 && (
+                <div className="heaven-subtasks" style={{marginTop: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'left', width: '100%'}}>
+                  {task.subtasks.map(sub => (
+                    <div key={sub.id} style={{textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.6 : 1, marginBottom: '4px'}}>
+                      {sub.completed ? '✓' : '○'} {sub.text}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="points-badge">+10 points</div>
             </div>
           ))}
@@ -132,7 +142,7 @@ export default function TaskColumn({
           <button className="action-btn touch" onClick={() => onTouch(task.id)}>👀 Вспомнил</button>
         )}
         {task.heatCurrent > 60 && (
-          <button className="action-btn complete" onClick={() => onComplete(task.id)}>🚀 Завершить!</button>
+          <button className="action-btn complete" onClick={() => setConfirmTaskId(task.id)}>🚀 Завершить!</button>
         )}
       </div>
     </div>
@@ -180,6 +190,34 @@ export default function TaskColumn({
           </div>
         </div>
       </div>
+
+      {confirmTaskId && (
+        <div className="modal-overlay" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
+          <div className="modal-content glass-panel animated-fade-in" style={{padding: '40px', textAlign: 'center', maxWidth: '400px', width: '90%', border: '2px solid var(--accent-heaven)', borderRadius: '16px'}}>
+            <h2 style={{fontFamily: "'VT323', monospace", marginBottom: '15px', fontSize: '2.5rem', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '2px'}}>Точно всё?</h2>
+            <p style={{marginBottom: '35px', color: 'var(--text-muted)', fontSize: '1.2rem'}}>Эта задача отправится в Рай. Уверены?</p>
+            <div style={{display: 'flex', gap: '20px', justifyContent: 'center'}}>
+              <button 
+                onClick={() => {
+                  onComplete(confirmTaskId);
+                  setConfirmTaskId(null);
+                }} 
+                className="action-btn complete"
+                style={{fontSize: '1.2rem', padding: '12px 24px'}}
+              >
+                ДА!
+              </button>
+              <button 
+                onClick={() => setConfirmTaskId(null)} 
+                className="action-btn kill-btn" 
+                style={{background: 'transparent', border: '2px solid var(--accent-cemetery)', color: 'var(--accent-cemetery)', fontSize: '1.2rem', padding: '12px 24px'}}
+              >
+                ЕЩЕ НЕТ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

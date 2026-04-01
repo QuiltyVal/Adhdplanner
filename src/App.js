@@ -6,6 +6,8 @@ import LogoutButton from "./LogoutButton";
 import Companions from "./Companions";
 import LoadingScreen from "./LoadingScreen";
 import { getUserData, updateUserData } from "./firestoreUtils";
+import { auth } from "./firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import "./App.css";
 
 const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
@@ -53,23 +55,31 @@ export default function App() {
     const parsedUser = JSON.parse(storedUser);
     setUser(parsedUser);
 
-    const loadCloudData = async () => {
+    const loadCloudData = () => {
       // If guest mode (offline)
       if (parsedUser.id.startsWith("guest_")) {
         const localTasks = JSON.parse(localStorage.getItem("adhd_planner_tasks")) || [];
         const localScore = parseInt(localStorage.getItem("adhd_planner_score"), 10) || 0;
         setTasks(localTasks);
         setScore(localScore);
+        setLoading(false);
+        setDataLoaded(true);
       } else {
-        // Fetch from Firestore
-        const data = await getUserData(parsedUser.id, parsedUser.email, parsedUser.first_name);
-        if (data) {
-          setTasks(data.tasks || []);
-          setScore(data.score || 0);
-        }
+        // Fetch from Firestore but ONLY after Firebase auth state is restored
+        onAuthStateChanged(auth, async (firebaseUser) => {
+          if (firebaseUser) {
+            const data = await getUserData(parsedUser.id, parsedUser.email, parsedUser.first_name);
+            if (data) {
+              setTasks(data.tasks || []);
+              setScore(data.score || 0);
+            }
+          } else {
+            console.warn("Пользователь не авторизован в Firebase. Возможно, истекла сессия.");
+          }
+          setLoading(false);
+          setDataLoaded(true);
+        });
       }
-      setLoading(false);
-      setDataLoaded(true);
     };
 
     loadCloudData();
@@ -170,8 +180,15 @@ export default function App() {
           return s;
         });
         
+        const subtasksCount = newSubtasks.length;
+        const subtaskWeight = subtasksCount > 0 ? (100 / subtasksCount) : 30;
+        
         let newHeatBase = t.heatCurrent;
-        if (isCompleting) newHeatBase = Math.min(100, newHeatBase + 30);
+        if (isCompleting) {
+          newHeatBase = Math.min(100, newHeatBase + subtaskWeight);
+        } else {
+          newHeatBase = Math.max(0, newHeatBase - subtaskWeight);
+        }
         
         return { 
           ...t, 

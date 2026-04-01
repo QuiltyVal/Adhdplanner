@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import angelImg from './angel.png';
+import devilImg from './devil.png';
 import './Companions.css';
 
 const ANGEL_PHRASES = [
@@ -87,8 +89,9 @@ export default function Companions({ tasksCount, deadCount, completedCount }) {
         <div
           className={`avatar angel-avatar ${angelBounce ? 'bounce' : ''}`}
           onClick={handleAngelClick}
+          style={{padding: 0, overflow: 'hidden'}}
         >
-          😇
+          <img src={angelImg} alt="Angel" style={{width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 0 5px rgba(255,255,255,0.5))'}} />
         </div>
       </div>
 
@@ -99,8 +102,9 @@ export default function Companions({ tasksCount, deadCount, completedCount }) {
         <div
           className={`avatar devil-avatar ${devilBounce ? 'bounce' : ''}`}
           onClick={handleDevilClick}
+          style={{padding: 0, overflow: 'hidden'}}
         >
-          😈
+          <img src={devilImg} alt="Devil" style={{width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 0 5px rgba(200,0,0,0.5))'}} />
         </div>
       </div>
     </div>

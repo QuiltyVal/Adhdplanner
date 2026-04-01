@@ -19,6 +19,9 @@ export async function getUserData(userId, email, name) {
     }
   } catch (error) {
     console.error("Ошибка при получении данных:", error);
+    if (error.code === 'permission-denied') {
+      alert("🚨 Ошибка доступа к Firestore (чтение). Зайдите в Firebase Console -> Firestore Database -> Rules и разрешите доступ для авторизованных пользователей.");
+    }
     return null;
   }
 }
@@ -32,5 +35,8 @@ export async function updateUserData(userId, tasks, score) {
     await setDoc(userDocRef, { tasks, score }, { merge: true });
   } catch (error) {
     console.error("Ошибка при обновлении данных:", error);
+    if (error.code === 'permission-denied') {
+      alert("🚨 Ошибка сохранения в Firestore! Зайдите в Firebase Console -> Firestore Database -> Rules. Сейчас сохранение на сервер заблокировано правилами базы.");
+    }
   }
 }
