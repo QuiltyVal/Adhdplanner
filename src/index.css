@@ -2,7 +2,7 @@
 
 @font-face {
   font-family: 'GuildensternNbp';
-  src: url('/GuildensternNbp.ttf') format('truetype');
+  src: url('./GuildensternNbp.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
 }
