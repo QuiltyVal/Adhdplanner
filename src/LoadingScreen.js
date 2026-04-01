@@ -87,7 +87,7 @@ function LightLoadingScreen() {
       background: 'linear-gradient(135deg, #fce4ec 0%, #f3e5f5 50%, #ede7f6 100%)',
       display: 'flex', justifyContent: 'center', alignItems: 'center',
       position: 'fixed', top: 0, left: 0, zIndex: 9998, overflow: 'hidden',
-      fontFamily: "'VT323', monospace",
+      fontFamily: "'GuildensternNbp', 'VT323', monospace",
       animation: 'light-bg-pulse 3s ease-in-out infinite',
     }}>
       {/* Portal area */}
@@ -157,7 +157,7 @@ function LightLoadingScreen() {
         textAlign: 'center', width: '100%', padding: '0 20px',
       }}>
         <div style={{
-          fontFamily: "'Press Start 2P', cursive",
+          fontFamily: "'GuildensternNbp', 'Press Start 2P', cursive",
           fontSize: 'clamp(0.45rem, 1.8vw, 0.65rem)',
           color: '#7c3aed',
           letterSpacing: '2px',
@@ -189,7 +189,7 @@ function DarkLoadingScreen() {
       background: '#000',
       display: 'flex', justifyContent: 'center', alignItems: 'center',
       position: 'fixed', top: 0, left: 0, zIndex: 9998, overflow: 'hidden',
-      fontFamily: "'VT323', monospace",
+      fontFamily: "'GuildensternNbp', 'VT323', monospace",
     }}>
       {/* CRT scanlines */}
       <div style={{
@@ -252,7 +252,7 @@ function DarkLoadingScreen() {
         textAlign: 'center', width: '100%', padding: '0 20px',
       }}>
         <div style={{
-          fontFamily: "'Press Start 2P', cursive",
+          fontFamily: "'GuildensternNbp', 'Press Start 2P', cursive",
           fontSize: 'clamp(0.5rem, 2vw, 0.7rem)',
           color: '#c0c0c0',
           letterSpacing: '2px', lineHeight: '2',

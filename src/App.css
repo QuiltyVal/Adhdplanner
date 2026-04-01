@@ -31,7 +31,7 @@
 }
 
 .score-value {
-  font-family: 'Press Start 2P', cursive;
+  font-family: 'GuildensternNbp', 'Press Start 2P', cursive;
   font-size: 1rem;
   color: #e66827;
   text-shadow: 2px 2px 0 #8a1c1c;
@@ -55,7 +55,7 @@
 }
 
 .app-title {
-  font-family: 'Press Start 2P', cursive;
+  font-family: 'GuildensternNbp', 'Press Start 2P', cursive;
   font-size: 1.2rem;
   color: #a0d6ff;
   text-shadow: 3px 3px 0 #8a1c1c, 0 0 20px rgba(160, 214, 255, 0.3);
@@ -64,7 +64,7 @@
 }
 
 .greeting-text {
-  font-family: 'VT323', monospace;
+  font-family: 'GuildensternNbp', 'VT323', monospace;
   font-size: 1.4rem;
   color: #c0c0c0;
   margin-top: 6px;
@@ -91,7 +91,7 @@
   background: transparent;
   border: 1px solid #333;
   color: #888;
-  font-family: 'VT323', monospace;
+  font-family: 'GuildensternNbp', 'VT323', monospace;
   font-size: 1.15rem;
   padding: 10px 4px;
   cursor: pointer;

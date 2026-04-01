@@ -18,7 +18,7 @@ const LogoutButton = () => {
         color: "#8a1c1c",
         border: "2px solid #8a1c1c",
         padding: "8px 14px",
-        fontFamily: "'Press Start 2P', cursive",
+        fontFamily: "'GuildensternNbp', 'Press Start 2P', cursive",
         fontSize: "0.45rem",
         cursor: "pointer",
         letterSpacing: "1px",

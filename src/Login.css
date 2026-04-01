@@ -60,7 +60,7 @@
 }
 
 .login-title {
-  font-family: 'Press Start 2P', cursive;
+  font-family: 'GuildensternNbp', 'Press Start 2P', cursive;
   font-size: 1.1rem;
   color: #fff;
   text-shadow: 3px 3px 0 #8a1c1c, 0 0 20px rgba(160, 214, 255, 0.2);
@@ -70,7 +70,7 @@
 }
 
 .login-subtitle {
-  font-family: 'VT323', monospace;
+  font-family: 'GuildensternNbp', 'VT323', monospace;
   color: #c0c0c0;
   font-size: 1.4rem;
   line-height: 1.4;

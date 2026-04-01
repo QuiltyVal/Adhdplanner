@@ -51,7 +51,7 @@ export default function TaskColumn({
               <div className="points-badge">+10 points</div>
             </div>
           ))}
-          {tasks.length === 0 && <p style={{color: '#3aedff', textAlign: 'center', width: '100%', fontFamily: "'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6}}>Рай пуст. Завершите задачу!</p>}
+          {tasks.length === 0 && <p style={{color: '#3aedff', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6}}>Рай пуст. Завершите задачу!</p>}
         </div>
       </div>
     );
@@ -72,7 +72,7 @@ export default function TaskColumn({
               </button>
             </div>
           ))}
-          {tasks.length === 0 && <p style={{color: '#8a1c1c', textAlign: 'center', width: '100%', fontFamily: "'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8}}>Кладбище пустует. Так держать!</p>}
+          {tasks.length === 0 && <p style={{color: '#8a1c1c', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8}}>Кладбище пустует. Так держать!</p>}
         </div>
       </div>
     );
@@ -92,7 +92,7 @@ export default function TaskColumn({
       >
         ✖️
       </button>
-      <div className="task-text" style={{ fontSize: '1.4rem', marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'VT323', monospace", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <div className="task-text" style={{ fontSize: '1.4rem', marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'GuildensternNbp', 'VT323', monospace", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
        {isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
        {task.text}
       </div>
@@ -194,7 +194,7 @@ export default function TaskColumn({
       {confirmTaskId && (
         <div className="modal-overlay" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
           <div className="modal-content glass-panel animated-fade-in" style={{padding: '40px', textAlign: 'center', maxWidth: '400px', width: '90%', border: '2px solid var(--accent-heaven)', borderRadius: '16px'}}>
-            <h2 style={{fontFamily: "'VT323', monospace", marginBottom: '15px', fontSize: '2.5rem', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '2px'}}>Точно всё?</h2>
+            <h2 style={{fontFamily: "'GuildensternNbp', 'VT323', monospace", marginBottom: '15px', fontSize: '2.5rem', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '2px'}}>Точно всё?</h2>
             <p style={{marginBottom: '35px', color: 'var(--text-muted)', fontSize: '1.2rem'}}>Эта задача отправится в Рай. Уверены?</p>
             <div style={{display: 'flex', gap: '20px', justifyContent: 'center'}}>
               <button 

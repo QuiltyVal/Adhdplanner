@@ -72,9 +72,12 @@ export default function App() {
             if (data) {
               setTasks(data.tasks || []);
               setScore(data.score || 0);
+              setLoading(false);
+              setDataLoaded(true);
+            } else {
+              // Failed to load — don't mark dataLoaded so we don't overwrite Firestore with empty data
+              setLoading(false);
             }
-            setLoading(false);
-            setDataLoaded(true);
           } else {
             // НЕ ставим dataLoaded=true чтобы не перезаписать данные пустым массивом!
             console.warn("Пользователь не авторизован в Firebase. Перенаправляем на логин.");
