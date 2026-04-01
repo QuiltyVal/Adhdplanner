@@ -1,4 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@400;700&display=swap');
+
+@font-face {
+  font-family: 'GuildensternNbp';
+  src: url('/GuildensternNbp.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
 
 :root {
   --bg-gradient: radial-gradient(ellipse at bottom, #1a0000 0%, #050505 100%);
@@ -28,7 +35,7 @@ html, body {
 }
 
 body {
-  font-family: 'VT323', monospace;
+  font-family: 'GuildensternNbp', 'VT323', monospace;
   background: #050505;
   background-attachment: fixed;
   color: #ffffff;
@@ -54,7 +61,7 @@ body::after {
 }
 
 input, button, textarea {
-  font-family: 'VT323', monospace;
+  font-family: 'GuildensternNbp', 'VT323', monospace;
 }
 
 button {
@@ -81,7 +88,7 @@ input, textarea {
   background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 50%, #ede7f6 100%);
   background-attachment: fixed;
   color: #2d1b4e;
-  font-family: 'VT323', monospace;
+  font-family: 'GuildensternNbp', 'VT323', monospace;
 }
 
 /* No CRT scanlines in light mode */

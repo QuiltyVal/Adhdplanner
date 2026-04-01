@@ -73,11 +73,15 @@ export default function App() {
               setTasks(data.tasks || []);
               setScore(data.score || 0);
             }
+            setLoading(false);
+            setDataLoaded(true);
           } else {
-            console.warn("Пользователь не авторизован в Firebase. Возможно, истекла сессия.");
+            // НЕ ставим dataLoaded=true чтобы не перезаписать данные пустым массивом!
+            console.warn("Пользователь не авторизован в Firebase. Перенаправляем на логин.");
+            setLoading(false);
+            localStorage.removeItem("adhdUser");
+            navigate("/login");
           }
-          setLoading(false);
-          setDataLoaded(true);
         });
       }
     };
