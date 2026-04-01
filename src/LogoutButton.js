@@ -6,7 +6,7 @@ const LogoutButton = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("telegramUser");
+    localStorage.removeItem("adhdUser");
     navigate("/login");
   };
 
@@ -35,7 +35,7 @@ const LogoutButton = () => {
         e.currentTarget.style.color = "#8a1c1c";
       }}
     >
-      EXIT
+      SIGN OUT
     </button>
   );
 };

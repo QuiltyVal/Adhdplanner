@@ -21,7 +21,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [minLoadDone, setMinLoadDone] = useState(false);
   const [isDark, setIsDark] = useState(
-    () => (localStorage.getItem('theme') || 'dark') === 'dark'
+    () => (localStorage.getItem('theme') || 'light') === 'dark'
   );
 
   const toggleTheme = () => {
@@ -181,7 +181,7 @@ export default function App() {
         });
         
         const subtasksCount = newSubtasks.length;
-        const subtaskWeight = subtasksCount > 0 ? (100 / subtasksCount) : 30;
+        const subtaskWeight = subtasksCount > 0 ? (50 / subtasksCount) : 10;
         
         let newHeatBase = t.heatCurrent;
         if (isCompleting) {

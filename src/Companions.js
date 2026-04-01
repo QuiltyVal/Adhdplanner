@@ -89,9 +89,14 @@ export default function Companions({ tasksCount, deadCount, completedCount }) {
         <div
           className={`avatar angel-avatar ${angelBounce ? 'bounce' : ''}`}
           onClick={handleAngelClick}
-          style={{padding: 0, overflow: 'hidden'}}
+          style={{
+            padding: 0, 
+            overflow: 'hidden',
+            background: 'radial-gradient(circle, rgba(255,255,220,0.98) 5%, rgba(180,230,255,0.85) 35%, rgba(100,180,255,0.4) 65%, transparent 85%)',
+            boxShadow: '0 0 18px rgba(160,220,255,0.7)'
+          }}
         >
-          <img src={angelImg} alt="Angel" style={{width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 0 5px rgba(255,255,255,0.5))'}} />
+          <img src={angelImg} alt="Angel" style={{width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9))'}} />
         </div>
       </div>
 
@@ -102,9 +107,14 @@ export default function Companions({ tasksCount, deadCount, completedCount }) {
         <div
           className={`avatar devil-avatar ${devilBounce ? 'bounce' : ''}`}
           onClick={handleDevilClick}
-          style={{padding: 0, overflow: 'hidden'}}
+          style={{
+            padding: 0, 
+            overflow: 'hidden', 
+            background: 'radial-gradient(circle, rgba(255,220,0,0.95) 5%, rgba(255,120,0,0.8) 30%, rgba(200,0,0,0.5) 65%, transparent 85%)',
+            boxShadow: '0 0 20px rgba(255,160,0,0.7)'
+          }}
         >
-          <img src={devilImg} alt="Devil" style={{width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 0 5px rgba(200,0,0,0.5))'}} />
+          <img src={devilImg} alt="Devil" style={{width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.8))'}} />
         </div>
       </div>
     </div>
