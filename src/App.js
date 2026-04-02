@@ -11,7 +11,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import "./App.css";
 
 const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
-const MIN_LOADING_MS = 2200;
+const MIN_LOADING_MS = 800;
 
 export default function App() {
   const [user, setUser] = useState(null);
