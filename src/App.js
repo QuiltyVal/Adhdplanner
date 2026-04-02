@@ -34,8 +34,11 @@ export default function App() {
     });
   };
 
-  // Flag to distinct first load from component updates
+  // Flag to distinguish first load from component updates
   const [dataLoaded, setDataLoaded] = useState(false);
+  // Prevents the sync effect from firing immediately when data is first loaded
+  // (no need to write back what we just read from Firestore)
+  const syncReadyRef = React.useRef(false);
   const navigate = useNavigate();
 
   // Minimum loading screen duration
@@ -64,9 +67,17 @@ export default function App() {
         setScore(localScore);
         setLoading(false);
         setDataLoaded(true);
+        return () => {};
       } else {
-        // Fetch from Firestore but ONLY after Firebase auth state is restored
-        onAuthStateChanged(auth, async (firebaseUser) => {
+        // Fetch from Firestore ONCE after Firebase auth state is restored.
+        // Unsubscribe immediately after first fire to prevent repeated loads
+        // that could race with ongoing saves and overwrite newer data.
+        let alreadyLoaded = false;
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (alreadyLoaded) return;
+          alreadyLoaded = true;
+          unsubscribe();
+
           if (firebaseUser) {
             const data = await getUserData(parsedUser.id, parsedUser.email, parsedUser.first_name);
             if (data) {
@@ -79,30 +90,35 @@ export default function App() {
               setLoading(false);
             }
           } else {
-            // НЕ ставим dataLoaded=true чтобы не перезаписать данные пустым массивом!
             console.warn("Пользователь не авторизован в Firebase. Перенаправляем на логин.");
             setLoading(false);
             localStorage.removeItem("adhdUser");
             navigate("/login");
           }
         });
+        return unsubscribe;
       }
     };
 
-    loadCloudData();
+    const cleanup = loadCloudData();
+    return cleanup;
   }, [navigate]);
 
   // Sync to Cloud / Local Storage whenever tasks or score change
   useEffect(() => {
-    // Prevent overwriting DB with empty array before initial load
-    if (!dataLoaded || !user) return; 
+    if (!dataLoaded || !user) return;
 
-    // Guest mode saves to localStorage
+    // The first time this effect fires with dataLoaded=true, tasks/score were
+    // just SET from Firestore — no need to write them back. Mark ready and skip.
+    if (!syncReadyRef.current) {
+      syncReadyRef.current = true;
+      return;
+    }
+
     if (user.id.startsWith("guest_")) {
       localStorage.setItem("adhd_planner_tasks", JSON.stringify(tasks));
       localStorage.setItem("adhd_planner_score", score.toString());
     } else {
-      // Cloud mode saves to Firestore
       updateUserData(user.id, tasks, score);
     }
   }, [tasks, score, dataLoaded, user]);
