@@ -150,7 +150,7 @@ export default function TaskColumn({
             <span className="vital-toggle-thumb" />
           </span>
           <span className="vital-toggle-copy">
-            {task.isVital ? 'Жизненно важно' : 'Обычный приоритет'}
+            {task.isVital ? 'Критично' : 'Обычно'}
           </span>
         </button>
         <button
@@ -158,7 +158,7 @@ export default function TaskColumn({
           onClick={() => onToggleToday(task.id)}
           type="button"
         >
-          {task.isToday ? '☀️ Сегодня' : '☆ На сегодня'}
+          {task.isToday ? '📌 Закреплено' : '☆ На сегодня'}
         </button>
       </div>
       {deadlineBadge && (
