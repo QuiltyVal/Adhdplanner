@@ -24,7 +24,7 @@
 .task-card {
   background: rgba(10, 10, 10, 0.95);
   border: 2px solid #333;
-  padding: 16px;
+  padding: 52px 16px 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -52,7 +52,6 @@
 
 .priority-badge {
   display: inline-flex;
-  align-self: flex-start;
   background: rgba(251, 191, 36, 0.16);
   border: 1px solid #fbbf24;
   color: #fbbf24;
@@ -60,6 +59,11 @@
   padding: 4px 8px;
   text-transform: uppercase;
   letter-spacing: 1px;
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .task-top-controls {
@@ -688,7 +692,7 @@
   }
 
   .task-card {
-    padding: 12px 10px;
+    padding: 46px 10px 12px;
   }
 
   .action-btn {

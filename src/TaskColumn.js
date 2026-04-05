@@ -158,7 +158,7 @@ export default function TaskColumn({
           onClick={() => onToggleToday(task.id)}
           type="button"
         >
-          {task.isToday ? '📌 Закреплено' : '☆ На сегодня'}
+          {task.isToday ? '📌 Закреплено' : '☆ Закрепить'}
         </button>
       </div>
       {deadlineBadge && (
