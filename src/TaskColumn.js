@@ -2,6 +2,37 @@
 import React, { useState } from "react";
 import "./TaskColumn.css";
 
+function getDeadlineBadge(deadlineAt) {
+  if (!deadlineAt) return null;
+
+  const deadline = new Date(`${deadlineAt}T23:59:59`);
+  if (Number.isNaN(deadline.getTime())) return null;
+
+  const daysLeft = Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  const shortDate = deadline.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
+  });
+
+  if (daysLeft < 0) {
+    return { tone: "overdue", label: `Просрочено · ${shortDate}` };
+  }
+
+  if (daysLeft === 0) {
+    return { tone: "today", label: `Сегодня · ${shortDate}` };
+  }
+
+  if (daysLeft === 1) {
+    return { tone: "soon", label: `Завтра · ${shortDate}` };
+  }
+
+  if (daysLeft <= 7) {
+    return { tone: "watch", label: `${daysLeft} дн. · ${shortDate}` };
+  }
+
+  return { tone: "calm", label: `До ${shortDate}` };
+}
+
 export default function TaskColumn({ 
   type, 
   tasks, 
@@ -11,7 +42,12 @@ export default function TaskColumn({
   onResurrect, 
   onAddTask,
   onAddSubtask,
-  onToggleSubtask
+  onToggleSubtask,
+  onToggleToday,
+  onSetUrgency,
+  onSetResistance,
+  onSetDeadline,
+  highlightTaskId
 }) {
   const [newTaskText, setNewTaskText] = useState("");
   const [newSubtaskText, setNewSubtaskText] = useState({}); // {taskId: text}
@@ -84,7 +120,14 @@ export default function TaskColumn({
   const purgatoryTasks = tasks.filter(t => t.heatCurrent <= 25);
 
   const renderTaskCard = (task, isPurgatory, heatColor) => (
-    <div key={task.id} className={`task-card animated-fade-in ${isPurgatory ? 'purgatory' : ''}`}>
+    (() => {
+      const deadlineBadge = getDeadlineBadge(task.deadlineAt);
+      return (
+    <div
+      key={task.id}
+      data-task-id={task.id}
+      className={`task-card animated-fade-in ${isPurgatory ? 'purgatory' : ''} ${task.id === highlightTaskId ? 'priority-target' : ''} ${deadlineBadge ? `deadline-${deadlineBadge.tone}` : ''}`}
+    >
       <button
         className="kill-btn"
         onClick={() => onKill(task.id)}
@@ -92,12 +135,25 @@ export default function TaskColumn({
       >
         ✖️
       </button>
+      {task.id === highlightTaskId && (
+        <div className="priority-badge">Цель дня</div>
+      )}
+      <button
+        className={`today-toggle-btn ${task.isToday ? 'is-active' : ''}`}
+        onClick={() => onToggleToday(task.id)}
+      >
+        {task.isToday ? '☀️ Сегодня' : '☆ На сегодня'}
+      </button>
+      {deadlineBadge && (
+        <div className={`deadline-badge ${deadlineBadge.tone}`}>{deadlineBadge.label}</div>
+      )}
       <div className="task-text" style={{ fontSize: '1.4rem', marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'GuildensternNbp', 'VT323', monospace", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
        {isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
        {task.text}
       </div>
       
       <div className="heat-slider-container">
+        <div className="heat-label">Пульс</div>
         <div style={{
           width: '100%', height: '6px', background: '#2a2a35', borderRadius: '4px', position: 'relative', overflow: 'hidden'
         }}>
@@ -106,6 +162,42 @@ export default function TaskColumn({
           }}></div>
         </div>
         <div style={{minWidth: '40px', textAlign: 'right'}}>{Math.floor(task.heatCurrent)}%</div>
+      </div>
+
+      <div className="task-meta-controls">
+        <label className="task-meta-field">
+          <span className="task-meta-label">Срочность</span>
+          <select
+            value={task.urgency || "medium"}
+            className="task-meta-select"
+            onChange={(event) => onSetUrgency(task.id, event.target.value)}
+          >
+            <option value="low">Можно позже</option>
+            <option value="medium">Нормально</option>
+            <option value="high">Срочно</option>
+          </select>
+        </label>
+        <label className="task-meta-field">
+          <span className="task-meta-label">Сопротивление</span>
+          <select
+            value={task.resistance || "medium"}
+            className="task-meta-select"
+            onChange={(event) => onSetResistance(task.id, event.target.value)}
+          >
+            <option value="low">Легко</option>
+            <option value="medium">Средне</option>
+            <option value="high">Страшно</option>
+          </select>
+        </label>
+        <label className="task-meta-field task-meta-field-wide">
+          <span className="task-meta-label">Дедлайн</span>
+          <input
+            type="date"
+            value={task.deadlineAt || ""}
+            className="task-meta-select"
+            onChange={(event) => onSetDeadline(task.id, event.target.value)}
+          />
+        </label>
       </div>
 
       {/* Subtasks block */}
@@ -146,6 +238,8 @@ export default function TaskColumn({
         )}
       </div>
     </div>
+      );
+    })()
   );
 
   return (
@@ -161,7 +255,7 @@ export default function TaskColumn({
           style={{fontSize: '1.1rem'}}
         />
         <button onClick={addTask} className="add-task-btn">
-          Добавить (Начать с 50%)
+          Добавить (пульс 35)
         </button>
       </div>
 

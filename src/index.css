@@ -126,6 +126,106 @@ input, textarea {
 }
 [data-theme="light"] .greeting-text { color: #9c7ac7; }
 
+/* Daily pulse */
+[data-theme="light"] .daily-pulse-panel {
+  background: #ffffff;
+  border: 2px solid #e9d5ff;
+  box-shadow: 4px 4px 0 rgba(192, 132, 252, 0.16);
+}
+[data-theme="light"] .daily-pulse-kicker { color: #ec4899; }
+[data-theme="light"] .daily-pulse-title {
+  color: #6d28d9;
+  text-shadow: 2px 2px 0 rgba(192, 132, 252, 0.18);
+}
+[data-theme="light"] .daily-pulse-description { color: #6b21a8; }
+[data-theme="light"] .pulse-chip {
+  background: #faf5ff;
+  border-color: #e9d5ff;
+  color: #7c3aed;
+}
+[data-theme="light"] .pulse-chip.streak { border-color: #f9a8d4; color: #be185d; }
+[data-theme="light"] .pulse-chip.actions { border-color: #93c5fd; color: #1d4ed8; }
+[data-theme="light"] .pulse-chip.danger { border-color: #fda4af; color: #be123c; }
+[data-theme="light"] .pulse-chip.active { border-color: #86efac; color: #15803d; }
+[data-theme="light"] .pulse-chip.today { border-color: #fbbf24; color: #b45309; }
+[data-theme="light"] .pulse-chip.deadline { border-color: #f59e0b; color: #b45309; }
+[data-theme="light"] .pulse-chip.deadline.today,
+[data-theme="light"] .pulse-chip.deadline.overdue {
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+[data-theme="light"] .pulse-chip.urgency { border-color: #f59e0b; color: #b45309; }
+[data-theme="light"] .pulse-chip.resistance { border-color: #c084fc; color: #7c3aed; }
+[data-theme="light"] .pulse-action-btn {
+  background: #faf5ff;
+  border-color: #d8b4fe;
+  color: #6d28d9;
+  box-shadow: 3px 3px 0 rgba(192, 132, 252, 0.16);
+}
+[data-theme="light"] .pulse-action-btn:hover {
+  border-color: #7c3aed;
+  background: #f3e8ff;
+}
+[data-theme="light"] .pulse-action-btn.primary {
+  background: linear-gradient(135deg, #fbcfe8, #ddd6fe);
+  border-color: #f472b6;
+}
+[data-theme="light"] .active-filter-btn {
+  background: #ffffff;
+  border-color: #e9d5ff;
+  color: #7c3aed;
+  box-shadow: 3px 3px 0 rgba(192, 132, 252, 0.15);
+}
+[data-theme="light"] .active-filter-btn.is-active {
+  border-color: #f59e0b;
+  color: #b45309;
+  background: #fef3c7;
+}
+[data-theme="light"] .daily-pulse-footer {
+  border-top-color: #e9d5ff;
+  color: #8b5cf6;
+}
+[data-theme="light"] .panic-modal {
+  background: #ffffff;
+  border: 2px solid #e9d5ff;
+  box-shadow: 6px 6px 0 rgba(192, 132, 252, 0.18);
+}
+[data-theme="light"] .panic-title {
+  color: #7c3aed;
+  text-shadow: 2px 2px 0 rgba(192, 132, 252, 0.16);
+}
+[data-theme="light"] .panic-close-btn {
+  background: #faf5ff;
+  border-color: #d8b4fe;
+  color: #7c3aed;
+  box-shadow: 3px 3px 0 rgba(192, 132, 252, 0.16);
+}
+[data-theme="light"] .panic-intro { color: #6b21a8; }
+[data-theme="light"] .panic-step-item {
+  border-color: #eadcff;
+  background: #faf5ff;
+  color: #5b21b6;
+}
+[data-theme="light"] .panic-step-index {
+  border-color: #f59e0b;
+  color: #b45309;
+  background: #fffbeb;
+}
+[data-theme="light"] .panic-timer-panel {
+  border-color: #fbcfe8;
+  background: linear-gradient(135deg, #fef3c7, #fce7f3);
+}
+[data-theme="light"] .panic-timer-label { color: #be185d; }
+[data-theme="light"] .panic-timer-value { color: #7c3aed; }
+[data-theme="light"] .panic-step-input {
+  background: #ffffff;
+  border-color: #d8b4fe;
+  color: #5b21b6;
+}
+[data-theme="light"] .panic-step-input:focus {
+  border-color: #7c3aed;
+}
+
 /* Tabs */
 [data-theme="light"] .tabs-navigation {
   background: #ffffff;
@@ -173,8 +273,59 @@ input, textarea {
   border-left: 4px solid #f472b6;
   box-shadow: 3px 3px 12px rgba(244, 114, 182, 0.18);
 }
+[data-theme="light"] .task-card.priority-target {
+  border-left: 4px solid #f59e0b;
+  box-shadow: 3px 3px 16px rgba(245, 158, 11, 0.16);
+}
+[data-theme="light"] .priority-badge {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #b45309;
+}
+[data-theme="light"] .today-toggle-btn {
+  background: #ffffff;
+  border-color: #e9d5ff;
+  color: #7c3aed;
+}
+[data-theme="light"] .today-toggle-btn.is-active {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #b45309;
+}
+[data-theme="light"] .deadline-badge {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #6b7280;
+}
+[data-theme="light"] .deadline-badge.watch {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #b45309;
+}
+[data-theme="light"] .deadline-badge.soon,
+[data-theme="light"] .deadline-badge.today,
+[data-theme="light"] .deadline-badge.overdue {
+  background: #fff1f2;
+  color: #be123c;
+}
+[data-theme="light"] .task-card.deadline-soon,
+[data-theme="light"] .task-card.deadline-today,
+[data-theme="light"] .task-card.deadline-overdue {
+  border-left: 4px solid #ef4444;
+}
 [data-theme="light"] .task-text {
   color: #2d1b4e !important;
+}
+[data-theme="light"] .task-meta-label {
+  color: #8b5cf6;
+}
+[data-theme="light"] .task-meta-select {
+  background: #ffffff;
+  border-color: #d8b4fe;
+  color: #5b21b6;
+}
+[data-theme="light"] .task-meta-select:focus {
+  border-color: #7c3aed;
 }
 [data-theme="light"] .heat-slider-container { color: #9c7ac7; }
 
@@ -304,4 +455,3 @@ input, textarea {
 [data-theme="light"] .login-blob.blob-1 { background: rgba(192, 132, 252, 0.45); }
 [data-theme="light"] .login-blob.blob-2 { background: rgba(244, 114, 182, 0.35); }
 [data-theme="light"] .telegram-btn-wrapper { background: #faf5ff; border-color: #e9d5ff; }
-
