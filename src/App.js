@@ -174,27 +174,34 @@ function getResistanceRank(task) {
   return 1;
 }
 
+function getPriorityScore(task, now = Date.now()) {
+  const deadlineScore = getDeadlineInfo(task, now)?.priorityScore || 0;
+  const urgencyScore = task?.urgency === "high" ? 90 : task?.urgency === "medium" ? 45 : 0;
+  const resistanceScore =
+    task?.resistance === "high" ? 55 : task?.resistance === "medium" ? 25 : 0;
+  const todayScore = task?.isToday ? 40 : 0;
+  const heatScore = Math.max(0, 100 - getTaskHeat(task)) * 0.35;
+  const staleScore = Math.min(40, Math.max(0, (now - (task?.lastUpdated || now)) / DAY_MS) * 4);
+
+  return deadlineScore + urgencyScore + resistanceScore + todayScore + heatScore + staleScore;
+}
+
 function pickRescueTask(tasks) {
   const activeTasks = tasks.filter((task) => task.status === "active");
   if (activeTasks.length === 0) return null;
 
   return [...activeTasks].sort((left, right) => {
+    const priorityDelta = getPriorityScore(right) - getPriorityScore(left);
+    if (priorityDelta !== 0) return priorityDelta;
+
     const rightDeadlineScore = getDeadlineInfo(right)?.priorityScore || 0;
     const leftDeadlineScore = getDeadlineInfo(left)?.priorityScore || 0;
-    const deadlineScoreDelta = rightDeadlineScore - leftDeadlineScore;
-    if (deadlineScoreDelta !== 0) return deadlineScoreDelta;
 
     if (rightDeadlineScore > 0 && leftDeadlineScore > 0) {
       const deadlineDateDelta =
         parseDeadline(left.deadlineAt)?.getTime() - parseDeadline(right.deadlineAt)?.getTime();
       if (deadlineDateDelta !== 0) return deadlineDateDelta;
     }
-
-    const urgencyDelta = getUrgencyRank(right) - getUrgencyRank(left);
-    if (urgencyDelta !== 0) return urgencyDelta;
-
-    const resistanceDelta = getResistanceRank(right) - getResistanceRank(left);
-    if (resistanceDelta !== 0) return resistanceDelta;
 
     const heatDelta = getTaskHeat(left) - getTaskHeat(right);
     if (heatDelta !== 0) return heatDelta;
@@ -526,7 +533,7 @@ export default function App() {
   const deadTasks = tasks.filter((task) => task.status === "dead");
   const todayPinnedTasks = activeTasks.filter((task) => task.isToday);
   const visibleActiveTasks = activeFilter === "today" ? todayPinnedTasks : activeTasks;
-  const rescueTask = pickRescueTask(todayPinnedTasks.length > 0 ? todayPinnedTasks : activeTasks);
+  const rescueTask = pickRescueTask(activeTasks);
   const panicTask = tasks.find((task) => task.id === panicTaskId) || rescueTask;
   const panicPlan = buildPanicPlan(panicTask);
   const rescueDeadline = getDeadlineInfo(rescueTask);
