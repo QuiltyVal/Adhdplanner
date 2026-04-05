@@ -44,6 +44,7 @@ export default function TaskColumn({
   onAddSubtask,
   onToggleSubtask,
   onToggleToday,
+  onToggleVital,
   onSetUrgency,
   onSetResistance,
   onSetDeadline,
@@ -126,7 +127,7 @@ export default function TaskColumn({
     <div
       key={task.id}
       data-task-id={task.id}
-      className={`task-card animated-fade-in ${isPurgatory ? 'purgatory' : ''} ${task.id === highlightTaskId ? 'priority-target' : ''} ${deadlineBadge ? `deadline-${deadlineBadge.tone}` : ''}`}
+      className={`task-card animated-fade-in ${isPurgatory ? 'purgatory' : ''} ${task.id === highlightTaskId ? 'priority-target' : ''} ${deadlineBadge ? `deadline-${deadlineBadge.tone}` : ''} ${task.isVital ? 'is-vital' : ''}`}
     >
       <button
         className="kill-btn"
@@ -139,16 +140,32 @@ export default function TaskColumn({
         <div className="priority-badge">Цель дня</div>
       )}
       <button
+        className={`vital-toggle-btn ${task.isVital ? 'is-active' : ''}`}
+        onClick={() => onToggleVital(task.id)}
+        title="Жизненно важный приоритет"
+        type="button"
+      >
+        <span className="vital-toggle-track">
+          <span className="vital-toggle-thumb" />
+        </span>
+        <span className="vital-toggle-copy">
+          {task.isVital ? 'Жизненно важно' : 'Обычный приоритет'}
+        </span>
+      </button>
+      <button
         className={`today-toggle-btn ${task.isToday ? 'is-active' : ''}`}
         onClick={() => onToggleToday(task.id)}
       >
         {task.isToday ? '☀️ Сегодня' : '☆ На сегодня'}
       </button>
+      {task.isVital && (
+        <div className="vital-badge">Критично для жизни</div>
+      )}
       {deadlineBadge && (
         <div className={`deadline-badge ${deadlineBadge.tone}`}>{deadlineBadge.label}</div>
       )}
       <div className="task-text" style={{ fontSize: '1.4rem', marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'GuildensternNbp', 'VT323', monospace", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-       {isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
+       {task.isVital ? '🚨 ' : isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
        {task.text}
       </div>
       

@@ -19,9 +19,10 @@ const URGENCY_DECAY_WINDOWS_MS = {
   medium: 5 * DAY_MS,
   high: 3 * DAY_MS,
 };
-const MIN_LOADING_MS = 800;
+const MIN_LOADING_MS = 350;
 const NUDGE_INTERVAL_MS = 20 * 60 * 1000;
 const PULSE_STORAGE_PREFIX = "adhd_planner_pulse";
+const CLOUD_CACHE_PREFIX = "adhd_planner_cloud_cache";
 
 function getDayKey(input = Date.now()) {
   const date = new Date(input);
@@ -46,6 +47,10 @@ function getPulseStorageKey(userId) {
   return `${PULSE_STORAGE_PREFIX}_${userId}`;
 }
 
+function getCloudCacheKey(userId) {
+  return `${CLOUD_CACHE_PREFIX}_${userId}`;
+}
+
 function loadPulseState(userId) {
   if (!userId) return getDefaultPulseState();
 
@@ -64,6 +69,41 @@ function loadPulseState(userId) {
   } catch (error) {
     console.warn("Не удалось прочитать pulse state:", error);
     return getDefaultPulseState();
+  }
+}
+
+function loadCloudCache(userId) {
+  if (!userId) return null;
+
+  try {
+    const rawState = localStorage.getItem(getCloudCacheKey(userId));
+    if (!rawState) return null;
+    const parsedState = JSON.parse(rawState);
+    return {
+      tasks: parsedState.tasks || [],
+      score: typeof parsedState.score === "number" ? parsedState.score : 0,
+      savedAt: parsedState.savedAt || 0,
+    };
+  } catch (error) {
+    console.warn("Не удалось прочитать cloud cache:", error);
+    return null;
+  }
+}
+
+function saveCloudCache(userId, tasks, score) {
+  if (!userId) return;
+
+  try {
+    localStorage.setItem(
+      getCloudCacheKey(userId),
+      JSON.stringify({
+        tasks,
+        score,
+        savedAt: Date.now(),
+      }),
+    );
+  } catch (error) {
+    console.warn("Не удалось сохранить cloud cache:", error);
   }
 }
 
@@ -176,6 +216,7 @@ function getResistanceRank(task) {
 
 function getPriorityScore(task, now = Date.now()) {
   const deadlineScore = getDeadlineInfo(task, now)?.priorityScore || 0;
+  const vitalScore = task?.isVital ? 160 : 0;
   const urgencyScore = task?.urgency === "high" ? 90 : task?.urgency === "medium" ? 45 : 0;
   const resistanceScore =
     task?.resistance === "high" ? 55 : task?.resistance === "medium" ? 25 : 0;
@@ -183,7 +224,7 @@ function getPriorityScore(task, now = Date.now()) {
   const heatScore = Math.max(0, 100 - getTaskHeat(task)) * 0.35;
   const staleScore = Math.min(40, Math.max(0, (now - (task?.lastUpdated || now)) / DAY_MS) * 4);
 
-  return deadlineScore + urgencyScore + resistanceScore + todayScore + heatScore + staleScore;
+  return vitalScore + deadlineScore + urgencyScore + resistanceScore + todayScore + heatScore + staleScore;
 }
 
 function pickRescueTask(tasks) {
@@ -337,6 +378,10 @@ function getResistanceLabel(resistance) {
   return "Легко";
 }
 
+function getVitalLabel(isVital) {
+  return isVital ? "Жизненно важно" : "Обычный приоритет";
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -406,6 +451,10 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
+  useEffect(() => {
+    syncReadyRef.current = false;
+  }, [user?.id]);
+
   // Load User & Data from Cloud
   useEffect(() => {
     const storedUser = localStorage.getItem("adhdUser");
@@ -428,34 +477,56 @@ export default function App() {
         setDataLoaded(true);
         return () => {};
       } else {
-        // Fetch from Firestore ONCE after Firebase auth state is restored.
-        // Unsubscribe immediately after first fire to prevent repeated loads
-        // that could race with ongoing saves and overwrite newer data.
+        const cachedCloudData = loadCloudCache(parsedUser.id);
+
+        if (cachedCloudData) {
+          setTasks(cachedCloudData.tasks || []);
+          setScore(cachedCloudData.score || 0);
+          setLoading(false);
+        }
+
+        let isCancelled = false;
+
+        const applyCloudData = async (firebaseUser) => {
+          if (!firebaseUser) {
+            console.warn("Пользователь не авторизован в Firebase. Перенаправляем на логин.");
+            setLoading(false);
+            localStorage.removeItem("adhdUser");
+            navigate("/login");
+            return;
+          }
+
+          const data = await getUserData(parsedUser.id, parsedUser.email, parsedUser.first_name);
+          if (isCancelled) return;
+
+          if (data) {
+            setTasks(data.tasks || []);
+            setScore(data.score || 0);
+            setLoading(false);
+            setDataLoaded(true);
+          } else if (!cachedCloudData) {
+            setLoading(false);
+          }
+        };
+
+        if (auth.currentUser && auth.currentUser.uid === parsedUser.id) {
+          void applyCloudData(auth.currentUser);
+          return () => {
+            isCancelled = true;
+          };
+        }
+
         let alreadyLoaded = false;
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
           if (alreadyLoaded) return;
           alreadyLoaded = true;
           unsubscribe();
-
-          if (firebaseUser) {
-            const data = await getUserData(parsedUser.id, parsedUser.email, parsedUser.first_name);
-            if (data) {
-              setTasks(data.tasks || []);
-              setScore(data.score || 0);
-              setLoading(false);
-              setDataLoaded(true);
-            } else {
-              // Failed to load — don't mark dataLoaded so we don't overwrite Firestore with empty data
-              setLoading(false);
-            }
-          } else {
-            console.warn("Пользователь не авторизован в Firebase. Перенаправляем на логин.");
-            setLoading(false);
-            localStorage.removeItem("adhdUser");
-            navigate("/login");
-          }
+          await applyCloudData(firebaseUser);
         });
-        return unsubscribe;
+        return () => {
+          isCancelled = true;
+          unsubscribe();
+        };
       }
     };
 
@@ -472,6 +543,11 @@ export default function App() {
     if (!user?.id) return;
     localStorage.setItem(getPulseStorageKey(user.id), JSON.stringify(pulseState));
   }, [pulseState, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || user.id.startsWith("guest_")) return;
+    saveCloudCache(user.id, tasks, score);
+  }, [tasks, score, user?.id]);
 
   // Sync to Cloud / Local Storage whenever tasks or score change
   useEffect(() => {
@@ -494,7 +570,7 @@ export default function App() {
 
   // Game tick (cooling tasks based on heatBase and lastUpdated)
   useEffect(() => {
-    if (loading || tasks.length === 0) return;
+    if (loading || !dataLoaded || tasks.length === 0) return;
     const interval = setInterval(() => {
       const now = Date.now();
       let changed = false;
@@ -643,6 +719,7 @@ export default function App() {
       urgency: "medium",
       resistance: "medium",
       isToday: false,
+      isVital: false,
     };
     setTasks([newTask, ...tasks]);
     setHighlightTaskId(newTask.id);
@@ -728,6 +805,15 @@ export default function App() {
     setTasks(tasks.map(task => (
       task.id === taskId
         ? { ...task, deadlineAt, lastUpdated: Date.now() }
+        : task
+    )));
+    setHighlightTaskId(taskId);
+  };
+
+  const handleToggleVital = (taskId) => {
+    setTasks(tasks.map(task => (
+      task.id === taskId
+        ? { ...task, isVital: !task.isVital, lastUpdated: Date.now() }
         : task
     )));
     setHighlightTaskId(taskId);
@@ -899,6 +985,9 @@ export default function App() {
                 {rescueDeadline && (
                   <span className={`pulse-chip deadline ${rescueDeadline.tone}`}>📅 {rescueDeadline.label}</span>
                 )}
+                {rescueTask.isVital && (
+                  <span className="pulse-chip vital">🚨 {getVitalLabel(rescueTask.isVital)}</span>
+                )}
                 <span className="pulse-chip urgency">⏰ {getUrgencyLabel(rescueTask.urgency)}</span>
                 <span className="pulse-chip resistance">🧠 {getResistanceLabel(rescueTask.resistance)}</span>
               </>
@@ -1051,6 +1140,7 @@ export default function App() {
             onAddSubtask={handleAddSubtask}
             onToggleSubtask={handleToggleSubtask}
             onToggleToday={handleToggleToday}
+            onToggleVital={handleToggleVital}
             onSetUrgency={handleSetUrgency}
             onSetResistance={handleSetResistance}
             onSetDeadline={handleSetDeadline}

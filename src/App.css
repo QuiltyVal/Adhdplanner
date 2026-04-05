@@ -129,6 +129,7 @@
 .pulse-chip.actions { border-color: #93c5fd; color: #bfdbfe; }
 .pulse-chip.danger { border-color: #f87171; color: #fca5a5; }
 .pulse-chip.active { border-color: #34d399; color: #86efac; }
+.pulse-chip.vital { border-color: #f87171; color: #fecaca; background: rgba(239, 68, 68, 0.1); }
 
 .daily-pulse-actions {
   display: grid;
