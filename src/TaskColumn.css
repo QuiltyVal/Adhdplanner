@@ -540,11 +540,11 @@
 
 .zone-title {
   font-family: 'GuildensternNbp', 'Press Start 2P', cursive;
-  font-size: 0.5rem;
+  font-size: 0.7rem;
   text-align: center;
   margin-bottom: 16px;
-  letter-spacing: 1px;
-  line-height: 1.7;
+  letter-spacing: 1.4px;
+  line-height: 1.9;
 }
 
 .focus-zone .zone-title {

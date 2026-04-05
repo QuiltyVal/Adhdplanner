@@ -187,8 +187,11 @@
   background: rgba(255, 255, 255, 0.05);
   border: 2px solid #333;
   color: #d1d5db;
-  padding: 10px 14px;
-  font-size: 1rem;
+  padding: 12px 18px;
+  font-size: 1.22rem;
+  font-family: 'GuildensternNbp', 'VT323', monospace;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
   cursor: pointer;
   box-shadow: 3px 3px 0 #000;
 }
@@ -507,6 +510,7 @@
 
   .active-filter-btn {
     min-height: 44px;
+    font-size: 1.08rem;
   }
 
   .panic-modal {
