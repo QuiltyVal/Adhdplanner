@@ -139,28 +139,28 @@ export default function TaskColumn({
       {task.id === highlightTaskId && (
         <div className="priority-badge">Цель дня</div>
       )}
-      <button
-        className={`vital-toggle-btn ${task.isVital ? 'is-active' : ''}`}
-        onClick={() => onToggleVital(task.id)}
-        title="Жизненно важный приоритет"
-        type="button"
-      >
-        <span className="vital-toggle-track">
-          <span className="vital-toggle-thumb" />
-        </span>
-        <span className="vital-toggle-copy">
-          {task.isVital ? 'Жизненно важно' : 'Обычный приоритет'}
-        </span>
-      </button>
-      <button
-        className={`today-toggle-btn ${task.isToday ? 'is-active' : ''}`}
-        onClick={() => onToggleToday(task.id)}
-      >
-        {task.isToday ? '☀️ Сегодня' : '☆ На сегодня'}
-      </button>
-      {task.isVital && (
-        <div className="vital-badge">Критично для жизни</div>
-      )}
+      <div className="task-top-controls">
+        <button
+          className={`vital-toggle-btn ${task.isVital ? 'is-active' : ''}`}
+          onClick={() => onToggleVital(task.id)}
+          title="Жизненно важный приоритет"
+          type="button"
+        >
+          <span className="vital-toggle-track" aria-hidden="true">
+            <span className="vital-toggle-thumb" />
+          </span>
+          <span className="vital-toggle-copy">
+            {task.isVital ? 'Жизненно важно' : 'Обычный приоритет'}
+          </span>
+        </button>
+        <button
+          className={`today-toggle-btn ${task.isToday ? 'is-active' : ''}`}
+          onClick={() => onToggleToday(task.id)}
+          type="button"
+        >
+          {task.isToday ? '☀️ Сегодня' : '☆ На сегодня'}
+        </button>
+      </div>
       {deadlineBadge && (
         <div className={`deadline-badge ${deadlineBadge.tone}`}>{deadlineBadge.label}</div>
       )}

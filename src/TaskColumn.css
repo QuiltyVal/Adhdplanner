@@ -62,13 +62,24 @@
   letter-spacing: 1px;
 }
 
+.task-top-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .today-toggle-btn {
-  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid #4b5563;
   color: #d1d5db;
-  padding: 6px 10px;
-  font-size: 0.95rem;
+  padding: 8px 12px;
+  min-height: 40px;
+  font-size: 0.9rem;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -82,12 +93,14 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  align-self: flex-start;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid #4b5563;
   color: #d1d5db;
-  padding: 6px 10px;
-  font-size: 0.95rem;
+  padding: 8px 12px;
+  min-height: 40px;
+  flex: 1 1 240px;
+  min-width: 0;
+  font-size: 0.9rem;
   cursor: pointer;
 }
 
@@ -131,18 +144,10 @@
 
 .vital-toggle-copy {
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.vital-badge {
-  align-self: flex-start;
-  background: rgba(220, 38, 38, 0.12);
-  border: 1px solid #f87171;
-  color: #fecaca;
-  padding: 6px 10px;
-  font-size: 0.9rem;
-  text-transform: uppercase;
   letter-spacing: 0.6px;
+  line-height: 1;
+  flex: 1;
+  text-align: left;
 }
 
 .deadline-badge {
@@ -703,10 +708,18 @@
     grid-column: auto;
   }
 
+  .task-top-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .vital-toggle-btn,
   .today-toggle-btn {
     width: 100%;
-    justify-content: center;
+  }
+
+  .vital-toggle-copy {
+    text-align: left;
   }
 
   .subtask-checkbox {
