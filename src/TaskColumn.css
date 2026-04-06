@@ -654,23 +654,24 @@
 /* ── Mobile styles ── */
 @media (max-width: 600px) {
   .new-task-container {
-    flex-direction: column;
+    flex-direction: row;
     gap: 8px;
-    padding: 10px;
-    margin-top: 12px;
+    padding: 8px;
+    margin-top: 8px;
   }
 
   .new-task-input {
     font-size: 16px;
-    padding: 10px 6px;
+    padding: 8px 6px;
   }
 
   .add-task-btn {
-    width: 100%;
-    padding: 14px;
-    font-size: 1.2rem;
-    min-height: 48px;
+    width: auto;
+    padding: 8px 14px;
+    font-size: 1rem;
+    min-height: 42px;
     touch-action: manipulation;
+    white-space: nowrap;
   }
 
   .zones-grid {
@@ -738,7 +739,8 @@
 
   .vital-toggle-btn,
   .today-toggle-btn {
-    width: 100%;
+    width: auto;
+    flex: 1 1 auto;
   }
 
   .vital-toggle-copy {
