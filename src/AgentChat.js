@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './AgentChat.css';
 
-const BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
-const API_KEY = process.env.REACT_APP_OPENROUTER_KEY;
+const API_ROUTE = "/api/agent-chat";
 const MODEL = "google/gemma-4-26b-a4b-it";
 const GCAL_API = "https://www.googleapis.com/calendar/v3";
 
@@ -126,18 +125,16 @@ const buildTools = (hasCalendar) => {
 };
 
 async function callModel(messages, tools) {
-  if (!API_KEY) throw new Error("API key not configured");
-  const res = await fetch(BASE_URL, {
+  const res = await fetch(API_ROUTE, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ model: MODEL, messages, tools, max_tokens: 600 }),
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`OpenRouter ${res.status}: ${err}`);
+    throw new Error(`Agent chat ${res.status}: ${err}`);
   }
   return res.json();
 }
@@ -218,8 +215,7 @@ export default function AgentChat({ isOpen, onClose, persona, tasks, onAddTask, 
       })));
     }
     if (name === "add_task") {
-      onAddTask(args.text);
-      if (args.urgency) onSetUrgency(null, args.urgency); // applied on creation side
+      onAddTask(args.text, { urgency: args.urgency || "medium" });
       return `Задача "${args.text}" добавлена.`;
     }
     if (name === "add_subtask") {

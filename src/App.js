@@ -737,7 +737,7 @@ export default function App() {
     setNudgeStatus("2 минуты прошли. Даже микро-сдвиг уже считается.");
   }, [panicEndsAt, panicSecondsLeft]);
 
-  const handleAddTask = (text) => {
+  const handleAddTask = (text, options = {}) => {
     const newTask = {
       id: Date.now().toString(),
       text,
@@ -746,7 +746,7 @@ export default function App() {
       heatCurrent: DEFAULT_TASK_HEAT,
       status: "active",
       subtasks: [],
-      urgency: "medium",
+      urgency: options.urgency || "medium",
       resistance: "medium",
       isToday: false,
       isVital: false,
