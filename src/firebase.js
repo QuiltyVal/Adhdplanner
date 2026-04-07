@@ -3,14 +3,16 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
+// Firebase configuration is provided via environment variables. React requires
+// variables to be prefixed with REACT_APP_ to be exposed at build time.
 const firebaseConfig = {
-  apiKey: "AIzaSyAcutIjmjWQl6m0nHro1R7B9TiOUmezDp4",
-  authDomain: "telegrammadhd.firebaseapp.com",
-  projectId: "telegrammadhd",
-  storageBucket: "telegrammadhd.firebasestorage.app",
-  messagingSenderId: "173912522406",
-  appId: "1:173912522406:web:9a0ac9a50f229bb040fe67",
-  measurementId: "G-XJTYHD9ZCL"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
