@@ -201,6 +201,13 @@ async function handlePlainCapture(chatId, text) {
     isToday: intent.is_today,
     isVital: intent.is_vital,
   });
+  if (Array.isArray(intent.subtasks) && intent.subtasks.length > 0) {
+    created.subtasks = intent.subtasks.map((text, index) => ({
+      id: `${created.id}-sub-${index + 1}`,
+      text,
+      completed: false,
+    }));
+  }
 
   await mutatePlanner(userId, (current) => ({
     ...current,
@@ -212,6 +219,7 @@ async function handlePlainCapture(chatId, text) {
   if (created.isToday) meta.push("📌 сегодня");
   if (created.isVital) meta.push("🚨 критично");
   if (created.urgency === "high") meta.push("⏰ срочно");
+  if (created.subtasks?.length) meta.push(`🪜 шагов: ${created.subtasks.length}`);
 
   await sendText(
     chatId,

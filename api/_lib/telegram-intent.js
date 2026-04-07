@@ -209,6 +209,13 @@ function normalizeIntent(payload = {}) {
   return {
     intent,
     task_text: typeof payload.task_text === "string" ? payload.task_text.trim() : "",
+    subtasks: Array.isArray(payload.subtasks)
+      ? payload.subtasks
+          .filter((item) => typeof item === "string")
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .slice(0, 7)
+      : [],
     deadline_at:
       typeof payload.deadline_at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(payload.deadline_at)
         ? payload.deadline_at
@@ -246,13 +253,14 @@ async function parseTelegramIntent({ text, tasks = [] }) {
     "Если это приветствие, уточнение, маленький разговор — это chat.",
     "Если фраза двусмысленная, но выглядит как дело, которое нельзя потерять, предпочти add_task.",
     "Для add_task сократи task_text до ясной короткой формулировки задачи на русском.",
+    "Если в сообщении после двоеточия, тире или списка перечислены шаги, верни их как subtasks массивом строк.",
     "Если в тексте есть дедлайн, верни deadline_at в формате YYYY-MM-DD. Иначе null.",
     "Если задача звучит очень срочно или с жёстким сроком, urgency=high. Если обычная — medium. Если можно потом — low.",
     "Если пользователь явно просит на сегодня — is_today=true.",
     "Если задача звучит жизненно критично — is_vital=true.",
     "Для chat верни короткий ответ по-русски в reply_text.",
     "JSON-схема ответа:",
-    '{"intent":"add_task|show_today|panic|chat","task_text":"string","deadline_at":"YYYY-MM-DD|null","urgency":"low|medium|high|null","is_today":false,"is_vital":false,"reply_text":"string|null"}',
+    '{"intent":"add_task|show_today|panic|chat","task_text":"string","subtasks":["string"],"deadline_at":"YYYY-MM-DD|null","urgency":"low|medium|high|null","is_today":false,"is_vital":false,"reply_text":"string|null"}',
     "Вот краткий контекст активных задач пользователя:",
     JSON.stringify(compactTasks),
   ].join("\n");
