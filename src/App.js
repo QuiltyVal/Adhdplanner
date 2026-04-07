@@ -1151,7 +1151,7 @@ export default function App() {
         {activeTab === 'cemetery' && <TaskColumn type="cemetery" tasks={deadTasks} onResurrect={handleResurrect} />}
       </div>
 
-      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} />
+      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} onAddTask={handleAddTask} onAddSubtask={handleAddSubtask} />
     </div>
   );
 }
