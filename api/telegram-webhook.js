@@ -1,4 +1,5 @@
 const { buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority } = require("./_lib/planner-store");
+const { parseTelegramIntent } = require("./_lib/telegram-intent");
 const { plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
 
 const DEFAULT_USER_ID = process.env.PLANNER_DEFAULT_USER_ID;
@@ -166,7 +167,62 @@ async function handlePlainCapture(chatId, text) {
     );
     return;
   }
-  await handleAdd(chatId, cleaned);
+
+  const userId = getTargetUserId();
+  const plannerData = await getPlannerData(userId);
+  const intent = await parseTelegramIntent({
+    text: cleaned,
+    tasks: plannerData.tasks,
+  });
+
+  if (intent.intent === "show_today") {
+    await sendTodayDigest(chatId, plannerData);
+    return;
+  }
+
+  if (intent.intent === "panic") {
+    await handlePanic(chatId);
+    return;
+  }
+
+  if (intent.intent === "chat") {
+    await sendText(
+      chatId,
+      intent.reply_text || "Сформулируй это как задачу, или просто напиши /today или /panic.",
+    );
+    return;
+  }
+
+  const taskText = intent.task_text || cleaned;
+  const created = createTask(taskText, {
+    source: "telegram",
+    deadlineAt: intent.deadline_at || "",
+    urgency: intent.urgency || "medium",
+    isToday: intent.is_today,
+    isVital: intent.is_vital,
+  });
+
+  await mutatePlanner(userId, (current) => ({
+    ...current,
+    tasks: [created, ...current.tasks],
+  }));
+
+  const meta = [];
+  if (created.deadlineAt) meta.push(`📅 до ${escapeHtml(created.deadlineAt)}`);
+  if (created.isToday) meta.push("📌 сегодня");
+  if (created.isVital) meta.push("🚨 критично");
+  if (created.urgency === "high") meta.push("⏰ срочно");
+
+  await sendText(
+    chatId,
+    [
+      `➕ Добавила задачу: <b>${escapeHtml(created.text)}</b>`,
+      meta.length ? meta.join(" · ") : "",
+    ].filter(Boolean).join("\n"),
+    {
+      reply_markup: plannerTaskKeyboard(created.id),
+    },
+  );
 }
 
 async function handleCallback(chatId, callbackQuery) {
