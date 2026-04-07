@@ -3,7 +3,7 @@ import './AgentChat.css';
 
 const BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
 const API_KEY = process.env.REACT_APP_OPENROUTER_KEY;
-const MODEL = "openai/gpt-4o-mini";
+const MODEL = "google/gemma-4-26b-a4b-it";
 
 const TOOLS = [
   {
