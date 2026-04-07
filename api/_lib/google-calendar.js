@@ -5,6 +5,15 @@ const GOOGLE_OAUTH_BASE = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
+const GOOGLE_CALENDAR_TIMEZONE = "Europe/Berlin";
+
+function pad(value) {
+  return String(value).padStart(2, "0");
+}
+
+function formatWallClockDateTime(date) {
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:00`;
+}
 
 function getRequiredEnv(name) {
   const value = process.env[name];
@@ -235,18 +244,29 @@ async function googleCalendarRequest(userId, method, path, body) {
 }
 
 async function createCalendarEvent(userId, { title, date, startTime, durationMinutes = 60, description }) {
-  const start = new Date(`${date}T${startTime}:00`);
-  if (Number.isNaN(start.getTime())) {
+  const [year, month, day] = String(date || "").split("-").map(Number);
+  const [hours, minutes] = String(startTime || "").split(":").map(Number);
+
+  if (![year, month, day, hours, minutes].every((value) => Number.isFinite(value))) {
     throw new Error("Invalid start date/time");
   }
 
-  const end = new Date(start.getTime() + Number(durationMinutes) * 60000);
+  const startUtc = Date.UTC(year, month - 1, day, hours, minutes);
+  const endUtc = startUtc + Number(durationMinutes) * 60000;
+  const start = new Date(startUtc);
+  const end = new Date(endUtc);
 
   return googleCalendarRequest(userId, "POST", "/calendars/primary/events", {
     summary: title,
     description: description || "",
-    start: { dateTime: start.toISOString() },
-    end: { dateTime: end.toISOString() },
+    start: {
+      dateTime: formatWallClockDateTime(start),
+      timeZone: GOOGLE_CALENDAR_TIMEZONE,
+    },
+    end: {
+      dateTime: formatWallClockDateTime(end),
+      timeZone: GOOGLE_CALENDAR_TIMEZONE,
+    },
   });
 }
 
