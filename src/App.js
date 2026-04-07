@@ -7,7 +7,13 @@ import Companions from "./Companions";
 import LoadingScreen from "./LoadingScreen";
 import { getUserData, updateUserData } from "./firestoreUtils";
 import { auth, googleProvider } from "./firebase";
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  GoogleAuthProvider,
+} from "firebase/auth";
 import "./App.css";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -456,6 +462,29 @@ export default function App() {
     syncReadyRef.current = false;
   }, [user?.id]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const resolveRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (!mounted || !result) return;
+
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) {
+          setCalendarToken(credential.accessToken);
+        }
+      } catch (error) {
+        console.error("Calendar redirect error:", error);
+      }
+    };
+
+    resolveRedirectResult();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // Load User & Data from Cloud
   useEffect(() => {
     const storedUser = localStorage.getItem("adhdUser");
@@ -841,15 +870,33 @@ export default function App() {
   };
 
   const handleConnectCalendar = async () => {
+    const calProvider = new GoogleAuthProvider();
+    calProvider.addScope("https://www.googleapis.com/auth/calendar");
+    calProvider.setCustomParameters({
+      prompt: "consent select_account",
+      include_granted_scopes: "true",
+    });
+
     try {
-      const calProvider = new GoogleAuthProvider();
-      calProvider.addScope("https://www.googleapis.com/auth/calendar");
       const result = await signInWithPopup(auth, calProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {
         setCalendarToken(credential.accessToken);
       }
     } catch (e) {
+      const popupFlowFailed =
+        e?.code === "auth/popup-blocked" ||
+        e?.code === "auth/cancelled-popup-request" ||
+        e?.code === "auth/popup-closed-by-user";
+
+      if (popupFlowFailed) {
+        try {
+          await signInWithRedirect(auth, calProvider);
+          return;
+        } catch (redirectError) {
+          console.error("Calendar redirect start error:", redirectError);
+        }
+      }
       console.error("Calendar connect error:", e);
     }
   };

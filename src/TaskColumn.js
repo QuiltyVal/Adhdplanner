@@ -67,7 +67,7 @@ export default function TaskColumn({
     try {
       const start = new Date(`${calDate}T${calTime}:00`);
       const end = new Date(start.getTime() + calDuration * 60000);
-      await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events`, {
+      const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${calendarToken}`,
@@ -79,6 +79,12 @@ export default function TaskColumn({
           end: { dateTime: end.toISOString() },
         }),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Google Calendar ${response.status}: ${errorText}`);
+      }
+
       setCalPickerTaskId(null);
     } catch (e) {
       console.error("Calendar error:", e);
