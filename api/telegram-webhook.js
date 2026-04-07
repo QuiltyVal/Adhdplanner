@@ -19,8 +19,9 @@ function isAllowedChat(chatId) {
 function parseCommand(text = "") {
   const trimmed = text.trim();
   const [command, ...rest] = trimmed.split(/\s+/);
+  const normalizedCommand = (command || "").split("@")[0].toLowerCase();
   return {
-    command: command?.toLowerCase() || "",
+    command: normalizedCommand,
     argText: rest.join(" ").trim(),
   };
 }
@@ -51,19 +52,43 @@ async function sendTodayDigest(chatId, plannerData) {
     return;
   }
 
+  const [topTask, ...restTasks] = topTasks;
   const header = [
     "☀️ <b>Что у тебя сегодня горит</b>",
     "",
-    ...topTasks.map((task) => buildTelegramTaskLine(task)),
+    ...topTasks.map((task, index) => `${index + 1}. ${buildTelegramTaskLine(task).slice(2)}`),
   ].join("\n");
 
   await sendText(chatId, header);
 
-  for (const task of topTasks) {
-  await sendText(chatId, `🎯 <b>${escapeHtml(task.text)}</b>`, {
-      reply_markup: plannerTaskKeyboard(task.id),
-    });
+  await sendText(
+    chatId,
+    [
+      `🎯 <b>Главная сейчас:</b> ${escapeHtml(topTask.text)}`,
+      restTasks.length ? `Ещё в фоне: ${restTasks.map((task) => escapeHtml(task.text)).join(" · ")}` : "Если хочется только одного действия, жми Panic.",
+    ].join("\n"),
+    {
+      reply_markup: plannerTaskKeyboard(topTask.id),
+    },
+  );
+}
+
+function buildPanicText(task) {
+  const firstOpenSubtask = getFirstOpenSubtask(task);
+  const lines = [
+    "🆘 <b>Panic mode</b>",
+    "",
+    `Берём: <b>${escapeHtml(task.text)}</b>`,
+  ];
+
+  if (firstOpenSubtask) {
+    lines.push(`Первый шаг: ${escapeHtml(firstOpenSubtask.text)}`);
+    lines.push("Сделай только это и остановись, если захочешь.");
+  } else {
+    lines.push("Подзадач пока нет. Открой всё, что связано с задачей, и сделай один кривой шаг на 2 минуты.");
   }
+
+  return lines.join("\n");
 }
 
 async function handleStart(chatId) {
@@ -100,21 +125,7 @@ async function handlePanic(chatId) {
     return;
   }
 
-  const firstOpenSubtask = getFirstOpenSubtask(task);
-  const lines = [
-    `🆘 <b>Panic mode</b>`,
-    "",
-    `Берём: <b>${escapeHtml(task.text)}</b>`,
-  ];
-
-  if (firstOpenSubtask) {
-    lines.push(`Первый шаг: ${escapeHtml(firstOpenSubtask.text)}`);
-    lines.push("Сделай только это и остановись, если захочешь.");
-  } else {
-    lines.push("Подзадач пока нет. Открой всё, что связано с задачей, и сделай один кривой шаг на 2 минуты.");
-  }
-
-  await sendText(chatId, lines.join("\n"), {
+  await sendText(chatId, buildPanicText(task), {
     reply_markup: plannerTaskKeyboard(task.id),
   });
 }
@@ -140,6 +151,21 @@ async function handleAdd(chatId, argText) {
 async function handlePlainCapture(chatId, text) {
   const cleaned = text.trim();
   if (!cleaned) return;
+  if (cleaned.startsWith("/")) {
+    await sendText(
+      chatId,
+      [
+        "Я не поняла эту команду.",
+        "",
+        "Рабочие команды сейчас:",
+        "/start",
+        "/today",
+        "/panic",
+        "/add текст",
+      ].join("\n"),
+    );
+    return;
+  }
   await handleAdd(chatId, cleaned);
 }
 
@@ -152,6 +178,7 @@ async function handleCallback(chatId, callbackQuery) {
   }
 
   let feedback = "Сделано.";
+  let panicTask = null;
 
   await mutatePlanner(userId, (current) => {
     const nextTasks = current.tasks.map((task) => {
@@ -184,6 +211,7 @@ async function handleCallback(chatId, callbackQuery) {
         feedback = firstOpenSubtask
           ? `Первый шаг: ${firstOpenSubtask.text}`
           : "Открой всё по задаче и сделай один кривой шаг на 2 минуты.";
+        panicTask = task;
         return task;
       }
 
@@ -197,6 +225,12 @@ async function handleCallback(chatId, callbackQuery) {
   });
 
   await answerCallback(callbackQuery.id, feedback);
+
+  if (action === "panic" && panicTask) {
+    await sendText(chatId, buildPanicText(panicTask), {
+      reply_markup: plannerTaskKeyboard(panicTask.id),
+    });
+  }
 }
 
 module.exports = async function handler(req, res) {
