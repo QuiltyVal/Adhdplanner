@@ -7,9 +7,174 @@ const BERLIN_DATE_FORMAT = new Intl.DateTimeFormat("sv-SE", {
   month: "2-digit",
   day: "2-digit",
 });
+const MONTH_INDEX = {
+  января: 0,
+  январь: 0,
+  jan: 0,
+  февраля: 1,
+  февраль: 1,
+  фев: 1,
+  марта: 2,
+  март: 2,
+  mar: 2,
+  апреля: 3,
+  апрель: 3,
+  апр: 3,
+  мая: 4,
+  май: 4,
+  июня: 5,
+  июнь: 5,
+  июн: 5,
+  июля: 6,
+  июль: 6,
+  июл: 6,
+  августа: 7,
+  август: 7,
+  авг: 7,
+  сентября: 8,
+  сентябрь: 8,
+  сен: 8,
+  октября: 9,
+  октябрь: 9,
+  окт: 9,
+  ноября: 10,
+  ноябрь: 10,
+  ноя: 10,
+  декабря: 11,
+  декабрь: 11,
+  дек: 11,
+};
 
 function getTodayIsoDate() {
   return BERLIN_DATE_FORMAT.format(new Date());
+}
+
+function pad(value) {
+  return String(value).padStart(2, "0");
+}
+
+function toIsoDate(date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function extractRussianDate(text) {
+  const normalizedText = String(text || "").toLowerCase();
+  const now = new Date();
+
+  const isoMatch = normalizedText.match(/(20\d{2}-\d{2}-\d{2})/);
+  if (isoMatch) return isoMatch[1];
+
+  const dottedMatch = normalizedText.match(/(^|[^\d])(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?=$|[^\d])/);
+  if (dottedMatch) {
+    const day = Number(dottedMatch[2]);
+    const month = Number(dottedMatch[3]) - 1;
+    let year = dottedMatch[4] ? Number(dottedMatch[4]) : now.getFullYear();
+    if (year < 100) year += 2000;
+
+    const candidate = new Date(year, month, day);
+    if (!Number.isNaN(candidate.getTime()) && candidate.getDate() === day && candidate.getMonth() === month) {
+      if (!dottedMatch[4] && candidate < now) {
+        candidate.setFullYear(candidate.getFullYear() + 1);
+      }
+      return toIsoDate(candidate);
+    }
+  }
+
+  const monthMatch = normalizedText.match(/(?:^|[\s,.;:])(до|к|на)?\s*(\d{1,2})\s+(января|январь|февраля|февраль|марта|март|апреля|апрель|мая|май|июня|июнь|июля|июль|августа|август|сентября|сентябрь|октября|октябрь|ноября|ноябрь|декабря|декабрь)(?=$|[\s,.;:!?])/);
+  if (monthMatch) {
+    const day = Number(monthMatch[2]);
+    const month = MONTH_INDEX[monthMatch[3]];
+    const candidate = new Date(now.getFullYear(), month, day);
+    if (!Number.isNaN(candidate.getTime()) && candidate.getDate() === day && candidate.getMonth() === month) {
+      if (candidate < now) {
+        candidate.setFullYear(candidate.getFullYear() + 1);
+      }
+      return toIsoDate(candidate);
+    }
+  }
+
+  if (/(^|[\s,.;:!?])сегодня(?=$|[\s,.;:!?])/.test(normalizedText)) {
+    return toIsoDate(now);
+  }
+
+  if (/(^|[\s,.;:!?])завтра(?=$|[\s,.;:!?])/.test(normalizedText)) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    return toIsoDate(tomorrow);
+  }
+
+  return null;
+}
+
+function deriveTaskText(rawText) {
+  return String(rawText || "")
+    .trim()
+    .replace(/^(добавь|добавить|занеси|сохрани|запиши|напомни|мне нужно|надо)\s+(в\s+планер\s+)?/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function validateIntent(rawText, parsedIntent) {
+  const text = String(rawText || "").trim();
+  const lowered = text.toLowerCase();
+  const deadlineFromText = extractRussianDate(lowered);
+  const asksToday = lowered.includes("сегодня") || lowered.includes("на сегодня");
+  const asksPanic = /паник|panic|зависла|завис|не знаю с чего начать|помоги выбрать одно/.test(lowered);
+  const asksShowToday = /что у меня.*сегодня|что у меня.*горит|самое важное|что главное|покажи задачи/.test(lowered);
+  const soundsLikeCapture = /добавь|добавить|занеси|запиши|сохрани|напомни|надо|нужно|не забыть/.test(lowered);
+  const soundsVital = /критич|жизненно важ|обязательно|любой ценой/.test(lowered);
+  const soundsUrgent = /срочно|горит|как можно скорее|немедленно|дедлайн/.test(lowered);
+
+  const intent = { ...parsedIntent };
+
+  if (asksPanic) {
+    intent.intent = "panic";
+  } else if (asksShowToday && intent.intent === "chat") {
+    intent.intent = "show_today";
+  } else if (soundsLikeCapture && intent.intent === "chat") {
+    intent.intent = "add_task";
+  }
+
+  if (intent.intent === "add_task") {
+    intent.task_text = intent.task_text || deriveTaskText(text) || text;
+  }
+
+  if (!intent.deadline_at && deadlineFromText) {
+    intent.deadline_at = deadlineFromText;
+  }
+
+  if (asksToday) {
+    intent.is_today = true;
+  }
+
+  if (soundsVital) {
+    intent.is_vital = true;
+  }
+
+  if (!intent.urgency && soundsUrgent) {
+    intent.urgency = "high";
+  }
+
+  if (!intent.urgency && intent.deadline_at) {
+    const today = new Date(getTodayIsoDate());
+    const deadline = new Date(`${intent.deadline_at}T00:00:00`);
+    const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+    if (daysLeft <= 3) {
+      intent.urgency = "high";
+    } else if (daysLeft <= 10) {
+      intent.urgency = "medium";
+    }
+  }
+
+  if (!intent.urgency && intent.intent === "add_task") {
+    intent.urgency = "medium";
+  }
+
+  if (!intent.reply_text && intent.intent === "chat") {
+    intent.reply_text = "Могу добавить это как задачу, показать что горит, или включить panic mode.";
+  }
+
+  return intent;
 }
 
 function extractJsonObject(rawText = "") {
@@ -104,10 +269,11 @@ async function parseTelegramIntent({ text, tasks = [] }) {
 
   const content = data?.choices?.[0]?.message?.content || "";
   const parsed = JSON.parse(extractJsonObject(content));
-  return normalizeIntent(parsed);
+  return validateIntent(text, normalizeIntent(parsed));
 }
 
 module.exports = {
   DEFAULT_TELEGRAM_INTENT_MODEL,
+  extractRussianDate,
   parseTelegramIntent,
 };
