@@ -58,6 +58,7 @@ export default function Companions({ tasksCount, deadCount, completedCount, task
   }, [angelThinking, devilThinking]);
 
   const handleAngelClick = async () => {
+    console.log("[Angel] clicked");
     setAngelBounce(true);
     setTimeout(() => setAngelBounce(false), 400);
     setAngelThinking(true);
@@ -77,6 +78,7 @@ export default function Companions({ tasksCount, deadCount, completedCount, task
   };
 
   const handleDevilClick = async () => {
+    console.log("[Devil] clicked");
     setDevilBounce(true);
     setTimeout(() => setDevilBounce(false), 400);
     setDevilThinking(true);
