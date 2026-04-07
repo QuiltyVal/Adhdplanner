@@ -1,5 +1,5 @@
 const BASE_URL = "https://openrouter.ai/api/v1/chat/completions";
-const API_KEY = "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";
+const API_KEY = process.env.REACT_APP_OPENROUTER_KEY;
 
 export async function askAI(systemPrompt, userMessage, model = "openai/gpt-4o-mini") {
   const res = await fetch(BASE_URL, {
