@@ -165,7 +165,7 @@ export default function TaskColumn({
       {deadlineBadge && (
         <div className={`deadline-badge ${deadlineBadge.tone}`}>{deadlineBadge.label}</div>
       )}
-      <div className="task-text" style={{ fontSize: '1.4rem', marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'GuildensternNbp', 'VT323', monospace", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <div className="task-text" style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'Inter', sans-serif", lineHeight: '1.4' }}>
        {task.isVital ? '🚨 ' : isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
        {task.text}
       </div>

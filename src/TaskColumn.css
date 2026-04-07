@@ -259,12 +259,12 @@
 }
 
 .tombstone-task-name {
-  font-family: 'GuildensternNbp', 'VT323', monospace;
-  font-size: 1.4rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
   color: #c0c0c0;
   margin-bottom: 8px;
   text-decoration: line-through;
-  text-transform: uppercase;
   word-break: break-word;
 }
 
@@ -310,12 +310,12 @@
 }
 
 .heaven-task-name {
-  font-family: 'GuildensternNbp', 'VT323', monospace;
-  font-size: 1.4rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
   color: #e0faff;
-  text-transform: uppercase;
   word-break: break-word;
-  text-shadow: 0 0 10px rgba(58, 237, 255, 0.4);
+  text-shadow: 0 0 10px rgba(58, 237, 255, 0.3);
 }
 
 .points-badge {
@@ -478,8 +478,8 @@
   background: transparent;
   border: none;
   color: #e0e0e0;
-  font-family: 'GuildensternNbp', 'VT323', monospace;
-  font-size: 1.3rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
   padding: 8px;
   outline: none;
 }
@@ -587,8 +587,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: 'GuildensternNbp', 'VT323', monospace;
-  font-size: 1.2rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
   color: #c0c0c0;
 }
 
@@ -629,8 +629,8 @@
   border: none;
   border-bottom: 1px solid #333;
   color: #c0c0c0;
-  font-family: 'GuildensternNbp', 'VT323', monospace;
-  font-size: 1.2rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
   outline: none;
   padding: 4px;
 }
