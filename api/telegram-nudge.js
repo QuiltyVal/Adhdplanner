@@ -2,19 +2,63 @@ const { buildNudgeMessage, getPlannerData, pickRescueTask } = require("./_lib/pl
 const { plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
 
 const DEFAULT_USER_ID = process.env.PLANNER_DEFAULT_USER_ID;
+const NUDGE_TIMEZONE = "Europe/Berlin";
 
 function isAuthorized(req) {
-  const secret = process.env.TELEGRAM_CRON_SECRET;
-  if (!secret) return true;
-
+  const cronSecret = process.env.CRON_SECRET;
+  const legacySecret = process.env.TELEGRAM_CRON_SECRET;
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  const bearerToken = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length)
+    : null;
   const headerSecret = req.headers["x-telegram-cron-secret"];
   const querySecret = req.query?.secret;
-  return headerSecret === secret || querySecret === secret;
+
+  if (cronSecret && bearerToken === cronSecret) return true;
+  if (legacySecret && (headerSecret === legacySecret || querySecret === legacySecret || bearerToken === legacySecret)) {
+    return true;
+  }
+
+  if (!cronSecret && !legacySecret) return true;
+  return false;
+}
+
+function getBerlinHour(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: NUDGE_TIMEZONE,
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+
+  const hourPart = parts.find((part) => part.type === "hour");
+  return Number(hourPart?.value || "0");
+}
+
+function getNudgeSlot(now = new Date()) {
+  return getBerlinHour(now) < 13 ? "morning" : "evening";
+}
+
+function buildScheduledNudgeMessage(task, slot) {
+  const base = buildNudgeMessage(task);
+
+  if (slot === "morning") {
+    return [
+      "🌅 Утренний пинок.",
+      base,
+      task ? "Сделай один шаг до того, как день размажет внимание." : "",
+    ].filter(Boolean).join("\n");
+  }
+
+  return [
+    "🌙 Вечерний пинок.",
+    base,
+    task ? "Если сил мало, жми Panic и сделай один кривой шаг." : "Если день разъехался, открой planner и выбери одну живую задачу.",
+  ].join("\n");
 }
 
 module.exports = async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
+  if (req.method !== "POST" && req.method !== "GET") {
+    res.setHeader("Allow", "GET, POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
 
@@ -34,7 +78,8 @@ module.exports = async function handler(req, res) {
     }
 
     const task = pickRescueTask(plannerData.tasks);
-    const text = buildNudgeMessage(task);
+    const slot = getNudgeSlot();
+    const text = buildScheduledNudgeMessage(task, slot);
 
     await telegramRequest("sendMessage", {
       chat_id: chatId,
@@ -44,6 +89,7 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
+      slot,
       taskId: task?.id || null,
       text,
     });
