@@ -95,6 +95,12 @@
 }
 .avatar.bounce { animation: bounce-click 0.4s ease forwards; }
 
+@keyframes thinking-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.95); }
+}
+.avatar.thinking { animation: thinking-pulse 1s ease infinite; cursor: wait; }
+
 @keyframes float-bob {
   0% { transform: translateY(0px); }
   50% { transform: translateY(-8px); }
