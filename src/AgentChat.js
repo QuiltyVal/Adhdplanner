@@ -44,6 +44,21 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "delete_subtask",
+      description: "Delete/remove a subtask from a task",
+      parameters: {
+        type: "object",
+        properties: {
+          task_id: { type: "string", description: "ID of the parent task" },
+          subtask_id: { type: "string", description: "ID of the subtask to delete" },
+        },
+        required: ["task_id", "subtask_id"],
+      },
+    },
+  },
 ];
 
 async function callModel(messages) {
@@ -63,7 +78,7 @@ async function callModel(messages) {
   return res.json();
 }
 
-export default function AgentChat({ isOpen, onClose, persona, tasks, onAddTask, onAddSubtask }) {
+export default function AgentChat({ isOpen, onClose, persona, tasks, onAddTask, onAddSubtask, onDeleteSubtask }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -126,6 +141,14 @@ export default function AgentChat({ isOpen, onClose, persona, tasks, onAddTask, 
       if (!task) return `Задача с id ${args.task_id} не найдена.`;
       onAddSubtask(args.task_id, args.text);
       return `Подзадача "${args.text}" добавлена к "${task.text}".`;
+    }
+    if (name === "delete_subtask") {
+      const task = tasks.find(t => t.id === args.task_id);
+      if (!task) return `Задача с id ${args.task_id} не найдена.`;
+      const sub = (task.subtasks || []).find(s => s.id === args.subtask_id);
+      if (!sub) return `Подзадача не найдена.`;
+      onDeleteSubtask(args.task_id, args.subtask_id);
+      return `Подзадача "${sub.text}" удалена.`;
     }
     return "Неизвестный инструмент";
   };

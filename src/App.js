@@ -750,6 +750,15 @@ export default function App() {
     trackDailyAction();
   };
 
+  const handleDeleteSubtask = (taskId, subtaskId) => {
+    setTasks(tasks.map(t => {
+      if (t.id === taskId) {
+        return { ...t, subtasks: (t.subtasks || []).filter(s => s.id !== subtaskId) };
+      }
+      return t;
+    }));
+  };
+
   const handleToggleSubtask = (taskId, subtaskId) => {
     setTasks(tasks.map(t => {
       if (t.id === taskId) {
@@ -1138,6 +1147,7 @@ export default function App() {
             onKill={handleKill}
             onAddTask={handleAddTask}
             onAddSubtask={handleAddSubtask}
+            onDeleteSubtask={handleDeleteSubtask}
             onToggleSubtask={handleToggleSubtask}
             onToggleToday={handleToggleToday}
             onToggleVital={handleToggleVital}
@@ -1151,7 +1161,7 @@ export default function App() {
         {activeTab === 'cemetery' && <TaskColumn type="cemetery" tasks={deadTasks} onResurrect={handleResurrect} />}
       </div>
 
-      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} onAddTask={handleAddTask} onAddSubtask={handleAddSubtask} />
+      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} onAddTask={handleAddTask} onAddSubtask={handleAddSubtask} onDeleteSubtask={handleDeleteSubtask} />
     </div>
   );
 }

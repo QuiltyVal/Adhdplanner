@@ -597,7 +597,25 @@
   height: 16px;
   accent-color: #8a1c1c;
   cursor: pointer;
+  flex-shrink: 0;
 }
+
+.subtask-delete-btn {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.subtask-item:hover .subtask-delete-btn {
+  opacity: 1;
+}
+.subtask-delete-btn:hover { color: #c05050; }
 
 .subtask-add-row {
   display: flex;

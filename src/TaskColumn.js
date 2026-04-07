@@ -42,6 +42,7 @@ export default function TaskColumn({
   onResurrect, 
   onAddTask,
   onAddSubtask,
+  onDeleteSubtask,
   onToggleSubtask,
   onToggleToday,
   onToggleVital,
@@ -221,15 +222,22 @@ export default function TaskColumn({
       <div className="subtasks-container">
         {(task.subtasks || []).map(sub => (
           <div key={sub.id} className="subtask-item">
-            <input 
-              type="checkbox" 
-              checked={sub.completed} 
+            <input
+              type="checkbox"
+              checked={sub.completed}
               onChange={() => onToggleSubtask(task.id, sub.id)}
               className="subtask-checkbox"
             />
-            <span style={{textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.5 : 1}}>
+            <span style={{textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.5 : 1, flex: 1}}>
               {sub.text}
             </span>
+            {onDeleteSubtask && (
+              <button
+                className="subtask-delete-btn"
+                onClick={() => onDeleteSubtask(task.id, sub.id)}
+                title="Удалить шаг"
+              >×</button>
+            )}
           </div>
         ))}
         
