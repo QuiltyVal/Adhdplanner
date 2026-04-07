@@ -158,7 +158,10 @@ async function gcalPost(token, path, body) {
 }
 
 export default function AgentChat({ isOpen, onClose, persona, tasks, onAddTask, onAddSubtask, onDeleteSubtask, onKillTask, onSetVital, onSetUrgency, calendarToken }) {
-  const [messages, setMessages] = useState([]);
+  const [messageHistory, setMessageHistory] = useState({
+    angel: [],
+    devil: [],
+  });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
@@ -166,6 +169,20 @@ export default function AgentChat({ isOpen, onClose, persona, tasks, onAddTask, 
 
   const isAngel = persona === "angel";
   const hasCalendar = !!calendarToken;
+  const messages = messageHistory[persona] || [];
+
+  const setMessagesForPersona = (updater) => {
+    setMessageHistory((previous) => {
+      const currentMessages = previous[persona] || [];
+      const nextMessages =
+        typeof updater === "function" ? updater(currentMessages) : updater;
+
+      return {
+        ...previous,
+        [persona]: nextMessages,
+      };
+    });
+  };
 
   const systemPrompt = isAngel
     ? `Ты ангел-помощник в планировщике задач для людей с СДВГ. Язык: только русский.
@@ -196,10 +213,15 @@ export default function AgentChat({ isOpen, onClose, persona, tasks, onAddTask, 
       const greeting = isAngel
         ? "Привет! Покажу твои задачи и помогу разобраться с чего начать. Что беспокоит больше всего?"
         : "Ну и что тут у нас... Давай посмотрим на твой список. Спрашивай.";
-      setMessages([{ role: "assistant", content: greeting }]);
+      setMessagesForPersona([{ role: "assistant", content: greeting }]);
     }
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
-  }, [isOpen]); // eslint-disable-line
+  }, [isOpen, persona]); // eslint-disable-line
+
+  useEffect(() => {
+    setInput("");
+    setLoading(false);
+  }, [persona]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -285,7 +307,7 @@ export default function AgentChat({ isOpen, onClose, persona, tasks, onAddTask, 
 
     const userMsg = { role: "user", content: text };
     const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
+    setMessagesForPersona(newMessages);
     setLoading(true);
 
     const tools = buildTools(hasCalendar);
@@ -306,13 +328,13 @@ export default function AgentChat({ isOpen, onClose, persona, tasks, onAddTask, 
           })));
           currentMessages = [...currentMessages, ...toolResults];
         } else {
-          setMessages(prev => [...prev, { role: "assistant", content: msg.content }]);
+          setMessagesForPersona(prev => [...prev, { role: "assistant", content: msg.content }]);
           break;
         }
       }
     } catch (e) {
       console.error("[AgentChat]", e);
-      setMessages(prev => [...prev, { role: "assistant", content: "Ошибка связи. Попробуй ещё раз." }]);
+      setMessagesForPersona(prev => [...prev, { role: "assistant", content: "Ошибка связи. Попробуй ещё раз." }]);
     } finally {
       setLoading(false);
     }
