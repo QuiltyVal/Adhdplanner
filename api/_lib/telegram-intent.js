@@ -121,14 +121,21 @@ function validateIntent(rawText, parsedIntent) {
   const asksToday = lowered.includes("сегодня") || lowered.includes("на сегодня");
   const asksPanic = /паник|panic|зависла|завис|не знаю с чего начать|помоги выбрать одно/.test(lowered);
   const asksShowToday = /что у меня.*сегодня|что у меня.*горит|самое важное|что главное|покажи задачи/.test(lowered);
+  const asksSchedule = /запланируй|поставь в календарь|занеси в календарь|создай событие|забронируй время/.test(lowered);
   const soundsLikeCapture = /добавь|добавить|занеси|запиши|сохрани|напомни|надо|нужно|не забыть/.test(lowered);
   const soundsVital = /критич|жизненно важ|обязательно|любой ценой/.test(lowered);
   const soundsUrgent = /срочно|горит|как можно скорее|немедленно|дедлайн/.test(lowered);
+  const timeMatch = lowered.match(/(?:в|на)\s*(\d{1,2})(?::|\.| )?(\d{2})?\b/);
+  const durationMatch =
+    lowered.match(/(\d+)\s*мин/) ||
+    lowered.match(/(\d+(?:[.,]\d+)?)\s*час/);
 
   const intent = { ...parsedIntent };
 
   if (asksPanic) {
     intent.intent = "panic";
+  } else if (asksSchedule) {
+    intent.intent = "schedule_task";
   } else if (asksShowToday && intent.intent === "chat") {
     intent.intent = "show_today";
   } else if (soundsLikeCapture && intent.intent === "chat") {
@@ -141,6 +148,21 @@ function validateIntent(rawText, parsedIntent) {
 
   if (!intent.deadline_at && deadlineFromText) {
     intent.deadline_at = deadlineFromText;
+  }
+
+  if (!intent.start_time && timeMatch) {
+    const hours = Math.min(23, Number(timeMatch[1]));
+    const minutes = Math.min(59, Number(timeMatch[2] || "00"));
+    intent.start_time = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+
+  if (!intent.duration_minutes && durationMatch) {
+    if (durationMatch[0].includes("мин")) {
+      intent.duration_minutes = Math.max(15, Math.min(480, Number(durationMatch[1])));
+    } else {
+      const hours = Number(String(durationMatch[1]).replace(",", "."));
+      intent.duration_minutes = Math.max(30, Math.min(480, Math.round(hours * 60)));
+    }
   }
 
   if (asksToday) {
@@ -168,6 +190,14 @@ function validateIntent(rawText, parsedIntent) {
 
   if (!intent.urgency && intent.intent === "add_task") {
     intent.urgency = "medium";
+  }
+
+  if (!intent.duration_minutes && intent.intent === "schedule_task") {
+    intent.duration_minutes = 60;
+  }
+
+  if (intent.intent === "schedule_task") {
+    intent.task_text = intent.task_text || deriveTaskText(text) || text;
   }
 
   if (!intent.reply_text && intent.intent === "chat") {
@@ -198,7 +228,7 @@ function extractJsonObject(rawText = "") {
 }
 
 function normalizeIntent(payload = {}) {
-  const allowedIntents = new Set(["add_task", "show_today", "panic", "chat"]);
+  const allowedIntents = new Set(["add_task", "show_today", "panic", "schedule_task", "chat"]);
   const intent = allowedIntents.has(payload.intent) ? payload.intent : "chat";
 
   const urgency =
@@ -219,6 +249,14 @@ function normalizeIntent(payload = {}) {
     deadline_at:
       typeof payload.deadline_at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(payload.deadline_at)
         ? payload.deadline_at
+        : null,
+    start_time:
+      typeof payload.start_time === "string" && /^\d{2}:\d{2}$/.test(payload.start_time)
+        ? payload.start_time
+        : null,
+    duration_minutes:
+      typeof payload.duration_minutes === "number" && payload.duration_minutes > 0
+        ? Math.min(payload.duration_minutes, 480)
         : null,
     urgency,
     is_today: Boolean(payload.is_today),
@@ -246,13 +284,15 @@ async function parseTelegramIntent({ text, tasks = [] }) {
     "Ты разбираешь сообщения для Telegram-бота планировщика задач для человека с СДВГ.",
     "Твоя работа — вернуть только JSON без markdown и без пояснений.",
     "Сегодня в Europe/Berlin дата " + getTodayIsoDate() + ".",
-    "Разрешённые intent: add_task, show_today, panic, chat.",
+    "Разрешённые intent: add_task, show_today, panic, schedule_task, chat.",
     "Если пользователь просит сохранить, занести, не забыть, добавить, напомнить — чаще всего это add_task.",
     "Если пользователь спрашивает, что сейчас главное, что горит, что сегодня — это show_today.",
     "Если пользователь пишет, что завис, не знает с чего начать, просит выбрать одно — это panic.",
+    "Если пользователь хочет поставить задачу в календарь, забронировать время, создать событие — это schedule_task.",
     "Если это приветствие, уточнение, маленький разговор — это chat.",
     "Если фраза двусмысленная, но выглядит как дело, которое нельзя потерять, предпочти add_task.",
     "Для add_task сократи task_text до ясной короткой формулировки задачи на русском.",
+    "Для schedule_task верни task_text как название события, deadline_at как дату события, start_time как HH:MM, duration_minutes числом.",
     "Если в сообщении после двоеточия, тире или списка перечислены шаги, верни их как subtasks массивом строк.",
     "Если в тексте есть дедлайн, верни deadline_at в формате YYYY-MM-DD. Иначе null.",
     "Если задача звучит очень срочно или с жёстким сроком, urgency=high. Если обычная — medium. Если можно потом — low.",
@@ -260,7 +300,7 @@ async function parseTelegramIntent({ text, tasks = [] }) {
     "Если задача звучит жизненно критично — is_vital=true.",
     "Для chat верни короткий ответ по-русски в reply_text.",
     "JSON-схема ответа:",
-    '{"intent":"add_task|show_today|panic|chat","task_text":"string","subtasks":["string"],"deadline_at":"YYYY-MM-DD|null","urgency":"low|medium|high|null","is_today":false,"is_vital":false,"reply_text":"string|null"}',
+    '{"intent":"add_task|show_today|panic|schedule_task|chat","task_text":"string","subtasks":["string"],"deadline_at":"YYYY-MM-DD|null","start_time":"HH:MM|null","duration_minutes":60,"urgency":"low|medium|high|null","is_today":false,"is_vital":false,"reply_text":"string|null"}',
     "Вот краткий контекст активных задач пользователя:",
     JSON.stringify(compactTasks),
   ].join("\n");

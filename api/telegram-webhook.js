@@ -1,6 +1,7 @@
 const { buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority } = require("./_lib/planner-store");
+const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
 const { parseTelegramIntent } = require("./_lib/telegram-intent");
-const { plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
+const { calendarConnectKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
 
 const DEFAULT_USER_ID = process.env.PLANNER_DEFAULT_USER_ID;
 const ALLOWED_CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID || "";
@@ -149,6 +150,18 @@ async function handleAdd(chatId, argText) {
   });
 }
 
+async function handleCalendar(chatId) {
+  const userId = getTargetUserId();
+  const url = buildGoogleCalendarConnectUrl(userId);
+  await sendText(
+    chatId,
+    "Открой кнопку ниже, дай доступ к Google Calendar, и после этого я смогу ставить туда задачи прямо из Telegram.",
+    {
+      reply_markup: calendarConnectKeyboard(url),
+    },
+  );
+}
+
 async function handlePlainCapture(chatId, text) {
   const cleaned = text.trim();
   if (!cleaned) return;
@@ -182,6 +195,43 @@ async function handlePlainCapture(chatId, text) {
 
   if (intent.intent === "panic") {
     await handlePanic(chatId);
+    return;
+  }
+
+  if (intent.intent === "schedule_task") {
+    const hasConnection = await hasGoogleCalendarConnection(userId);
+    if (!hasConnection) {
+      const url = buildGoogleCalendarConnectUrl(userId);
+      await sendText(
+        chatId,
+        "Сначала подключи Google Calendar. Потом я смогу создавать там события прямо из Telegram.",
+        {
+          reply_markup: calendarConnectKeyboard(url),
+        },
+      );
+      return;
+    }
+
+    if (!intent.deadline_at || !intent.start_time) {
+      await sendText(
+        chatId,
+        "Для календаря мне нужны дата и время. Например: запланируй на завтра в 14:00 задачу про диплом.",
+      );
+      return;
+    }
+
+    const createdEvent = await createCalendarEvent(userId, {
+      title: intent.task_text || cleaned,
+      date: intent.deadline_at,
+      startTime: intent.start_time,
+      durationMinutes: intent.duration_minutes || 60,
+      description: "Создано из ADHD Planner Telegram bot",
+    });
+
+    await sendText(
+      chatId,
+      `📅 Поставила в календарь: <b>${escapeHtml(createdEvent.summary || intent.task_text || cleaned)}</b>\n${escapeHtml(intent.deadline_at)} ${escapeHtml(intent.start_time)}`,
+    );
     return;
   }
 
@@ -334,6 +384,8 @@ module.exports = async function handler(req, res) {
       await handleToday(chatId);
     } else if (command === "/panic") {
       await handlePanic(chatId);
+    } else if (command === "/calendar") {
+      await handleCalendar(chatId);
     } else if (command === "/add") {
       await handleAdd(chatId, argText);
     } else if (text) {

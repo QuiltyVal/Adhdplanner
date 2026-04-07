@@ -41,7 +41,14 @@ function plannerTaskKeyboard(taskId) {
   };
 }
 
+function calendarConnectKeyboard(url) {
+  return {
+    inline_keyboard: [[{ text: "📅 Подключить Google Calendar", url }]],
+  };
+}
+
 module.exports = {
+  calendarConnectKeyboard,
   plannerTaskKeyboard,
   telegramRequest,
 };
