@@ -1178,6 +1178,7 @@ export default function App() {
             onSetResistance={handleSetResistance}
             onSetDeadline={handleSetDeadline}
             highlightTaskId={highlightTaskId}
+            calendarToken={calendarToken}
           />
         )}
         {activeTab === 'heaven' && <TaskColumn type="heaven" tasks={completedTasks} />}

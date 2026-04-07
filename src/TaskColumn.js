@@ -49,11 +49,43 @@ export default function TaskColumn({
   onSetUrgency,
   onSetResistance,
   onSetDeadline,
-  highlightTaskId
+  highlightTaskId,
+  calendarToken,
 }) {
   const [newTaskText, setNewTaskText] = useState("");
   const [newSubtaskText, setNewSubtaskText] = useState({}); // {taskId: text}
   const [confirmTaskId, setConfirmTaskId] = useState(null);
+  const [calPickerTaskId, setCalPickerTaskId] = useState(null);
+  const [calDate, setCalDate] = useState("");
+  const [calTime, setCalTime] = useState("10:00");
+  const [calDuration, setCalDuration] = useState(60);
+  const [calSaving, setCalSaving] = useState(false);
+
+  const scheduleToCalendar = async (task) => {
+    if (!calendarToken || !calDate) return;
+    setCalSaving(true);
+    try {
+      const start = new Date(`${calDate}T${calTime}:00`);
+      const end = new Date(start.getTime() + calDuration * 60000);
+      await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${calendarToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          summary: task.text,
+          start: { dateTime: start.toISOString() },
+          end: { dateTime: end.toISOString() },
+        }),
+      });
+      setCalPickerTaskId(null);
+    } catch (e) {
+      console.error("Calendar error:", e);
+    } finally {
+      setCalSaving(false);
+    }
+  };
 
   const addTask = () => {
     if (!newTaskText.trim()) return;
@@ -261,7 +293,32 @@ export default function TaskColumn({
         {task.heatCurrent > 60 && (
           <button className="action-btn complete" onClick={() => setConfirmTaskId(task.id)}>🚀 Завершить!</button>
         )}
+        {calendarToken && (
+          <button
+            className="action-btn cal-btn"
+            onClick={() => setCalPickerTaskId(calPickerTaskId === task.id ? null : task.id)}
+            title="Запланировать в Google Calendar"
+          >📅</button>
+        )}
       </div>
+
+      {calPickerTaskId === task.id && calendarToken && (
+        <div className="cal-picker">
+          <input type="date" value={calDate} onChange={e => setCalDate(e.target.value)} className="cal-input" />
+          <input type="time" value={calTime} onChange={e => setCalTime(e.target.value)} className="cal-input" />
+          <select value={calDuration} onChange={e => setCalDuration(Number(e.target.value))} className="cal-input">
+            <option value={30}>30 мин</option>
+            <option value={60}>1 час</option>
+            <option value={90}>1.5 ч</option>
+            <option value={120}>2 часа</option>
+          </select>
+          <button
+            className="cal-save-btn"
+            onClick={() => scheduleToCalendar(task)}
+            disabled={calSaving || !calDate}
+          >{calSaving ? "..." : "Добавить"}</button>
+        </div>
+      )}
     </div>
       );
     })()

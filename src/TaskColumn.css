@@ -802,3 +802,43 @@
     margin-bottom: 8px;
   }
 }
+
+/* === CALENDAR PICKER === */
+.cal-btn { background: #111; border: 1px solid #333; color: #aaa; padding: 5px 8px; }
+.cal-btn:hover { color: #fff; border-color: #555; }
+
+.cal-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  background: #0d0d0d;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.cal-input {
+  background: #111;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  padding: 5px 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  outline: none;
+}
+.cal-input:focus { border-color: #555; }
+
+.cal-save-btn {
+  background: #1a3a1a;
+  border: 1px solid #2a5a2a;
+  color: #7fbd7f;
+  padding: 5px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.cal-save-btn:hover:not(:disabled) { background: #1f4a1f; }
+.cal-save-btn:disabled { opacity: 0.4; cursor: default; }
