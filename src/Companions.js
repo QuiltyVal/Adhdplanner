@@ -16,7 +16,7 @@ const DEVIL_FALLBACK = [
   "Я жду. Я всегда жду 😈",
 ];
 
-export default function Companions({ tasksCount, deadCount, completedCount, tasks = [], onAddTask, onAddSubtask, onDeleteSubtask }) {
+export default function Companions({ tasksCount, deadCount, completedCount, tasks = [], onAddTask, onAddSubtask, onDeleteSubtask, onKillTask, onSetVital, onSetUrgency, calendarToken }) {
   const [angelSpeech, setAngelSpeech] = useState(null);
   const [devilSpeech, setDevilSpeech] = useState(null);
   const [angelBounce, setAngelBounce] = useState(false);
@@ -104,6 +104,10 @@ export default function Companions({ tasksCount, deadCount, completedCount, task
         onAddTask={onAddTask}
         onAddSubtask={onAddSubtask}
         onDeleteSubtask={onDeleteSubtask}
+        onKillTask={onKillTask}
+        onSetVital={onSetVital}
+        onSetUrgency={onSetUrgency}
+        calendarToken={calendarToken}
       />
     </>
   );

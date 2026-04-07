@@ -6,8 +6,8 @@ import LogoutButton from "./LogoutButton";
 import Companions from "./Companions";
 import LoadingScreen from "./LoadingScreen";
 import { getUserData, updateUserData } from "./firestoreUtils";
-import { auth } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { auth, googleProvider } from "./firebase";
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import "./App.css";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -414,6 +414,7 @@ export default function App() {
 
   // Flag to distinguish first load from component updates
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [calendarToken, setCalendarToken] = useState(null);
   // Prevents the sync effect from firing immediately when data is first loaded
   // (no need to write back what we just read from Firestore)
   const syncReadyRef = React.useRef(false);
@@ -839,6 +840,20 @@ export default function App() {
     setScore(s => s - 5);
   };
 
+  const handleConnectCalendar = async () => {
+    try {
+      const calProvider = new GoogleAuthProvider();
+      calProvider.addScope("https://www.googleapis.com/auth/calendar");
+      const result = await signInWithPopup(auth, calProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setCalendarToken(credential.accessToken);
+      }
+    } catch (e) {
+      console.error("Calendar connect error:", e);
+    }
+  };
+
   const handleResurrect = (taskId) => {
     setTasks(tasks.map(t => t.id === taskId ? { ...t, status: "active", heatBase: DEFAULT_TASK_HEAT, heatCurrent: DEFAULT_TASK_HEAT, lastUpdated: Date.now(), isToday: false } : t));
     setScore(s => s - 2);
@@ -970,6 +985,14 @@ export default function App() {
           <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
             <button onClick={toggleTheme} className="theme-toggle-btn" title="Сменить тему">
               {isDark ? '☀️' : '🌙'}
+            </button>
+            <button
+              onClick={handleConnectCalendar}
+              className="theme-toggle-btn"
+              title={calendarToken ? "Календарь подключён" : "Подключить Google Calendar"}
+              style={{ opacity: calendarToken ? 0.5 : 1 }}
+            >
+              📅
             </button>
             <LogoutButton />
           </div>
@@ -1161,7 +1184,7 @@ export default function App() {
         {activeTab === 'cemetery' && <TaskColumn type="cemetery" tasks={deadTasks} onResurrect={handleResurrect} />}
       </div>
 
-      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} onAddTask={handleAddTask} onAddSubtask={handleAddSubtask} onDeleteSubtask={handleDeleteSubtask} />
+      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} onAddTask={handleAddTask} onAddSubtask={handleAddSubtask} onDeleteSubtask={handleDeleteSubtask} onKillTask={handleKill} onSetVital={handleToggleVital} onSetUrgency={handleSetUrgency} calendarToken={calendarToken} />
     </div>
   );
 }
