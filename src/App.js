@@ -5,7 +5,7 @@ import TaskColumn from "./TaskColumn";
 import LogoutButton from "./LogoutButton";
 import Companions from "./Companions";
 import LoadingScreen from "./LoadingScreen";
-import { getUserData, updateUserData } from "./firestoreUtils";
+import { subscribeUserData, updateUserData } from "./firestoreUtils";
 import { auth, googleProvider } from "./firebase";
 import {
   onAuthStateChanged,
@@ -111,6 +111,51 @@ function saveCloudCache(userId, tasks, score) {
   } catch (error) {
     console.warn("Не удалось сохранить cloud cache:", error);
   }
+}
+
+function mergeSubtasks(localSubtasks = [], remoteSubtasks = [], preferRemote = true) {
+  const localById = new Map(localSubtasks.map((subtask) => [String(subtask.id), subtask]));
+  const remoteIds = new Set(remoteSubtasks.map((subtask) => String(subtask.id)));
+
+  const mergedRemote = remoteSubtasks.map((remoteSubtask) => {
+    const localSubtask = localById.get(String(remoteSubtask.id));
+    if (!localSubtask) return remoteSubtask;
+    return preferRemote
+      ? { ...localSubtask, ...remoteSubtask }
+      : { ...remoteSubtask, ...localSubtask };
+  });
+
+  const localOnly = localSubtasks.filter((subtask) => !remoteIds.has(String(subtask.id)));
+  return [...mergedRemote, ...localOnly];
+}
+
+function mergeTaskLists(localTasks = [], remoteTasks = []) {
+  const localById = new Map(localTasks.map((task) => [String(task.id), task]));
+  const remoteIds = new Set(remoteTasks.map((task) => String(task.id)));
+
+  const mergedRemote = remoteTasks.map((remoteTask) => {
+    const localTask = localById.get(String(remoteTask.id));
+    if (!localTask) return remoteTask;
+
+    const remoteUpdatedAt = remoteTask.lastUpdated || 0;
+    const localUpdatedAt = localTask.lastUpdated || 0;
+    const preferRemote = remoteUpdatedAt >= localUpdatedAt;
+
+    const mergedTask = preferRemote
+      ? { ...localTask, ...remoteTask }
+      : { ...remoteTask, ...localTask };
+
+    mergedTask.subtasks = mergeSubtasks(
+      localTask.subtasks || [],
+      remoteTask.subtasks || [],
+      preferRemote,
+    );
+
+    return mergedTask;
+  });
+
+  const localOnly = localTasks.filter((task) => !remoteIds.has(String(task.id)));
+  return [...localOnly, ...mergedRemote];
 }
 
 function getTaskHeat(task) {
@@ -421,9 +466,8 @@ export default function App() {
   // Flag to distinguish first load from component updates
   const [dataLoaded, setDataLoaded] = useState(false);
   const [calendarToken, setCalendarToken] = useState(null);
-  // Prevents the sync effect from firing immediately when data is first loaded
-  // (no need to write back what we just read from Firestore)
-  const syncReadyRef = React.useRef(false);
+  // Prevents pushing cloud state back into Firestore right after we just received it.
+  const skipNextCloudSyncRef = React.useRef(false);
   const navigate = useNavigate();
   const notificationPermission =
     typeof window === "undefined" || !("Notification" in window)
@@ -459,7 +503,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    syncReadyRef.current = false;
+    skipNextCloudSyncRef.current = false;
   }, [user?.id]);
 
   useEffect(() => {
@@ -517,7 +561,7 @@ export default function App() {
 
         let isCancelled = false;
 
-        const applyCloudData = async (firebaseUser) => {
+        const applyCloudData = (firebaseUser) => {
           if (!firebaseUser) {
             console.warn("Пользователь не авторизован в Firebase. Перенаправляем на логин.");
             setLoading(false);
@@ -526,36 +570,43 @@ export default function App() {
             return;
           }
 
-          const data = await getUserData(parsedUser.id, parsedUser.email, parsedUser.first_name);
-          if (isCancelled) return;
-
-          if (data) {
-            setTasks(data.tasks || []);
-            setScore(data.score || 0);
-            setLoading(false);
-            setDataLoaded(true);
-          } else if (!cachedCloudData) {
-            setLoading(false);
-          }
+          return subscribeUserData(
+            parsedUser.id,
+            parsedUser.email,
+            parsedUser.first_name,
+            (data) => {
+              if (isCancelled) return;
+              skipNextCloudSyncRef.current = true;
+              setTasks((currentTasks) => mergeTaskLists(currentTasks, data.tasks || []));
+              setScore(typeof data.score === "number" ? data.score : 0);
+              setLoading(false);
+              setDataLoaded(true);
+            },
+            () => {
+              if (!cachedCloudData) {
+                setLoading(false);
+              }
+            },
+          );
         };
 
         if (auth.currentUser && auth.currentUser.uid === parsedUser.id) {
-          void applyCloudData(auth.currentUser);
+          const unsubscribeCloud = applyCloudData(auth.currentUser);
           return () => {
             isCancelled = true;
+            if (typeof unsubscribeCloud === "function") unsubscribeCloud();
           };
         }
 
-        let alreadyLoaded = false;
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-          if (alreadyLoaded) return;
-          alreadyLoaded = true;
-          unsubscribe();
-          await applyCloudData(firebaseUser);
+        let unsubscribeCloud = null;
+        const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+          unsubscribeAuth();
+          unsubscribeCloud = applyCloudData(firebaseUser);
         });
         return () => {
           isCancelled = true;
-          unsubscribe();
+          unsubscribeAuth();
+          if (typeof unsubscribeCloud === "function") unsubscribeCloud();
         };
       }
     };
@@ -583,10 +634,8 @@ export default function App() {
   useEffect(() => {
     if (!dataLoaded || !user) return;
 
-    // The first time this effect fires with dataLoaded=true, tasks/score were
-    // just SET from Firestore — no need to write them back. Mark ready and skip.
-    if (!syncReadyRef.current) {
-      syncReadyRef.current = true;
+    if (skipNextCloudSyncRef.current) {
+      skipNextCloudSyncRef.current = false;
       return;
     }
 
@@ -738,10 +787,11 @@ export default function App() {
   }, [panicEndsAt, panicSecondsLeft]);
 
   const handleAddTask = (text, options = {}) => {
+    const now = Date.now();
     const newTask = {
-      id: Date.now().toString(),
+      id: now.toString(),
       text,
-      lastUpdated: Date.now(),
+      lastUpdated: now,
       heatBase: DEFAULT_TASK_HEAT,
       heatCurrent: DEFAULT_TASK_HEAT,
       status: "active",
@@ -751,13 +801,13 @@ export default function App() {
       isToday: false,
       isVital: false,
     };
-    setTasks([newTask, ...tasks]);
+    setTasks((currentTasks) => [newTask, ...currentTasks]);
     setHighlightTaskId(newTask.id);
     trackDailyAction();
   };
 
   const handleTouch = (taskId) => {
-    setTasks(tasks.map(t => {
+    setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id === taskId) {
         const newHeatBase = Math.min(100, t.heatCurrent + TOUCH_HEAT_BONUS);
         return { ...t, lastUpdated: Date.now(), heatBase: newHeatBase, heatCurrent: newHeatBase };
@@ -769,10 +819,10 @@ export default function App() {
   };
 
   const handleAddSubtask = (taskId, text) => {
-    setTasks(tasks.map(t => {
+    setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id === taskId) {
         const newSubtasks = [...(t.subtasks || []), { id: Date.now().toString(), text, completed: false }];
-        return { ...t, subtasks: newSubtasks };
+        return { ...t, subtasks: newSubtasks, lastUpdated: Date.now() };
       }
       return t;
     }));
@@ -781,16 +831,20 @@ export default function App() {
   };
 
   const handleDeleteSubtask = (taskId, subtaskId) => {
-    setTasks(tasks.map(t => {
+    setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id === taskId) {
-        return { ...t, subtasks: (t.subtasks || []).filter(s => s.id !== subtaskId) };
+        return {
+          ...t,
+          subtasks: (t.subtasks || []).filter(s => s.id !== subtaskId),
+          lastUpdated: Date.now(),
+        };
       }
       return t;
     }));
   };
 
   const handleToggleSubtask = (taskId, subtaskId) => {
-    setTasks(tasks.map(t => {
+    setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id === taskId) {
         const completedBefore = (t.subtasks || []).filter((subtask) => subtask.completed).length;
         const newSubtasks = (t.subtasks || []).map(s => {
@@ -823,7 +877,7 @@ export default function App() {
   };
 
   const handleSetUrgency = (taskId, urgency) => {
-    setTasks(tasks.map(task => (
+    setTasks((currentTasks) => currentTasks.map(task => (
       task.id === taskId
         ? { ...task, urgency, lastUpdated: Date.now() }
         : task
@@ -832,7 +886,7 @@ export default function App() {
   };
 
   const handleSetResistance = (taskId, resistance) => {
-    setTasks(tasks.map(task => (
+    setTasks((currentTasks) => currentTasks.map(task => (
       task.id === taskId
         ? { ...task, resistance, lastUpdated: Date.now() }
         : task
@@ -841,7 +895,7 @@ export default function App() {
   };
 
   const handleSetDeadline = (taskId, deadlineAt) => {
-    setTasks(tasks.map(task => (
+    setTasks((currentTasks) => currentTasks.map(task => (
       task.id === taskId
         ? { ...task, deadlineAt, lastUpdated: Date.now() }
         : task
@@ -850,7 +904,7 @@ export default function App() {
   };
 
   const handleToggleVital = (taskId) => {
-    setTasks(tasks.map(task => (
+    setTasks((currentTasks) => currentTasks.map(task => (
       task.id === taskId
         ? { ...task, isVital: !task.isVital, lastUpdated: Date.now() }
         : task
@@ -859,13 +913,21 @@ export default function App() {
   };
 
   const handleComplete = (taskId) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: "completed", isToday: false } : t));
+    setTasks((currentTasks) => currentTasks.map((task) => (
+      task.id === taskId
+        ? { ...task, status: "completed", isToday: false, lastUpdated: Date.now() }
+        : task
+    )));
     setScore(s => s + 10);
     trackDailyAction();
   };
 
   const handleKill = (taskId) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: "dead", isToday: false } : t));
+    setTasks((currentTasks) => currentTasks.map((task) => (
+      task.id === taskId
+        ? { ...task, status: "dead", isToday: false, lastUpdated: Date.now() }
+        : task
+    )));
     setScore(s => s - 5);
   };
 
@@ -902,14 +964,25 @@ export default function App() {
   };
 
   const handleResurrect = (taskId) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: "active", heatBase: DEFAULT_TASK_HEAT, heatCurrent: DEFAULT_TASK_HEAT, lastUpdated: Date.now(), isToday: false } : t));
+    setTasks((currentTasks) => currentTasks.map((task) => (
+      task.id === taskId
+        ? {
+            ...task,
+            status: "active",
+            heatBase: DEFAULT_TASK_HEAT,
+            heatCurrent: DEFAULT_TASK_HEAT,
+            lastUpdated: Date.now(),
+            isToday: false,
+          }
+        : task
+    )));
     setScore(s => s - 2);
     setHighlightTaskId(taskId);
     trackDailyAction();
   };
 
   const handleToggleToday = (taskId) => {
-    setTasks(tasks.map((task) => (
+    setTasks((currentTasks) => currentTasks.map((task) => (
       task.id === taskId
         ? { ...task, isToday: !task.isToday, lastUpdated: Date.now() }
         : task

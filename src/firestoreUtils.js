@@ -1,5 +1,5 @@
 // firestoreUtils.js
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 /**
@@ -39,4 +39,28 @@ export async function updateUserData(userId, tasks, score) {
       alert("🚨 Ошибка сохранения в Firestore! Зайдите в Firebase Console -> Firestore Database -> Rules. Сейчас сохранение на сервер заблокировано правилами базы.");
     }
   }
+}
+
+export function subscribeUserData(userId, email, name, onData, onError) {
+  const userDocRef = doc(db, "Users", userId);
+
+  return onSnapshot(
+    userDocRef,
+    async (userDocSnap) => {
+      if (!userDocSnap.exists()) {
+        const initialData = { name, email, tasks: [], score: 0 };
+        await setDoc(userDocRef, initialData);
+        onData(initialData);
+        return;
+      }
+
+      onData(userDocSnap.data());
+    },
+    (error) => {
+      console.error("Ошибка realtime-подписки на Firestore:", error);
+      if (typeof onError === "function") {
+        onError(error);
+      }
+    },
+  );
 }
