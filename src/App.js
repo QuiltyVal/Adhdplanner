@@ -577,7 +577,9 @@ export default function App() {
             (data) => {
               if (isCancelled) return;
               skipNextCloudSyncRef.current = true;
-              setTasks((currentTasks) => mergeTaskLists(currentTasks, data.tasks || []));
+              // Firestore is the source of truth here. If we keep local-only tasks
+              // on every snapshot, deleted cloud tasks become permanent ghosts.
+              setTasks(data.tasks || []);
               setScore(typeof data.score === "number" ? data.score : 0);
               setLoading(false);
               setDataLoaded(true);
