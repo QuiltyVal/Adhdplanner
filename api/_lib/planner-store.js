@@ -27,6 +27,44 @@ function ensurePlannerDoc(data = {}, userId) {
   };
 }
 
+function normalizeSubtaskForFingerprint(subtask = {}) {
+  return {
+    id: String(subtask.id || ""),
+    text: String(subtask.text || "").trim(),
+    completed: Boolean(subtask.completed),
+  };
+}
+
+function normalizeTaskForFingerprint(task = {}) {
+  return {
+    id: String(task.id || ""),
+    text: String(task.text || "").trim(),
+    status: String(task.status || "active"),
+    urgency: String(task.urgency || "medium"),
+    resistance: String(task.resistance || "medium"),
+    isToday: Boolean(task.isToday),
+    isVital: Boolean(task.isVital),
+    deadlineAt: String(task.deadlineAt || ""),
+    source: String(task.source || ""),
+    subtasks: Array.isArray(task.subtasks)
+      ? task.subtasks.map(normalizeSubtaskForFingerprint)
+      : [],
+  };
+}
+
+function buildPlannerFingerprint(data = {}) {
+  const safe = ensurePlannerDoc(data, data.id || "");
+  return JSON.stringify({
+    score: typeof safe.score === "number" ? safe.score : 0,
+    tasks: Array.isArray(safe.tasks) ? safe.tasks.map(normalizeTaskForFingerprint) : [],
+  });
+}
+
+function hasMeaningfulPlannerState(data = {}) {
+  const safe = ensurePlannerDoc(data, data.id || "");
+  return (Array.isArray(safe.tasks) && safe.tasks.length > 0) || Number(safe.score || 0) !== 0;
+}
+
 function getTaskHeat(task) {
   return typeof task?.heatCurrent === "number" ? task.heatCurrent : task?.heatBase || 0;
 }
@@ -220,14 +258,33 @@ async function getPlannerData(userId) {
   return ensurePlannerDoc(snapshot.data(), userId);
 }
 
-async function mutatePlanner(userId, mutator) {
+async function mutatePlanner(userId, mutator, options = {}) {
   const ref = userDoc(userId);
   return getDb().runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);
     const current = ensurePlannerDoc(snapshot.data(), userId);
     const next = await mutator(current);
-    transaction.set(ref, next, { merge: true });
-    return next;
+    const nextSafe = ensurePlannerDoc(next, userId);
+    const currentFingerprint = buildPlannerFingerprint(current);
+    const nextFingerprint = buildPlannerFingerprint(nextSafe);
+
+    if (currentFingerprint !== nextFingerprint && hasMeaningfulPlannerState(current)) {
+      const snapshotRef = ref.collection("taskSnapshots").doc();
+      transaction.set(snapshotRef, {
+        source: options.source || "server",
+        kind: "pre_mutation",
+        reason: options.reason || "mutation",
+        userId,
+        taskCount: current.tasks.length,
+        score: current.score,
+        fingerprint: currentFingerprint,
+        capturedAt: Date.now(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        tasks: current.tasks,
+      });
+    }
+    transaction.set(ref, nextSafe, { merge: true });
+    return nextSafe;
   });
 }
 
@@ -236,7 +293,10 @@ async function linkTelegramChat(userId, chatId) {
     ...current,
     telegramChatId: String(chatId),
     telegramLinkedAt: admin.firestore.FieldValue.serverTimestamp(),
-  }));
+  }), {
+    source: "telegram",
+    reason: "link_telegram_chat",
+  });
 }
 
 module.exports = {

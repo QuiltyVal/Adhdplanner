@@ -1,6 +1,62 @@
 // firestoreUtils.js
-import { doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
+
+function normalizeSubtaskForFingerprint(subtask = {}) {
+  return {
+    id: String(subtask.id || ""),
+    text: String(subtask.text || "").trim(),
+    completed: Boolean(subtask.completed),
+  };
+}
+
+function normalizeTaskForFingerprint(task = {}) {
+  return {
+    id: String(task.id || ""),
+    text: String(task.text || "").trim(),
+    status: String(task.status || "active"),
+    urgency: String(task.urgency || "medium"),
+    resistance: String(task.resistance || "medium"),
+    isToday: Boolean(task.isToday),
+    isVital: Boolean(task.isVital),
+    deadlineAt: String(task.deadlineAt || ""),
+    source: String(task.source || ""),
+    subtasks: Array.isArray(task.subtasks)
+      ? task.subtasks.map(normalizeSubtaskForFingerprint)
+      : [],
+  };
+}
+
+function buildPlannerFingerprint(tasks = [], score = 0) {
+  return JSON.stringify({
+    score: typeof score === "number" ? score : 0,
+    tasks: Array.isArray(tasks) ? tasks.map(normalizeTaskForFingerprint) : [],
+  });
+}
+
+function hasMeaningfulPlannerState(tasks = [], score = 0) {
+  return (Array.isArray(tasks) && tasks.length > 0) || Number(score || 0) !== 0;
+}
+
+async function writePlannerSnapshot(userId, snapshotData, source) {
+  const tasks = Array.isArray(snapshotData?.tasks) ? snapshotData.tasks : [];
+  const score = typeof snapshotData?.score === "number" ? snapshotData.score : 0;
+
+  if (!hasMeaningfulPlannerState(tasks, score)) {
+    return;
+  }
+
+  await addDoc(collection(db, "Users", userId, "taskSnapshots"), {
+    source,
+    kind: "pre_write",
+    taskCount: tasks.length,
+    score,
+    fingerprint: buildPlannerFingerprint(tasks, score),
+    capturedAt: Date.now(),
+    createdAt: serverTimestamp(),
+    tasks,
+  });
+}
 
 /**
  * Получаем задачи и очки пользователя из облака
@@ -32,6 +88,21 @@ export async function getUserData(userId, email, name) {
 export async function updateUserData(userId, tasks, score) {
   try {
     const userDocRef = doc(db, "Users", userId);
+    const currentDoc = await getDoc(userDocRef);
+    const currentData = currentDoc.exists() ? currentDoc.data() : { tasks: [], score: 0 };
+    const currentTasks = Array.isArray(currentData.tasks) ? currentData.tasks : [];
+    const currentScore = typeof currentData.score === "number" ? currentData.score : 0;
+    const currentFingerprint = buildPlannerFingerprint(currentTasks, currentScore);
+    const nextFingerprint = buildPlannerFingerprint(tasks, score);
+
+    if (currentFingerprint !== nextFingerprint) {
+      try {
+        await writePlannerSnapshot(userId, { tasks: currentTasks, score: currentScore }, "web");
+      } catch (snapshotError) {
+        console.warn("Не удалось сохранить backup snapshot перед записью:", snapshotError);
+      }
+    }
+
     await setDoc(userDocRef, { tasks, score }, { merge: true });
   } catch (error) {
     console.error("Ошибка при обновлении данных:", error);

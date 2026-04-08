@@ -127,6 +127,9 @@ async function upsertTask(chatId, incoming) {
       ...current,
       tasks: [created, ...current.tasks],
     };
+  }, {
+    source: "telegram",
+    reason: "upsert_task",
   });
 
   const task = outcome?.task;
@@ -488,6 +491,9 @@ async function handleCallback(chatId, callbackQuery) {
       ...current,
       tasks: nextTasks,
     };
+  }, {
+    source: "telegram",
+    reason: `callback_${action || "unknown"}`,
   });
 
   await answerCallback(callbackQuery.id, feedback);
