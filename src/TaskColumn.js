@@ -40,6 +40,7 @@ export default function TaskColumn({
   onComplete, 
   onKill, 
   onResurrect, 
+  onReopenCompleted,
   onAddTask,
   onAddSubtask,
   onDeleteSubtask,
@@ -125,6 +126,11 @@ export default function TaskColumn({
                 </div>
               )}
               <div className="points-badge">+10 points</div>
+              {onReopenCompleted && (
+                <button className="reopen-btn" onClick={() => onReopenCompleted(task.id)}>
+                  ↩️ Вернуть в активные
+                </button>
+              )}
             </div>
           ))}
           {tasks.length === 0 && <p style={{color: '#3aedff', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6}}>Рай пуст. Завершите задачу!</p>}

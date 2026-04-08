@@ -981,6 +981,24 @@ export default function App() {
     trackDailyAction();
   };
 
+  const handleReopenCompleted = (taskId) => {
+    setTasks((currentTasks) => currentTasks.map((task) => (
+      task.id === taskId
+        ? {
+            ...task,
+            status: "active",
+            heatBase: DEFAULT_TASK_HEAT,
+            heatCurrent: DEFAULT_TASK_HEAT,
+            lastUpdated: Date.now(),
+            isToday: false,
+          }
+        : task
+    )));
+    setScore((currentScore) => currentScore - 10);
+    setHighlightTaskId(taskId);
+    trackDailyAction();
+  };
+
   const handleToggleToday = (taskId) => {
     setTasks((currentTasks) => currentTasks.map((task) => (
       task.id === taskId
@@ -1301,7 +1319,7 @@ export default function App() {
             calendarToken={calendarToken}
           />
         )}
-        {activeTab === 'heaven' && <TaskColumn type="heaven" tasks={completedTasks} />}
+        {activeTab === 'heaven' && <TaskColumn type="heaven" tasks={completedTasks} onReopenCompleted={handleReopenCompleted} />}
         {activeTab === 'cemetery' && <TaskColumn type="cemetery" tasks={deadTasks} onResurrect={handleResurrect} />}
       </div>
 

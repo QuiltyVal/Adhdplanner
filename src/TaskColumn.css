@@ -328,6 +328,29 @@
   text-shadow: 0 0 8px rgba(58, 237, 255, 0.5);
 }
 
+.reopen-btn {
+  background: rgba(10, 34, 48, 0.95);
+  border: 2px solid #7dd3fc;
+  color: #dff7ff;
+  font-family: 'GuildensternNbp', 'VT323', monospace;
+  font-size: 1.1rem;
+  padding: 8px 12px;
+  cursor: pointer;
+  margin-top: 12px;
+  width: 100%;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.reopen-btn:hover,
+.reopen-btn:active {
+  background: #07293a;
+  border-color: #c7f0ff;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(125, 211, 252, 0.28);
+}
+
 @keyframes cloud-float {
   0% { transform: translateY(0); }
   100% { transform: translateY(-8px); }
@@ -782,6 +805,12 @@
     min-height: 48px;
     touch-action: manipulation;
     font-size: 1.2rem;
+  }
+
+  .reopen-btn {
+    min-height: 48px;
+    touch-action: manipulation;
+    font-size: 1.15rem;
   }
 
   .heaven-cloud {
