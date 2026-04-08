@@ -28,6 +28,141 @@ function parseCommand(text = "") {
   };
 }
 
+function normalizeTaskText(text = "") {
+  return String(text).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function getUrgencyRank(urgency) {
+  if (urgency === "high") return 3;
+  if (urgency === "medium") return 2;
+  return 1;
+}
+
+function pickMergedUrgency(existingUrgency, incomingUrgency) {
+  return getUrgencyRank(incomingUrgency) > getUrgencyRank(existingUrgency)
+    ? incomingUrgency
+    : existingUrgency;
+}
+
+function mergeDeadline(existingDeadline, incomingDeadline) {
+  if (!existingDeadline) return incomingDeadline || "";
+  if (!incomingDeadline) return existingDeadline;
+  return incomingDeadline < existingDeadline ? incomingDeadline : existingDeadline;
+}
+
+function buildSubtask(text, seed) {
+  return {
+    id: `${seed}-${Math.random().toString(36).slice(2, 8)}`,
+    text,
+    completed: false,
+  };
+}
+
+function mergeIncomingIntoTask(task, incoming) {
+  const existingSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+  const existingSubtaskTexts = new Set(
+    existingSubtasks.map((subtask) => normalizeTaskText(subtask.text)),
+  );
+
+  const incomingSubtasks = Array.isArray(incoming.subtasks) ? incoming.subtasks : [];
+  const appendedSubtasks = incomingSubtasks
+    .map((text) => String(text).trim())
+    .filter(Boolean)
+    .filter((text) => {
+      const normalized = normalizeTaskText(text);
+      if (existingSubtaskTexts.has(normalized)) return false;
+      existingSubtaskTexts.add(normalized);
+      return true;
+    })
+    .map((text, index) => buildSubtask(text, `${task.id}-sub-${Date.now()}-${index + 1}`));
+
+  return {
+    ...task,
+    urgency: pickMergedUrgency(task.urgency || "medium", incoming.urgency || task.urgency || "medium"),
+    isToday: task.isToday || Boolean(incoming.isToday),
+    isVital: task.isVital || Boolean(incoming.isVital),
+    deadlineAt: mergeDeadline(task.deadlineAt || "", incoming.deadlineAt || ""),
+    subtasks: [...existingSubtasks, ...appendedSubtasks],
+    lastUpdated: Date.now(),
+  };
+}
+
+async function upsertTask(chatId, incoming) {
+  const userId = getTargetUserId();
+  const normalizedIncomingText = normalizeTaskText(incoming.text);
+  let outcome = null;
+
+  await mutatePlanner(userId, (current) => {
+    const existingIndex = current.tasks.findIndex(
+      (task) => task.status === "active" && normalizeTaskText(task.text) === normalizedIncomingText,
+    );
+
+    if (existingIndex !== -1) {
+      const existingTask = current.tasks[existingIndex];
+      const updatedTask = mergeIncomingIntoTask(existingTask, incoming);
+      const tasks = [...current.tasks];
+      tasks[existingIndex] = updatedTask;
+      outcome = { type: "updated", task: updatedTask };
+      return { ...current, tasks };
+    }
+
+    const created = createTask(incoming.text, {
+      source: incoming.source || "telegram",
+      deadlineAt: incoming.deadlineAt || "",
+      urgency: incoming.urgency || "medium",
+      isToday: incoming.isToday,
+      isVital: incoming.isVital,
+    });
+
+    if (Array.isArray(incoming.subtasks) && incoming.subtasks.length > 0) {
+      created.subtasks = incoming.subtasks.map((text, index) => ({
+        id: `${created.id}-sub-${index + 1}`,
+        text,
+        completed: false,
+      }));
+    }
+
+    outcome = { type: "created", task: created };
+    return {
+      ...current,
+      tasks: [created, ...current.tasks],
+    };
+  });
+
+  const task = outcome?.task;
+  const meta = [];
+  if (task?.deadlineAt) meta.push(`📅 до ${escapeHtml(task.deadlineAt)}`);
+  if (task?.isToday) meta.push("📌 сегодня");
+  if (task?.isVital) meta.push("🚨 критично");
+  if (task?.urgency === "high") meta.push("⏰ срочно");
+  if (task?.subtasks?.length) meta.push(`🪜 шагов: ${task.subtasks.length}`);
+
+  if (outcome?.type === "updated") {
+    await sendText(
+      chatId,
+      [
+        `🧩 Такая активная задача уже была. Я обновила её: <b>${escapeHtml(task.text)}</b>`,
+        meta.length ? meta.join(" · ") : "",
+      ].filter(Boolean).join("\n"),
+      {
+        reply_markup: plannerTaskKeyboard(task.id),
+      },
+    );
+    return;
+  }
+
+  await sendText(
+    chatId,
+    [
+      `➕ Добавила задачу: <b>${escapeHtml(task.text)}</b>`,
+      meta.length ? meta.join(" · ") : "",
+    ].filter(Boolean).join("\n"),
+    {
+      reply_markup: plannerTaskKeyboard(task.id),
+    },
+  );
+}
+
 async function sendText(chatId, text, extra = {}) {
   return telegramRequest("sendMessage", {
     chat_id: chatId,
@@ -172,15 +307,9 @@ async function handleAdd(chatId, argText) {
     return;
   }
 
-  const userId = getTargetUserId();
-  const created = createTask(argText, { source: "telegram" });
-  await mutatePlanner(userId, (current) => ({
-    ...current,
-    tasks: [created, ...current.tasks],
-  }));
-
-  await sendText(chatId, `➕ Добавила задачу: <b>${escapeHtml(created.text)}</b>`, {
-    reply_markup: plannerTaskKeyboard(created.id),
+  await upsertTask(chatId, {
+    text: argText,
+    source: "telegram",
   });
 }
 
@@ -279,43 +408,15 @@ async function handlePlainCapture(chatId, text) {
   }
 
   const taskText = intent.task_text || cleaned;
-  const created = createTask(taskText, {
+  await upsertTask(chatId, {
+    text: taskText,
     source: "telegram",
     deadlineAt: intent.deadline_at || "",
     urgency: intent.urgency || "medium",
     isToday: intent.is_today,
     isVital: intent.is_vital,
+    subtasks: intent.subtasks || [],
   });
-  if (Array.isArray(intent.subtasks) && intent.subtasks.length > 0) {
-    created.subtasks = intent.subtasks.map((text, index) => ({
-      id: `${created.id}-sub-${index + 1}`,
-      text,
-      completed: false,
-    }));
-  }
-
-  await mutatePlanner(userId, (current) => ({
-    ...current,
-    tasks: [created, ...current.tasks],
-  }));
-
-  const meta = [];
-  if (created.deadlineAt) meta.push(`📅 до ${escapeHtml(created.deadlineAt)}`);
-  if (created.isToday) meta.push("📌 сегодня");
-  if (created.isVital) meta.push("🚨 критично");
-  if (created.urgency === "high") meta.push("⏰ срочно");
-  if (created.subtasks?.length) meta.push(`🪜 шагов: ${created.subtasks.length}`);
-
-  await sendText(
-    chatId,
-    [
-      `➕ Добавила задачу: <b>${escapeHtml(created.text)}</b>`,
-      meta.length ? meta.join(" · ") : "",
-    ].filter(Boolean).join("\n"),
-    {
-      reply_markup: plannerTaskKeyboard(created.id),
-    },
-  );
 }
 
 async function handleCallback(chatId, callbackQuery) {
