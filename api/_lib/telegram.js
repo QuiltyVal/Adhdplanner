@@ -41,6 +41,12 @@ function plannerTaskKeyboard(taskId) {
   };
 }
 
+function completedTaskKeyboard(taskId) {
+  return {
+    inline_keyboard: [[{ text: "↩️ Вернуть в активные", callback_data: `reopen:${taskId}` }]],
+  };
+}
+
 function calendarConnectKeyboard(url) {
   return {
     inline_keyboard: [[{ text: "📅 Подключить Google Calendar", url }]],
@@ -49,6 +55,7 @@ function calendarConnectKeyboard(url) {
 
 module.exports = {
   calendarConnectKeyboard,
+  completedTaskKeyboard,
   plannerTaskKeyboard,
   telegramRequest,
 };

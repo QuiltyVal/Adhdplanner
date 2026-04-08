@@ -1,7 +1,7 @@
 const { buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority } = require("./_lib/planner-store");
 const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
 const { parseTelegramIntent } = require("./_lib/telegram-intent");
-const { calendarConnectKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
+const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
 
 const DEFAULT_USER_ID = process.env.PLANNER_DEFAULT_USER_ID;
 const ALLOWED_CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID || "";
@@ -103,6 +103,7 @@ async function handleStart(chatId) {
       "",
       "Команды:",
       "/today — показать 1-3 главные задачи",
+      "/completed — показать завершённые и вернуть ошибочно закрытую",
       "/panic — выбрать одну задачу и один микрошаг",
       "/add текст — добавить задачу",
       "",
@@ -115,6 +116,39 @@ async function handleToday(chatId) {
   const userId = getTargetUserId();
   const plannerData = await getPlannerData(userId);
   await sendTodayDigest(chatId, plannerData);
+}
+
+async function handleCompleted(chatId) {
+  const userId = getTargetUserId();
+  const plannerData = await getPlannerData(userId);
+  const completedTasks = plannerData.tasks
+    .filter((task) => task.status === "completed")
+    .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))
+    .slice(0, 5);
+
+  if (completedTasks.length === 0) {
+    await sendText(chatId, "В раю пока пусто. Завершённых задач нет.");
+    return;
+  }
+
+  await sendText(
+    chatId,
+    [
+      "☁️ <b>Последние завершённые задачи</b>",
+      "",
+      ...completedTasks.map((task, index) => `${index + 1}. ${escapeHtml(task.text)}`),
+      "",
+      "Если бот отправил что-то в рай по ошибке, жми кнопку возврата.",
+    ].join("\n"),
+  );
+
+  for (const task of completedTasks) {
+    await sendText(
+      chatId,
+      `☁️ <b>${escapeHtml(task.text)}</b>`,
+      { reply_markup: completedTaskKeyboard(task.id) },
+    );
+  }
 }
 
 async function handlePanic(chatId) {
@@ -174,6 +208,7 @@ async function handlePlainCapture(chatId, text) {
         "Рабочие команды сейчас:",
         "/start",
         "/today",
+        "/completed",
         "/panic",
         "/add текст",
       ].join("\n"),
@@ -293,6 +328,8 @@ async function handleCallback(chatId, callbackQuery) {
 
   let feedback = "Сделано.";
   let panicTask = null;
+  let reopenedTask = null;
+  let completedTask = null;
 
   await mutatePlanner(userId, (current) => {
     const nextTasks = current.tasks.map((task) => {
@@ -300,7 +337,21 @@ async function handleCallback(chatId, callbackQuery) {
 
       if (action === "done") {
         feedback = "Задача отправлена в выполненные.";
-        return { ...task, status: "completed", isToday: false, lastUpdated: Date.now() };
+        completedTask = { ...task, status: "completed", isToday: false, lastUpdated: Date.now() };
+        return completedTask;
+      }
+
+      if (action === "reopen") {
+        feedback = "Вернул задачу в активные.";
+        reopenedTask = {
+          ...task,
+          status: "active",
+          isToday: false,
+          heatBase: typeof task.heatBase === "number" ? task.heatBase : 35,
+          heatCurrent: typeof task.heatCurrent === "number" ? task.heatCurrent : (typeof task.heatBase === "number" ? task.heatBase : 35),
+          lastUpdated: Date.now(),
+        };
+        return reopenedTask;
       }
 
       if (action === "today") {
@@ -345,6 +396,22 @@ async function handleCallback(chatId, callbackQuery) {
       reply_markup: plannerTaskKeyboard(panicTask.id),
     });
   }
+
+  if (action === "done" && completedTask) {
+    await sendText(
+      chatId,
+      `☁️ <b>${escapeHtml(completedTask.text)}</b> теперь в раю. Если это была ошибка, верни её кнопкой ниже.`,
+      { reply_markup: completedTaskKeyboard(completedTask.id) },
+    );
+  }
+
+  if (action === "reopen" && reopenedTask) {
+    await sendText(
+      chatId,
+      `↩️ <b>${escapeHtml(reopenedTask.text)}</b> снова в активных.`,
+      { reply_markup: plannerTaskKeyboard(reopenedTask.id) },
+    );
+  }
 }
 
 module.exports = async function handler(req, res) {
@@ -382,6 +449,8 @@ module.exports = async function handler(req, res) {
       await handleStart(chatId);
     } else if (command === "/today") {
       await handleToday(chatId);
+    } else if (command === "/completed") {
+      await handleCompleted(chatId);
     } else if (command === "/panic") {
       await handlePanic(chatId);
     } else if (command === "/calendar") {
