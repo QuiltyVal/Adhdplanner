@@ -2,13 +2,33 @@
 import React, { useState } from "react";
 import "./TaskColumn.css";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function getDayNumberFromIsoDate(isoDate) {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / DAY_MS);
+}
+
+function getTodayIsoDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getDeadlineBadge(deadlineAt) {
   if (!deadlineAt) return null;
 
-  const deadline = new Date(`${deadlineAt}T23:59:59`);
+  const [year, month, day] = deadlineAt.split("-").map(Number);
+  const deadline = new Date(year, month - 1, day);
   if (Number.isNaN(deadline.getTime())) return null;
 
-  const daysLeft = Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  const deadlineDayNumber = getDayNumberFromIsoDate(deadlineAt);
+  const todayDayNumber = getDayNumberFromIsoDate(getTodayIsoDate());
+  if (deadlineDayNumber === null || todayDayNumber === null) return null;
+  const daysLeft = deadlineDayNumber - todayDayNumber;
   const shortDate = deadline.toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "short",

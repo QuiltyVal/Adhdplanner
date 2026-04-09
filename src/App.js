@@ -30,6 +30,12 @@ const NUDGE_INTERVAL_MS = 20 * 60 * 1000;
 const PULSE_STORAGE_PREFIX = "adhd_planner_pulse";
 const CLOUD_CACHE_PREFIX = "adhd_planner_cloud_cache";
 
+function getDayNumberFromIsoDate(isoDate) {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / DAY_MS);
+}
+
 function getDayKey(input = Date.now()) {
   const date = new Date(input);
   const year = date.getFullYear();
@@ -167,18 +173,25 @@ function getTaskDecayWindowMs(task) {
 }
 
 function parseDeadline(deadlineAt) {
-  if (!deadlineAt) return null;
-  const deadline = new Date(`${deadlineAt}T23:59:59`);
+  if (!deadlineAt || !/^\d{4}-\d{2}-\d{2}$/.test(deadlineAt)) return null;
+  const [year, month, day] = deadlineAt.split("-").map(Number);
+  const deadline = new Date(year, month - 1, day);
   return Number.isNaN(deadline.getTime()) ? null : deadline;
+}
+
+function getDaysUntilDeadline(deadlineAt, now = Date.now()) {
+  const deadlineDayNumber = getDayNumberFromIsoDate(deadlineAt);
+  if (deadlineDayNumber === null) return null;
+  const todayDayNumber = getDayNumberFromIsoDate(getDayKey(now));
+  if (todayDayNumber === null) return null;
+  return deadlineDayNumber - todayDayNumber;
 }
 
 function getDeadlineInfo(task) {
   const deadline = parseDeadline(task?.deadlineAt);
   if (!deadline) return null;
 
-  const now = Date.now();
-  const msLeft = deadline.getTime() - now;
-  const daysLeft = Math.ceil(msLeft / DAY_MS);
+  const daysLeft = getDaysUntilDeadline(task?.deadlineAt);
   const shortDate = deadline.toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "short",
@@ -698,9 +711,17 @@ export default function App() {
   const todayActions = pulseState.lastActionDay === getDayKey() ? pulseState.actionsToday || 0 : 0;
   const panicSecondsLeft = panicEndsAt ? Math.max(0, Math.ceil((panicEndsAt - panicTick) / 1000)) : 0;
 
+  const scrollTaskIntoView = (taskId) => {
+    const element = document.querySelector(`[data-task-id="${taskId}"]`);
+    element?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   const focusTaskInList = (taskId) => {
     setActiveTab("active");
     setHighlightTaskId(taskId);
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => scrollTaskIntoView(taskId), 90);
+    });
   };
 
   const sendBrowserNudge = (task, { isTest = false } = {}) => {
@@ -741,8 +762,7 @@ export default function App() {
     if (activeTab !== "active" || !highlightTaskId) return;
 
     const timer = setTimeout(() => {
-      const element = document.querySelector(`[data-task-id="${highlightTaskId}"]`);
-      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrollTaskIntoView(highlightTaskId);
     }, 80);
 
     return () => clearTimeout(timer);

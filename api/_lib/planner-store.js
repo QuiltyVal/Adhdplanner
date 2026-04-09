@@ -2,6 +2,12 @@ const { getDb, admin } = require("./firebase-admin");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_TASK_HEAT = 35;
+const BERLIN_DATE_FORMAT = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Europe/Berlin",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 function userDoc(userId) {
   return getDb().collection("Users").doc(userId);
@@ -69,9 +75,20 @@ function getTaskHeat(task) {
   return typeof task?.heatCurrent === "number" ? task.heatCurrent : task?.heatBase || 0;
 }
 
+function getDayNumberFromIsoDate(isoDate) {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / DAY_MS);
+}
+
+function getBerlinIsoDate(now = new Date()) {
+  return BERLIN_DATE_FORMAT.format(now);
+}
+
 function parseDeadline(deadlineAt) {
-  if (!deadlineAt) return null;
-  const deadline = new Date(`${deadlineAt}T23:59:59`);
+  if (!deadlineAt || !/^\d{4}-\d{2}-\d{2}$/.test(deadlineAt)) return null;
+  const [year, month, day] = deadlineAt.split("-").map(Number);
+  const deadline = new Date(year, month - 1, day);
   return Number.isNaN(deadline.getTime()) ? null : deadline;
 }
 
@@ -79,8 +96,10 @@ function getDeadlineInfo(task) {
   const deadline = parseDeadline(task?.deadlineAt);
   if (!deadline) return null;
 
-  const msLeft = deadline.getTime() - Date.now();
-  const daysLeft = Math.ceil(msLeft / DAY_MS);
+  const deadlineDayNumber = getDayNumberFromIsoDate(task?.deadlineAt);
+  const todayDayNumber = getDayNumberFromIsoDate(getBerlinIsoDate());
+  if (deadlineDayNumber === null || todayDayNumber === null) return null;
+  const daysLeft = deadlineDayNumber - todayDayNumber;
   const shortDate = deadline.toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "short",
@@ -212,15 +231,15 @@ function buildNudgeMessage(task) {
   const openSubtask = getFirstOpenSubtask(task);
 
   if (deadlineInfo?.tone === "overdue") {
-    return `⛔ "${task.text}" уже просрочена. Возвращайся к ней сейчас.${openSubtask ? ` Начни с: ${openSubtask.text}.` : ""}`;
+    return `⛔ "${task.text}" уже просрочена (${deadlineInfo.label}). Возвращайся к ней сейчас.${openSubtask ? ` Начни с: ${openSubtask.text}.` : ""}`;
   }
 
   if (deadlineInfo?.tone === "today") {
-    return `📅 Сегодня дедлайн по "${task.text}".${openSubtask ? ` Первый шаг: ${openSubtask.text}.` : ""}`;
+    return `📅 Сегодня дедлайн по "${task.text}" (${deadlineInfo.label}).${openSubtask ? ` Первый шаг: ${openSubtask.text}.` : ""}`;
   }
 
   if (deadlineInfo?.tone === "soon") {
-    return `⚠️ Срок по "${task.text}" уже рядом.${openSubtask ? ` Первый шаг: ${openSubtask.text}.` : ""}`;
+    return `⚠️ Срок по "${task.text}" уже рядом: ${deadlineInfo.label}.${openSubtask ? ` Первый шаг: ${openSubtask.text}.` : ""}`;
   }
 
   if (heat <= 15) {

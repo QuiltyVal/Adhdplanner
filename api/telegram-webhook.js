@@ -32,6 +32,68 @@ function normalizeTaskText(text = "") {
   return String(text).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function extractQuotedSegments(text = "") {
+  return Array.from(String(text).matchAll(/[«"]([^«»"]+)[»"]/g)).map((match) => match[1].trim()).filter(Boolean);
+}
+
+function findTaskByText(tasks = [], query, allowedStatuses = ["active"]) {
+  const normalizedQuery = normalizeTaskText(query);
+  if (!normalizedQuery) return null;
+
+  return (
+    tasks.find(
+      (task) =>
+        allowedStatuses.includes(task.status) &&
+        normalizeTaskText(task.text) === normalizedQuery,
+    ) ||
+    tasks.find(
+      (task) =>
+        allowedStatuses.includes(task.status) &&
+        normalizeTaskText(task.text).includes(normalizedQuery),
+    ) ||
+    null
+  );
+}
+
+function findSubtaskByText(subtasks = [], query) {
+  const normalizedQuery = normalizeTaskText(query);
+  if (!normalizedQuery) return null;
+
+  return (
+    subtasks.find((subtask) => normalizeTaskText(subtask.text) === normalizedQuery) ||
+    subtasks.find((subtask) => normalizeTaskText(subtask.text).includes(normalizedQuery)) ||
+    null
+  );
+}
+
+function looksLikeReopenRequest(text = "") {
+  const lowered = String(text).toLowerCase();
+  return /верни|вернуть|из рая|назад в актив/.test(lowered) && /задач/.test(lowered);
+}
+
+function parseDeleteSubtaskRequest(text = "") {
+  const lowered = String(text).toLowerCase();
+  if (!/удали|удалить/.test(lowered) || !/подзадач|шаг/.test(lowered)) {
+    return null;
+  }
+
+  const quoted = extractQuotedSegments(text);
+  if (quoted.length >= 2) {
+    return {
+      taskText: quoted[0],
+      subtaskText: quoted[1],
+    };
+  }
+
+  const match = String(text).match(/в задачу\s+(.+?)\s+удали(?:ть)?\s+(?:подзадачу|шаг)\s+(.+)/i);
+  if (!match) return null;
+
+  return {
+    taskText: match[1].trim(),
+    subtaskText: match[2].trim(),
+  };
+}
+
 function getUrgencyRank(urgency) {
   if (urgency === "high") return 3;
   if (urgency === "medium") return 2;
@@ -328,6 +390,100 @@ async function handleCalendar(chatId) {
   );
 }
 
+async function handleReopenLatestCompleted(chatId, plannerData) {
+  const latestCompleted = [...plannerData.tasks]
+    .filter((task) => task.status === "completed")
+    .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))[0];
+
+  if (!latestCompleted) {
+    await sendText(chatId, "В раю сейчас нечего возвращать. Завершённых задач нет.");
+    return;
+  }
+
+  let reopenedTask = null;
+  await mutatePlanner(
+    getTargetUserId(),
+    (current) => {
+      const tasks = current.tasks.map((task) => {
+        if (task.id !== latestCompleted.id) return task;
+        reopenedTask = {
+          ...task,
+          status: "active",
+          isToday: false,
+          heatBase: typeof task.heatBase === "number" ? task.heatBase : 35,
+          heatCurrent:
+            typeof task.heatCurrent === "number"
+              ? task.heatCurrent
+              : typeof task.heatBase === "number"
+                ? task.heatBase
+                : 35,
+          lastUpdated: Date.now(),
+        };
+        return reopenedTask;
+      });
+
+      return { ...current, tasks };
+    },
+    {
+      source: "telegram",
+      reason: "reopen_latest_completed",
+    },
+  );
+
+  if (!reopenedTask) {
+    await sendText(chatId, "Не смогла найти последнюю завершённую задачу для возврата.");
+    return;
+  }
+
+  await sendText(
+    chatId,
+    `↩️ Вернула в активные: <b>${escapeHtml(reopenedTask.text)}</b>`,
+    { reply_markup: plannerTaskKeyboard(reopenedTask.id) },
+  );
+}
+
+async function handleDeleteSubtaskRequest(chatId, plannerData, request) {
+  const task = findTaskByText(plannerData.tasks, request.taskText, ["active", "completed", "dead"]);
+  if (!task) {
+    await sendText(chatId, `Не нашла задачу: <b>${escapeHtml(request.taskText)}</b>`);
+    return;
+  }
+
+  const subtask = findSubtaskByText(task.subtasks || [], request.subtaskText);
+  if (!subtask) {
+    await sendText(
+      chatId,
+      `В задаче <b>${escapeHtml(task.text)}</b> не нашла подзадачу: <b>${escapeHtml(request.subtaskText)}</b>`,
+    );
+    return;
+  }
+
+  await mutatePlanner(
+    getTargetUserId(),
+    (current) => {
+      const tasks = current.tasks.map((currentTask) => {
+        if (currentTask.id !== task.id) return currentTask;
+        return {
+          ...currentTask,
+          subtasks: (currentTask.subtasks || []).filter((item) => item.id !== subtask.id),
+          lastUpdated: Date.now(),
+        };
+      });
+
+      return { ...current, tasks };
+    },
+    {
+      source: "telegram",
+      reason: "delete_subtask",
+    },
+  );
+
+  await sendText(
+    chatId,
+    `🗑️ Удалила подзадачу <b>${escapeHtml(subtask.text)}</b> из <b>${escapeHtml(task.text)}</b>.`,
+  );
+}
+
 async function handlePlainCapture(chatId, text) {
   const cleaned = text.trim();
   if (!cleaned) return;
@@ -350,6 +506,18 @@ async function handlePlainCapture(chatId, text) {
 
   const userId = getTargetUserId();
   const plannerData = await getPlannerData(userId);
+  const deleteSubtaskRequest = parseDeleteSubtaskRequest(cleaned);
+
+  if (deleteSubtaskRequest) {
+    await handleDeleteSubtaskRequest(chatId, plannerData, deleteSubtaskRequest);
+    return;
+  }
+
+  if (looksLikeReopenRequest(cleaned)) {
+    await handleReopenLatestCompleted(chatId, plannerData);
+    return;
+  }
+
   const intent = await parseTelegramIntent({
     text: cleaned,
     tasks: plannerData.tasks,
