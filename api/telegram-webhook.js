@@ -1,4 +1,4 @@
-const { buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority } = require("./_lib/planner-store");
+const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeTelegramLog } = require("./_lib/planner-store");
 const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
 const { parseTelegramIntent } = require("./_lib/telegram-intent");
 const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
@@ -68,7 +68,26 @@ function findSubtaskByText(subtasks = [], query) {
 
 function looksLikeReopenRequest(text = "") {
   const lowered = String(text).toLowerCase();
-  return /верни|вернуть|из рая|назад в актив/.test(lowered) && /задач/.test(lowered);
+  return /верни|вернуть|из рая|назад в актив/.test(lowered) && /(задач|е[её]|\bее\b|\bеё\b|\bэту\b)/.test(lowered);
+}
+
+function looksLikeCompleteRequest(text = "") {
+  const lowered = String(text).toLowerCase();
+  return /(в рай|выполненн|готов[ао]|заверши|сделай готов|отправь.*в рай)/.test(lowered);
+}
+
+function extractTaskNameForCompletion(text = "") {
+  const quoted = extractQuotedSegments(text);
+  if (quoted.length > 0) return quoted[0];
+
+  const cleaned = String(text)
+    .replace(/^(ну\s+)?(нет\s+)?/i, "")
+    .replace(/^(отправь|переведи|сделай|заверши|завершить)\s+/i, "")
+    .replace(/\s+(в рай|в выполненные|готовой|готовым|готово)$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned && !/^(е[её]|эту|эту задачу)$/i.test(cleaned) ? cleaned : "";
 }
 
 function parseDeleteSubtaskRequest(text = "") {
@@ -165,7 +184,11 @@ async function upsertTask(chatId, incoming) {
       const tasks = [...current.tasks];
       tasks[existingIndex] = updatedTask;
       outcome = { type: "updated", task: updatedTask };
-      return { ...current, tasks };
+      return {
+        ...current,
+        tasks,
+        telegramContext: buildTelegramContext(updatedTask, "upsert"),
+      };
     }
 
     const created = createTask(incoming.text, {
@@ -188,6 +211,7 @@ async function upsertTask(chatId, incoming) {
     return {
       ...current,
       tasks: [created, ...current.tasks],
+      telegramContext: buildTelegramContext(created, "upsert"),
     };
   }, {
     source: "telegram",
@@ -228,6 +252,22 @@ async function upsertTask(chatId, incoming) {
   );
 }
 
+function resolveContextTask(plannerData, { statuses = ["active"], fallbackLatest = true } = {}) {
+  const tasks = Array.isArray(plannerData?.tasks) ? plannerData.tasks : [];
+  const lastTaskId = plannerData?.telegramContext?.lastTaskId;
+
+  if (lastTaskId) {
+    const byId = tasks.find((task) => task.id === lastTaskId && statuses.includes(task.status));
+    if (byId) return byId;
+  }
+
+  if (!fallbackLatest) return null;
+
+  return [...tasks]
+    .filter((task) => statuses.includes(task.status))
+    .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))[0] || null;
+}
+
 async function sendText(chatId, text, extra = {}) {
   return telegramRequest("sendMessage", {
     chat_id: chatId,
@@ -245,13 +285,21 @@ async function answerCallback(callbackQueryId, text) {
   });
 }
 
+async function safeWriteTelegramLog(payload) {
+  try {
+    await writeTelegramLog(getTargetUserId(), payload);
+  } catch (error) {
+    console.error("[telegram-log]", error);
+  }
+}
+
 async function sendTodayDigest(chatId, plannerData) {
   const activeTasks = plannerData.tasks.filter((task) => task.status === "active");
   const topTasks = sortTasksByPriority(activeTasks).slice(0, 3);
 
   if (topTasks.length === 0) {
     await sendText(chatId, "Сегодня активных задач нет. Можно выдохнуть или добавить новую.");
-    return;
+    return null;
   }
 
   const [topTask, ...restTasks] = topTasks;
@@ -273,6 +321,8 @@ async function sendTodayDigest(chatId, plannerData) {
       reply_markup: plannerTaskKeyboard(topTask.id),
     },
   );
+
+  return topTask;
 }
 
 function buildPanicText(task) {
@@ -315,7 +365,15 @@ async function handleStart(chatId) {
 async function handleToday(chatId) {
   const userId = getTargetUserId();
   const plannerData = await getPlannerData(userId);
-  await sendTodayDigest(chatId, plannerData);
+  const topTask = await sendTodayDigest(chatId, plannerData);
+  if (!topTask) return;
+  await mutatePlanner(userId, (current) => ({
+    ...current,
+    telegramContext: buildTelegramContext(topTask, "today"),
+  }), {
+    source: "telegram",
+    reason: "show_today",
+  });
 }
 
 async function handleCompleted(chatId) {
@@ -364,6 +422,14 @@ async function handlePanic(chatId) {
   await sendText(chatId, buildPanicText(task), {
     reply_markup: plannerTaskKeyboard(task.id),
   });
+
+  await mutatePlanner(userId, (current) => ({
+    ...current,
+    telegramContext: buildTelegramContext(task, "panic"),
+  }), {
+    source: "telegram",
+    reason: "show_panic",
+  });
 }
 
 async function handleAdd(chatId, argText) {
@@ -391,9 +457,7 @@ async function handleCalendar(chatId) {
 }
 
 async function handleReopenLatestCompleted(chatId, plannerData) {
-  const latestCompleted = [...plannerData.tasks]
-    .filter((task) => task.status === "completed")
-    .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))[0];
+  const latestCompleted = resolveContextTask(plannerData, { statuses: ["completed"] });
 
   if (!latestCompleted) {
     await sendText(chatId, "В раю сейчас нечего возвращать. Завершённых задач нет.");
@@ -419,10 +483,14 @@ async function handleReopenLatestCompleted(chatId, plannerData) {
                 : 35,
           lastUpdated: Date.now(),
         };
-        return reopenedTask;
+      return reopenedTask;
       });
 
-      return { ...current, tasks };
+      return {
+        ...current,
+        tasks,
+        telegramContext: buildTelegramContext(reopenedTask || latestCompleted, "reopen"),
+      };
     },
     {
       source: "telegram",
@@ -440,6 +508,14 @@ async function handleReopenLatestCompleted(chatId, plannerData) {
     `↩️ Вернула в активные: <b>${escapeHtml(reopenedTask.text)}</b>`,
     { reply_markup: plannerTaskKeyboard(reopenedTask.id) },
   );
+
+  await safeWriteTelegramLog({
+    kind: "action",
+    action: "reopen_latest_completed",
+    chatId: String(chatId),
+    taskId: reopenedTask.id,
+    taskText: reopenedTask.text,
+  });
 }
 
 async function handleDeleteSubtaskRequest(chatId, plannerData, request) {
@@ -470,7 +546,11 @@ async function handleDeleteSubtaskRequest(chatId, plannerData, request) {
         };
       });
 
-      return { ...current, tasks };
+      return {
+        ...current,
+        tasks,
+        telegramContext: buildTelegramContext(task, "delete_subtask"),
+      };
     },
     {
       source: "telegram",
@@ -482,6 +562,73 @@ async function handleDeleteSubtaskRequest(chatId, plannerData, request) {
     chatId,
     `🗑️ Удалила подзадачу <b>${escapeHtml(subtask.text)}</b> из <b>${escapeHtml(task.text)}</b>.`,
   );
+
+  await safeWriteTelegramLog({
+    kind: "action",
+    action: "delete_subtask",
+    chatId: String(chatId),
+    taskId: task.id,
+    taskText: task.text,
+    subtaskId: subtask.id,
+    subtaskText: subtask.text,
+  });
+}
+
+async function handleCompleteTaskRequest(chatId, plannerData, taskQuery = "") {
+  const task =
+    (taskQuery && findTaskByText(plannerData.tasks, taskQuery, ["active"])) ||
+    resolveContextTask(plannerData, { statuses: ["active"] });
+
+  if (!task) {
+    await sendText(chatId, "Не нашла активную задачу, которую нужно отправить в рай.");
+    return;
+  }
+
+  let completedTask = null;
+  await mutatePlanner(
+    getTargetUserId(),
+    (current) => {
+      const tasks = current.tasks.map((currentTask) => {
+        if (currentTask.id !== task.id) return currentTask;
+        completedTask = {
+          ...currentTask,
+          status: "completed",
+          isToday: false,
+          lastUpdated: Date.now(),
+        };
+        return completedTask;
+      });
+
+      return {
+        ...current,
+        tasks,
+        telegramContext: buildTelegramContext(completedTask || task, "complete"),
+      };
+    },
+    {
+      source: "telegram",
+      reason: "complete_from_text",
+    },
+  );
+
+  if (!completedTask) {
+    await sendText(chatId, "Не смогла отправить задачу в рай.");
+    return;
+  }
+
+  await sendText(
+    chatId,
+    `☁️ <b>${escapeHtml(completedTask.text)}</b> теперь в раю. Если это была ошибка, верни её кнопкой ниже.`,
+    { reply_markup: completedTaskKeyboard(completedTask.id) },
+  );
+
+  await safeWriteTelegramLog({
+    kind: "action",
+    action: "complete_from_text",
+    chatId: String(chatId),
+    taskId: completedTask.id,
+    taskText: completedTask.text,
+  });
 }
 
 async function handlePlainCapture(chatId, text) {
@@ -518,13 +665,25 @@ async function handlePlainCapture(chatId, text) {
     return;
   }
 
+  if (looksLikeCompleteRequest(cleaned)) {
+    await handleCompleteTaskRequest(chatId, plannerData, extractTaskNameForCompletion(cleaned));
+    return;
+  }
+
   const intent = await parseTelegramIntent({
     text: cleaned,
     tasks: plannerData.tasks,
   });
 
+  await safeWriteTelegramLog({
+    kind: "intent",
+    chatId: String(chatId),
+    messageText: cleaned,
+    intent,
+  });
+
   if (intent.intent === "show_today") {
-    await sendTodayDigest(chatId, plannerData);
+    await handleToday(chatId);
     return;
   }
 
@@ -658,6 +817,14 @@ async function handleCallback(chatId, callbackQuery) {
     return {
       ...current,
       tasks: nextTasks,
+      telegramContext:
+        completedTask
+          ? buildTelegramContext(completedTask, "done")
+          : reopenedTask
+            ? buildTelegramContext(reopenedTask, "reopen")
+            : panicTask
+              ? buildTelegramContext(panicTask, "panic")
+              : current.telegramContext,
     };
   }, {
     source: "telegram",
@@ -705,6 +872,18 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, ignored: true });
     }
 
+    const userId = getTargetUserId();
+    try {
+      await writeTelegramLog(userId, {
+        kind: callbackQuery ? "callback_in" : "message_in",
+        chatId: String(chatId),
+        messageText: String(message?.text || ""),
+        callbackData: String(callbackQuery?.data || ""),
+      });
+    } catch (logError) {
+      console.error("[telegram-log:inbound]", logError);
+    }
+
     if (!isAllowedChat(chatId)) {
       if (callbackQuery?.id) {
         await answerCallback(callbackQuery.id, "Этот чат не разрешён.");
@@ -714,6 +893,16 @@ module.exports = async function handler(req, res) {
 
     if (callbackQuery) {
       await handleCallback(chatId, callbackQuery);
+      try {
+        await writeTelegramLog(userId, {
+          kind: "callback_out",
+          chatId: String(chatId),
+          callbackData: String(callbackQuery.data || ""),
+          status: "ok",
+        });
+      } catch (logError) {
+        console.error("[telegram-log:callback-out]", logError);
+      }
       return res.status(200).json({ ok: true });
     }
 
@@ -736,9 +925,29 @@ module.exports = async function handler(req, res) {
       await handlePlainCapture(chatId, text);
     }
 
+    try {
+      await writeTelegramLog(userId, {
+        kind: "message_out",
+        chatId: String(chatId),
+        messageText: text,
+        status: "ok",
+      });
+    } catch (logError) {
+      console.error("[telegram-log:message-out]", logError);
+    }
+
     return res.status(200).json({ ok: true });
   } catch (error) {
     console.error("[telegram-webhook]", error);
+    try {
+      await writeTelegramLog(getTargetUserId(), {
+        kind: "error",
+        errorMessage: error.message || "Unknown error",
+        errorStack: error.stack || "",
+      });
+    } catch (logError) {
+      console.error("[telegram-log:error]", logError);
+    }
     return res.status(500).json({ error: error.message || "Internal error" });
   }
 };

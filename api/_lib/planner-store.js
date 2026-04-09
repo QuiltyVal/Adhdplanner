@@ -1,3 +1,4 @@
+const { randomUUID } = require("node:crypto");
 const { getDb, admin } = require("./firebase-admin");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -23,12 +24,26 @@ function escapeHtml(value) {
 
 function ensurePlannerDoc(data = {}, userId) {
   return {
+    ...data,
     name: data.name || "",
     email: data.email || "",
     tasks: Array.isArray(data.tasks) ? data.tasks : [],
     score: typeof data.score === "number" ? data.score : 0,
     telegramChatId: data.telegramChatId || null,
     telegramLinkedAt: data.telegramLinkedAt || null,
+    telegramContext: data.telegramContext && typeof data.telegramContext === "object"
+      ? {
+          lastTaskId: data.telegramContext.lastTaskId || null,
+          lastTaskText: data.telegramContext.lastTaskText || "",
+          lastAction: data.telegramContext.lastAction || "",
+          updatedAt: typeof data.telegramContext.updatedAt === "number" ? data.telegramContext.updatedAt : 0,
+        }
+      : {
+          lastTaskId: null,
+          lastTaskText: "",
+          lastAction: "",
+          updatedAt: 0,
+        },
     id: userId,
   };
 }
@@ -277,6 +292,15 @@ async function getPlannerData(userId) {
   return ensurePlannerDoc(snapshot.data(), userId);
 }
 
+function buildTelegramContext(task, action = "focus") {
+  return {
+    lastTaskId: task?.id || null,
+    lastTaskText: task?.text || "",
+    lastAction: action,
+    updatedAt: Date.now(),
+  };
+}
+
 async function mutatePlanner(userId, mutator, options = {}) {
   const ref = userDoc(userId);
   return getDb().runTransaction(async (transaction) => {
@@ -318,8 +342,19 @@ async function linkTelegramChat(userId, chatId) {
   });
 }
 
+async function writeTelegramLog(userId, payload = {}) {
+  const logRef = userDoc(userId).collection("telegramLogs").doc();
+  await logRef.set({
+    id: logRef.id,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    capturedAt: Date.now(),
+    ...payload,
+  });
+}
+
 module.exports = {
   DEFAULT_TASK_HEAT,
+  buildTelegramContext,
   buildNudgeMessage,
   buildTelegramTaskLine,
   createTask,
@@ -333,4 +368,5 @@ module.exports = {
   mutatePlanner,
   pickRescueTask,
   sortTasksByPriority,
+  writeTelegramLog,
 };
