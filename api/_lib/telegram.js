@@ -1,4 +1,5 @@
 const TELEGRAM_API_BASE = "https://api.telegram.org";
+const PLANNER_WEB_URL = process.env.PLANNER_WEB_URL || "https://planner.valquilty.com";
 
 function getTelegramBotToken() {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -36,6 +37,9 @@ function plannerTaskKeyboard(taskId) {
       [
         { text: "🚨 Критично", callback_data: `vital:${taskId}` },
         { text: "🆘 Panic", callback_data: `panic:${taskId}` },
+      ],
+      [
+        { text: "🌐 Открыть планнер", url: PLANNER_WEB_URL },
       ],
     ],
   };
