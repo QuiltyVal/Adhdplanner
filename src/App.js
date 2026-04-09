@@ -291,11 +291,8 @@ function getPriorityScore(task, now = Date.now()) {
   return vitalScore + deadlineScore + urgencyScore + resistanceScore + todayScore + heatScore + staleScore;
 }
 
-function pickRescueTask(tasks) {
-  const activeTasks = tasks.filter((task) => task.status === "active");
-  if (activeTasks.length === 0) return null;
-
-  return [...activeTasks].sort((left, right) => {
+function sortTasksForMission(tasks) {
+  return [...tasks].sort((left, right) => {
     const priorityDelta = getPriorityScore(right) - getPriorityScore(left);
     if (priorityDelta !== 0) return priorityDelta;
 
@@ -311,10 +308,66 @@ function pickRescueTask(tasks) {
     const heatDelta = getTaskHeat(left) - getTaskHeat(right);
     if (heatDelta !== 0) return heatDelta;
     return (left.lastUpdated || 0) - (right.lastUpdated || 0);
-  })[0];
+  });
 }
 
-function buildMissionCopy(task) {
+function getMissionSelection(tasks) {
+  const activeTasks = tasks.filter((task) => task.status === "active");
+  if (activeTasks.length === 0) {
+    return { task: null, reason: "empty", candidates: [] };
+  }
+
+  const hardDeadlineTasks = activeTasks.filter((task) => {
+    const deadlineInfo = getDeadlineInfo(task);
+    return deadlineInfo?.tone === "overdue" || deadlineInfo?.tone === "today";
+  });
+
+  if (hardDeadlineTasks.length > 0) {
+    const candidates = sortTasksForMission(hardDeadlineTasks);
+    return {
+      task: candidates[0] || null,
+      reason: "hard_deadline",
+      candidates,
+    };
+  }
+
+  const todayPinnedTasks = activeTasks.filter((task) => task.isToday);
+  if (todayPinnedTasks.length > 0) {
+    const candidates = sortTasksForMission(todayPinnedTasks);
+    return {
+      task: candidates[0] || null,
+      reason: "today_shortlist",
+      candidates,
+    };
+  }
+
+  const criticalTasks = activeTasks.filter((task) => task.isVital);
+  if (criticalTasks.length > 0) {
+    const candidates = sortTasksForMission(criticalTasks);
+    return {
+      task: candidates[0] || null,
+      reason: "critical_priority",
+      candidates,
+    };
+  }
+
+  const candidates = sortTasksForMission(activeTasks);
+  return {
+    task: candidates[0] || null,
+    reason: "auto_priority",
+    candidates,
+  };
+}
+
+function getMissionReasonLabel(reason) {
+  if (reason === "hard_deadline") return "жёсткий дедлайн";
+  if (reason === "today_shortlist") return "из шортлиста на сегодня";
+  if (reason === "critical_priority") return "критичный приоритет";
+  if (reason === "auto_priority") return "автовыбор по приоритету";
+  return "без цели";
+}
+
+function buildMissionCopy(task, missionReason) {
   if (!task) {
     return "Сегодня можно не тушить пожары. Закрой хвосты или добавь новую цель.";
   }
@@ -329,6 +382,14 @@ function buildMissionCopy(task) {
 
   if (deadlineInfo?.tone === "today") {
     return `Это надо закрыть сегодня.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
+  }
+
+  if (missionReason === "today_shortlist") {
+    return `Эта задача выбрана из вашего ручного списка на сегодня.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
+  }
+
+  if (missionReason === "critical_priority") {
+    return `Вы пометили это как критичное. Поэтому она сейчас сверху.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
   }
 
   if (deadlineInfo?.tone === "soon") {
@@ -347,7 +408,7 @@ function buildMissionCopy(task) {
     return `Она ещё жива, но уже пытается сбежать из фокуса.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
   }
 
-  return `Это сейчас ваш самый живой проект. Добейте его, пока пламя не погасло.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
+  return `Это сейчас самый приоритетный кандидат по состоянию задач.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
 }
 
 function buildNudgeMessage(task) {
@@ -703,7 +764,9 @@ export default function App() {
   const deadTasks = tasks.filter((task) => task.status === "dead");
   const todayPinnedTasks = activeTasks.filter((task) => task.isToday);
   const visibleActiveTasks = activeFilter === "today" ? todayPinnedTasks : activeTasks;
-  const rescueTask = pickRescueTask(activeTasks);
+  const missionSelection = getMissionSelection(activeTasks);
+  const rescueTask = missionSelection.task;
+  const missionReason = missionSelection.reason;
   const panicTask = tasks.find((task) => task.id === panicTaskId) || rescueTask;
   const panicPlan = buildPanicPlan(panicTask);
   const rescueDeadline = getDeadlineInfo(rescueTask);
@@ -1022,12 +1085,34 @@ export default function App() {
   };
 
   const handleToggleToday = (taskId) => {
-    setTasks((currentTasks) => currentTasks.map((task) => (
-      task.id === taskId
-        ? { ...task, isToday: !task.isToday, lastUpdated: Date.now() }
-        : task
-    )));
-    setHighlightTaskId(taskId);
+    let message = "";
+
+    setTasks((currentTasks) => {
+      const currentTodayCount = currentTasks.filter((task) => task.status === "active" && task.isToday).length;
+
+      return currentTasks.map((task) => {
+        if (task.id !== taskId) return task;
+
+        const nextValue = !task.isToday;
+        if (nextValue && currentTodayCount >= 3) {
+          message = "На сегодня можно закрепить максимум 3 задачи. Иначе список снова расползётся.";
+          return task;
+        }
+
+        message = nextValue
+          ? "Задача попала в шортлист на сегодня."
+          : "Задача снята с ручного списка на сегодня.";
+
+        return { ...task, isToday: nextValue, lastUpdated: Date.now() };
+      });
+    });
+
+    if (message) {
+      setNudgeStatus(message);
+    }
+    if (message !== "На сегодня можно закрепить максимум 3 задачи. Иначе список снова расползётся.") {
+      setHighlightTaskId(taskId);
+    }
   };
 
   const handleQuickRescue = () => {
@@ -1165,13 +1250,16 @@ export default function App() {
           <h2 className="daily-pulse-title">
             {rescueTask ? rescueTask.text : "Сегодня всё под контролем"}
           </h2>
-          <p className="daily-pulse-description">{buildMissionCopy(rescueTask)}</p>
+          <p className="daily-pulse-description">{buildMissionCopy(rescueTask, missionReason)}</p>
           <div className="daily-pulse-stats">
             <span className="pulse-chip streak">⚔️ streak {pulseState.streak}</span>
             <span className="pulse-chip actions">🫡 действий сегодня {todayActions}</span>
             <span className="pulse-chip danger">☠️ на грани {tasksInDanger}</span>
             <span className="pulse-chip active">🔥 активных {activeTasks.length}</span>
             <span className="pulse-chip today">☀️ сегодня {todayPinnedTasks.length}</span>
+            {rescueTask && (
+              <span className="pulse-chip mission-reason">🧭 {getMissionReasonLabel(missionReason)}</span>
+            )}
             {rescueTask && (
               <>
                 {rescueDeadline && (

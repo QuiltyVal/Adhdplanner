@@ -195,7 +195,7 @@ function getPriorityScore(task) {
   return vitalScore + deadlineScore + urgencyScore + resistanceScore + todayScore + heatScore + staleScore;
 }
 
-function sortTasksByPriority(tasks = []) {
+function sortTasksForMission(tasks = []) {
   return [...tasks].sort((left, right) => {
     const priorityDelta = getPriorityScore(right) - getPriorityScore(left);
     if (priorityDelta !== 0) return priorityDelta;
@@ -211,9 +211,44 @@ function sortTasksByPriority(tasks = []) {
   });
 }
 
-function pickRescueTask(tasks = []) {
+function sortTasksByPriority(tasks = []) {
+  return sortTasksForMission(tasks);
+}
+
+function getMissionSelection(tasks = []) {
   const activeTasks = tasks.filter((task) => task.status === "active");
-  return sortTasksByPriority(activeTasks)[0] || null;
+  if (activeTasks.length === 0) {
+    return { task: null, reason: "empty", candidates: [] };
+  }
+
+  const hardDeadlineTasks = activeTasks.filter((task) => {
+    const deadlineInfo = getDeadlineInfo(task);
+    return deadlineInfo?.tone === "overdue" || deadlineInfo?.tone === "today";
+  });
+
+  if (hardDeadlineTasks.length > 0) {
+    const candidates = sortTasksForMission(hardDeadlineTasks);
+    return { task: candidates[0] || null, reason: "hard_deadline", candidates };
+  }
+
+  const todayPinnedTasks = activeTasks.filter((task) => task.isToday);
+  if (todayPinnedTasks.length > 0) {
+    const candidates = sortTasksForMission(todayPinnedTasks);
+    return { task: candidates[0] || null, reason: "today_shortlist", candidates };
+  }
+
+  const criticalTasks = activeTasks.filter((task) => task.isVital);
+  if (criticalTasks.length > 0) {
+    const candidates = sortTasksForMission(criticalTasks);
+    return { task: candidates[0] || null, reason: "critical_priority", candidates };
+  }
+
+  const candidates = sortTasksForMission(activeTasks);
+  return { task: candidates[0] || null, reason: "auto_priority", candidates };
+}
+
+function pickRescueTask(tasks = []) {
+  return getMissionSelection(tasks).task;
 }
 
 function getFirstOpenSubtask(task) {
@@ -367,6 +402,7 @@ module.exports = {
   linkTelegramChat,
   mutatePlanner,
   pickRescueTask,
+  getMissionSelection,
   sortTasksByPriority,
   writeTelegramLog,
 };
