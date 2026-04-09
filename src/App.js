@@ -551,6 +551,9 @@ export default function App() {
   const [calendarToken, setCalendarToken] = useState(null);
   // Prevents pushing cloud state back into Firestore right after we just received it.
   const skipNextCloudSyncRef = React.useRef(false);
+  // True once Firestore has delivered at least one real snapshot for this session.
+  // Blocks any Firestore write until we have confirmed fresh server data.
+  const firestoreReadyRef = React.useRef(false);
   const navigate = useNavigate();
   const notificationPermission =
     typeof window === "undefined" || !("Notification" in window)
@@ -587,6 +590,7 @@ export default function App() {
 
   useEffect(() => {
     skipNextCloudSyncRef.current = false;
+    firestoreReadyRef.current = false;
   }, [user?.id]);
 
   useEffect(() => {
@@ -660,6 +664,7 @@ export default function App() {
             (data) => {
               if (isCancelled) return;
               skipNextCloudSyncRef.current = true;
+              firestoreReadyRef.current = true;
               // Firestore is the source of truth here. If we keep local-only tasks
               // on every snapshot, deleted cloud tasks become permanent ghosts.
               setTasks(data.tasks || []);
@@ -728,6 +733,10 @@ export default function App() {
       localStorage.setItem("adhd_planner_tasks", JSON.stringify(tasks));
       localStorage.setItem("adhd_planner_score", score.toString());
     } else {
+      // Block writes until Firestore has delivered at least one real snapshot.
+      // This prevents stale local cache from overwriting newer Firestore data
+      // in the window between app mount and the first Firestore listener event.
+      if (!firestoreReadyRef.current) return;
       updateUserData(user.id, tasks, score);
     }
   }, [tasks, score, dataLoaded, user]);

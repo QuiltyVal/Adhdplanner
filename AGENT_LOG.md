@@ -29,6 +29,57 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-09 ~16:00 Europe/Berlin - Claude (Sonnet 4.6)
+
+- Summary: Fixed root cause of data loss — stale local cache overwrote Firestore. Added `firestoreReadyRef` guard in sync-effect.
+- Changed:
+  - `src/App.js`: added `firestoreReadyRef = useRef(false)`, set in Firestore listener callback, reset on user change, checked before `updateUserData()` in sync effect
+- Verified:
+  - `DISABLE_ESLINT_PLUGIN=true npm run build` passes
+- How the fix works:
+  - `firestoreReadyRef.current` starts as `false`
+  - Set to `true` only when Firestore listener fires (line ~663)
+  - Reset to `false` on user logout/switch
+  - Sync effect for non-guest users returns early if `firestoreReadyRef.current = false`
+  - Result: Firestore writes are blocked until the app has confirmed fresh server data
+- Risks / follow-up:
+  - If Firestore listener never fires (network down), user changes won't sync to Firestore — this is correct behaviour (better than corrupting data)
+  - Still worth monitoring real-world: does the listener always fire before the user makes a change?
+
+## 2026-04-09 ~15:30 Europe/Berlin - Claude (Sonnet 4.6)
+
+- Summary: Added snapshot-read API (GET list, GET by id, POST restore). Identified root cause of recurring data loss.
+- Changed:
+  - `api/snapshot-read.js` (new file)
+- Verified:
+  - `node -e "require('./api/snapshot-read'); console.log('ok')"` passes
+  - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); require('./api/telegram-nudge'); console.log('server ok')"` passes
+  - `DISABLE_ESLINT_PLUGIN=true npm run build` passes
+- Root cause of data loss found (NOT yet fixed):
+  - App.js loads stale cache from localStorage on startup
+  - Before Firestore real-time listener delivers first update, game-tick effect modifies stale tasks
+  - Sync effect writes them to Firestore via `updateUserData()`, overwriting newer data
+  - Fix: block `updateUserData()` writes until Firestore listener has fired at least once (add `firestoreReadyRef`)
+  - This fix is riskier to implement — needs separate session with careful reading of App.js sync logic
+- Risks / follow-up:
+  - Root cause fix still pending — data loss can recur if user opens app after >0min gap
+  - snapshot-read.js is deployed to Vercel on next push — test with `GET /api/snapshot-read?limit=5` + Bearer token
+
+## 2026-04-09 ~15:00 Europe/Berlin - Claude (Sonnet 4.6)
+
+- Summary: Restored two tasks lost due to Firestore containing a stale/truncated state (11 tasks). No data was lost — tasks were identified in taskSnapshots by a previous agent session.
+- Changed:
+  - Firestore (via MCP): added "улучшить приложение" with 9 subtasks
+  - Firestore (via MCP): added "посмотреть фильм зулейхи"
+- Verified:
+  - get_tasks confirmed 11 tasks before restore, both tasks absent
+  - add_task confirmed successful creation of both tasks
+  - No bot-garbage tasks restored (intentional: "Вернуть задачу в активную", "Отправить тестовую задачу в рай", "Тестовая задача")
+- Risks / follow-up:
+  - Previous agent mentioned "2 long subtasks about onboarding/dopamine" — user confirmed one (angel onboarding). Second long subtask may have been that same one described differently, or genuinely missing. User can add manually if needed.
+  - Root cause of data loss not yet investigated. Firestore ended up with stale 11-task state — worth checking what wrote that state (MCP mutation? Telegram? Web stale cache?).
+  - No restore-from-snapshot API exists — snapshots are write-only audit trail. Consider adding a read endpoint.
+
 ## 2026-04-09 22:35 Europe/Berlin - Codex
 
 - Summary: Made cross-agent logging mandatory by adding a shared work log and wiring it into the repo handoff docs.
