@@ -56,6 +56,7 @@ ADHD Planner is not a generic todo app. It is a personal executive-memory and or
 - `/Users/valquilty/Documents/My Website/Adhdplanner-repo/api/_lib/telegram-intent.js`
 - `/Users/valquilty/Documents/My Website/Adhdplanner-repo/ROADMAP.md`
 - `/Users/valquilty/Documents/My Website/Adhdplanner-repo/SESSION_HANDOFF.md`
+- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/AGENT_LOG.md`
 
 ## Commands
 
@@ -115,13 +116,26 @@ Do not assume deadline already changes heat. It does not.
 
 1. Read `SESSION_HANDOFF.md`
 2. Read `ROADMAP.md`
-3. Check recent commits
-4. Avoid touching unrelated features
-5. Keep changes small and verifiable
+3. Read the newest entries in `AGENT_LOG.md`
+4. Check recent commits
+5. Avoid touching unrelated features
+6. Keep changes small and verifiable
 
 ## After making changes
 
 1. Run `DISABLE_ESLINT_PLUGIN=true npm run build`
 2. If Telegram/webhook logic changed, also run:
    - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); require('./api/telegram-nudge'); console.log('server ok')"`
-3. Update `SESSION_HANDOFF.md` if the project state meaningfully changed
+3. Append a short factual entry to `AGENT_LOG.md`
+4. Update `SESSION_HANDOFF.md` if the project state meaningfully changed
+
+## Logging is mandatory
+
+Every coding agent must leave a trail for the next one.
+
+Minimum end-of-session requirement:
+- append one entry to `AGENT_LOG.md`
+- include what changed, what was verified, and what still looks risky
+- if live infrastructure was changed outside git, say that explicitly
+
+Do not finish a meaningful work session without updating the log.

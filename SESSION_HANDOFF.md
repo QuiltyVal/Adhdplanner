@@ -4,6 +4,9 @@ Last updated: 2026-04-09
 
 This file exists so the project can survive context loss and switching between Codex, Claude, or another coding agent.
 
+Companion file:
+- `AGENT_LOG.md` = append-only short session log
+
 ## Current reality
 
 - The project is actively used by a real user, not just as a prototype.
@@ -94,6 +97,12 @@ Useful log kinds:
 - `error`
 
 If the bot does something stupid, inspect logs before changing prompts.
+
+## Handoff discipline
+
+- `SESSION_HANDOFF.md` should describe the current stable state
+- `AGENT_LOG.md` should record each meaningful session
+- if you changed live Hetzner/Vercel behavior outside git, write it down in both places
 
 ## Safe verification checklist
 
