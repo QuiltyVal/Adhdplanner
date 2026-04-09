@@ -29,6 +29,24 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-09 ~17:00 Europe/Berlin - Claude (Sonnet 4.6)
+
+- Summary: Added "🌐 Открыть планнер" URL button to Telegram task keyboard. Stop heat-tick writes. Tasks restored twice after data loss.
+- Changed:
+  - `api/_lib/telegram.js`: added planner URL button to plannerTaskKeyboard
+  - `src/App.js`: firestoreReadyRef + lastWrittenFingerprintRef — two-layer write guard
+  - `src/firestoreUtils.js`: exported buildClientFingerprint
+  - `api/snapshot-read.js`: new snapshot read/restore API (committed earlier)
+  - Firestore (via MCP): restored "улучшить приложение" (9 subtasks) + "посмотреть фильм зулейхи" — twice, due to repeated data loss
+- Verified:
+  - All builds pass
+  - `node server ok` check passes
+  - Firestore confirmed 13 tasks after last restoration
+- Risks / follow-up:
+  - Data loss happened twice today before fixes were deployed — monitor tomorrow
+  - The firestoreReadyRef + fingerprint fix is now in prod — should prevent stale writes
+  - If tasks disappear again: use GET /api/snapshot-read?limit=10 with Bearer CRON_SECRET to find last good snapshot, then POST to restore
+
 ## 2026-04-09 ~16:00 Europe/Berlin - Claude (Sonnet 4.6)
 
 - Summary: Fixed root cause of data loss — stale local cache overwrote Firestore. Added `firestoreReadyRef` guard in sync-effect.
