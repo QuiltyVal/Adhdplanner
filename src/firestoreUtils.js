@@ -38,6 +38,10 @@ function hasMeaningfulPlannerState(tasks = [], score = 0) {
   return (Array.isArray(tasks) && tasks.length > 0) || Number(score || 0) !== 0;
 }
 
+export function buildClientFingerprint(tasks = [], score = 0) {
+  return buildPlannerFingerprint(tasks, score);
+}
+
 async function writePlannerSnapshot(userId, snapshotData, source) {
   const tasks = Array.isArray(snapshotData?.tasks) ? snapshotData.tasks : [];
   const score = typeof snapshotData?.score === "number" ? snapshotData.score : 0;

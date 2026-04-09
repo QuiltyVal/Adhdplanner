@@ -5,7 +5,7 @@ import TaskColumn from "./TaskColumn";
 import LogoutButton from "./LogoutButton";
 import Companions from "./Companions";
 import LoadingScreen from "./LoadingScreen";
-import { subscribeUserData, updateUserData } from "./firestoreUtils";
+import { subscribeUserData, updateUserData, buildClientFingerprint } from "./firestoreUtils";
 import { auth, googleProvider } from "./firebase";
 import {
   onAuthStateChanged,
@@ -554,6 +554,9 @@ export default function App() {
   // True once Firestore has delivered at least one real snapshot for this session.
   // Blocks any Firestore write until we have confirmed fresh server data.
   const firestoreReadyRef = React.useRef(false);
+  // Fingerprint of the last state we successfully wrote to Firestore.
+  // Prevents redundant writes when only heat values changed (not task structure).
+  const lastWrittenFingerprintRef = React.useRef(null);
   const navigate = useNavigate();
   const notificationPermission =
     typeof window === "undefined" || !("Notification" in window)
@@ -591,6 +594,7 @@ export default function App() {
   useEffect(() => {
     skipNextCloudSyncRef.current = false;
     firestoreReadyRef.current = false;
+    lastWrittenFingerprintRef.current = null;
   }, [user?.id]);
 
   useEffect(() => {
@@ -665,6 +669,7 @@ export default function App() {
               if (isCancelled) return;
               skipNextCloudSyncRef.current = true;
               firestoreReadyRef.current = true;
+              lastWrittenFingerprintRef.current = buildClientFingerprint(data.tasks || [], typeof data.score === "number" ? data.score : 0);
               // Firestore is the source of truth here. If we keep local-only tasks
               // on every snapshot, deleted cloud tasks become permanent ghosts.
               setTasks(data.tasks || []);
@@ -737,6 +742,14 @@ export default function App() {
       // This prevents stale local cache from overwriting newer Firestore data
       // in the window between app mount and the first Firestore listener event.
       if (!firestoreReadyRef.current) return;
+
+      // Skip write if only heat values changed — structural fingerprint is the same.
+      // Heat is recalculated from heatBase + lastUpdated and doesn't need to be persisted
+      // on every tick. This eliminates the most common source of spurious writes.
+      const currentFingerprint = buildClientFingerprint(tasks, score);
+      if (currentFingerprint === lastWrittenFingerprintRef.current) return;
+
+      lastWrittenFingerprintRef.current = currentFingerprint;
       updateUserData(user.id, tasks, score);
     }
   }, [tasks, score, dataLoaded, user]);
