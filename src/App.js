@@ -29,6 +29,7 @@ const MIN_LOADING_MS = 350;
 const NUDGE_INTERVAL_MS = 20 * 60 * 1000;
 const PULSE_STORAGE_PREFIX = "adhd_planner_pulse";
 const CLOUD_CACHE_PREFIX = "adhd_planner_cloud_cache";
+const CLOUD_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
 
 function getDayNumberFromIsoDate(isoDate) {
   if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
@@ -88,13 +89,21 @@ function loadCloudCache(userId) {
   if (!userId) return null;
 
   try {
-    const rawState = localStorage.getItem(getCloudCacheKey(userId));
+    const cacheKey = getCloudCacheKey(userId);
+    const rawState = localStorage.getItem(cacheKey);
     if (!rawState) return null;
     const parsedState = JSON.parse(rawState);
+    const savedAt = typeof parsedState.savedAt === "number" ? parsedState.savedAt : 0;
+
+    if (!savedAt || Date.now() - savedAt > CLOUD_CACHE_MAX_AGE_MS) {
+      localStorage.removeItem(cacheKey);
+      return null;
+    }
+
     return {
       tasks: parsedState.tasks || [],
       score: typeof parsedState.score === "number" ? parsedState.score : 0,
-      savedAt: parsedState.savedAt || 0,
+      savedAt,
     };
   } catch (error) {
     console.warn("Не удалось прочитать cloud cache:", error);

@@ -22,6 +22,7 @@ Companion file:
 
 - Firestore sync race in web app
 - ghost tasks surviving local cache after cloud deletion
+- stale cloud cache older than 30 minutes is now ignored on startup
 - Firestore `taskSnapshots` backup layer
 - Telegram duplicate task prevention
 - Telegram reopen completed flow
@@ -69,6 +70,10 @@ Important:
    - `isVital` also does not directly change heat decay
 
 4. Manual task movement between heat zones does not exist yet.
+
+5. Cloud cache still exists as a fast-start fallback.
+   - It is now capped to 30 minutes max age.
+   - If the UI ever shows obviously old tasks again, verify Firestore before trusting local cache.
 
 ## Live-server note
 

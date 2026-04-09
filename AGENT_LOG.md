@@ -43,6 +43,18 @@ Entry template:
 - Risks / follow-up:
   - next coding session should actually append to this log after real code changes
 
+## 2026-04-09 22:55 Europe/Berlin - Codex
+
+- Summary: Hardened startup cache so stale local cloud snapshots stop pretending to be the real planner state after long gaps.
+- Changed:
+  - `src/App.js`
+  - `SESSION_HANDOFF.md`
+- Verified:
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); require('./api/telegram-nudge'); console.log('server ok')"`
+- Risks / follow-up:
+  - this prevents stale cache older than 30 minutes, but if Firestore itself already contains old tasks the UI will still correctly show those old tasks
+
 ## 2026-04-09 22:10 Europe/Berlin - Codex
 
 - Summary: Added handoff docs so the project can switch between coding agents without restarting from zero.
