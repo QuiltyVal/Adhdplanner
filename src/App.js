@@ -5,7 +5,13 @@ import TaskColumn from "./TaskColumn";
 import LogoutButton from "./LogoutButton";
 import Companions from "./Companions";
 import LoadingScreen from "./LoadingScreen";
-import { subscribeUserData, updateUserData, buildClientFingerprint } from "./firestoreUtils";
+import {
+  subscribeToTasks,
+  saveTask,
+  saveScore,
+  getUserScore,
+  migrateTasksToSubcollection,
+} from "./firestoreUtils";
 import { auth, googleProvider } from "./firebase";
 import {
   onAuthStateChanged,
@@ -549,14 +555,9 @@ export default function App() {
   // Flag to distinguish first load from component updates
   const [dataLoaded, setDataLoaded] = useState(false);
   const [calendarToken, setCalendarToken] = useState(null);
-  // Prevents pushing cloud state back into Firestore right after we just received it.
-  const skipNextCloudSyncRef = React.useRef(false);
-  // True once Firestore has delivered at least one real snapshot for this session.
-  // Blocks any Firestore write until we have confirmed fresh server data.
+  // True once Firestore subcollection has delivered at least one snapshot (or migration finished).
+  // Blocks per-task saveTask calls until server state is confirmed.
   const firestoreReadyRef = React.useRef(false);
-  // Fingerprint of the last state we successfully wrote to Firestore.
-  // Prevents redundant writes when only heat values changed (not task structure).
-  const lastWrittenFingerprintRef = React.useRef(null);
   const navigate = useNavigate();
   const notificationPermission =
     typeof window === "undefined" || !("Notification" in window)
@@ -592,9 +593,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    skipNextCloudSyncRef.current = false;
     firestoreReadyRef.current = false;
-    lastWrittenFingerprintRef.current = null;
   }, [user?.id]);
 
   useEffect(() => {
@@ -651,6 +650,7 @@ export default function App() {
         }
 
         let isCancelled = false;
+        let migrationAttempted = false;
 
         const applyCloudData = (firebaseUser) => {
           if (!firebaseUser) {
@@ -661,30 +661,38 @@ export default function App() {
             return;
           }
 
-          return subscribeUserData(
+          return subscribeToTasks(
             parsedUser.id,
-            parsedUser.email,
-            parsedUser.first_name,
-            (data, metadata) => {
+            async (tasks, metadata) => {
               if (isCancelled) return;
 
-              // First snapshot: always apply (authoritative load from server).
-              // Subsequent snapshots from our own pending writes: skip to avoid
-              // overwriting local state that hasn't been flushed to server yet.
-              if (firestoreReadyRef.current && metadata?.hasPendingWrites) return;
+              // First snapshot with empty subcollection → try to migrate from old array
+              if (!firestoreReadyRef.current && tasks.length === 0 && !migrationAttempted) {
+                migrationAttempted = true;
+                const result = await migrateTasksToSubcollection(parsedUser.id);
+                if (result.migrated > 0) {
+                  if (typeof result.score === "number") setScore(result.score);
+                  // Next onSnapshot will deliver the migrated tasks — do nothing here
+                  return;
+                }
+                // No old tasks found — brand new account
+                const initialScore = await getUserScore(parsedUser.id);
+                setScore(initialScore);
+              }
 
-              skipNextCloudSyncRef.current = true;
-              firestoreReadyRef.current = true;
-              lastWrittenFingerprintRef.current = buildClientFingerprint(data.tasks || [], typeof data.score === "number" ? data.score : 0);
-              setTasks(data.tasks || []);
-              setScore(typeof data.score === "number" ? data.score : 0);
+              // Load score from root doc on first real snapshot
+              if (!firestoreReadyRef.current) {
+                const serverScore = await getUserScore(parsedUser.id);
+                setScore(serverScore);
+                firestoreReadyRef.current = true;
+              }
+
+              setTasks(tasks);
               setLoading(false);
               setDataLoaded(true);
             },
             () => {
-              if (!cachedCloudData) {
-                setLoading(false);
-              }
+              if (!cachedCloudData) setLoading(false);
             },
           );
         };
@@ -729,34 +737,12 @@ export default function App() {
     saveCloudCache(user.id, tasks, score);
   }, [tasks, score, user?.id]);
 
-  // Sync to Cloud / Local Storage whenever tasks or score change
+  // Guest mode: sync to localStorage whenever tasks or score change
   useEffect(() => {
-    if (!dataLoaded || !user) return;
-
-    if (skipNextCloudSyncRef.current) {
-      skipNextCloudSyncRef.current = false;
-      return;
-    }
-
-    if (user.id.startsWith("guest_")) {
-      localStorage.setItem("adhd_planner_tasks", JSON.stringify(tasks));
-      localStorage.setItem("adhd_planner_score", score.toString());
-    } else {
-      // Block writes until Firestore has delivered at least one real snapshot.
-      // This prevents stale local cache from overwriting newer Firestore data
-      // in the window between app mount and the first Firestore listener event.
-      if (!firestoreReadyRef.current) return;
-
-      // Skip write if only heat values changed — structural fingerprint is the same.
-      // Heat is recalculated from heatBase + lastUpdated and doesn't need to be persisted
-      // on every tick. This eliminates the most common source of spurious writes.
-      const currentFingerprint = buildClientFingerprint(tasks, score);
-      if (currentFingerprint === lastWrittenFingerprintRef.current) return;
-
-      lastWrittenFingerprintRef.current = currentFingerprint;
-      updateUserData(user.id, tasks, score);
-    }
-  }, [tasks, score, dataLoaded, user]);
+    if (!dataLoaded || !user?.id.startsWith("guest_")) return;
+    localStorage.setItem("adhd_planner_tasks", JSON.stringify(tasks));
+    localStorage.setItem("adhd_planner_score", score.toString());
+  }, [tasks, score, dataLoaded, user?.id]);
 
   // Game tick (cooling tasks based on heatBase and lastUpdated)
   useEffect(() => {
@@ -765,32 +751,36 @@ export default function App() {
       const now = Date.now();
       let changed = false;
       let newScore = score;
-      
-      const updatedTasks = tasks.map(task => {
-        if (task.status === "active") {
-          const timeElapsed = now - task.lastUpdated;
-          const decayWindowMs = getTaskDecayWindowMs(task);
-          const currentHeatValue = Math.max(0, task.heatBase * (1 - timeElapsed / decayWindowMs));
-          
-          let newTask = { ...task, heatCurrent: currentHeatValue };
+      const newlyDead = [];
 
-          if (currentHeatValue <= 0) {
-            newTask.status = "dead";
-            newScore -= 5;
-            changed = true;
-          } else if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
-            changed = true;
-          }
-          return newTask;
+      const updatedTasks = tasks.map(task => {
+        if (task.status !== "active") return task;
+        const timeElapsed = now - task.lastUpdated;
+        const decayWindowMs = getTaskDecayWindowMs(task);
+        const currentHeatValue = Math.max(0, task.heatBase * (1 - timeElapsed / decayWindowMs));
+        const newTask = { ...task, heatCurrent: currentHeatValue };
+
+        if (currentHeatValue <= 0) {
+          newTask.status = "dead";
+          newScore -= 5;
+          changed = true;
+          newlyDead.push(newTask);
+        } else if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
+          changed = true;
         }
-        return task;
+        return newTask;
       });
 
       if (changed) {
         setTasks(updatedTasks);
-        if (newScore !== score) setScore(newScore);
+        if (newScore !== score) {
+          setScore(newScore);
+          persistScore(newScore);
+        }
+        // Only persist tasks whose status changed (died) — not heat-only updates
+        newlyDead.forEach(t => persistTask(t));
       }
-    }, 10000); 
+    }, 10000);
     return () => clearInterval(interval);
   }, [tasks, score, loading]);
 
@@ -906,6 +896,19 @@ export default function App() {
     setNudgeStatus("2 минуты прошли. Даже микро-сдвиг уже считается.");
   }, [panicEndsAt, panicSecondsLeft]);
 
+  // ── Cloud persistence helpers ──────────────────────────────────────────────
+  const isCloudUser = user?.id && !user.id.startsWith("guest_");
+
+  const persistTask = (task) => {
+    if (!isCloudUser || !firestoreReadyRef.current) return;
+    saveTask(user.id, task).catch((e) => console.error("[saveTask]", e));
+  };
+
+  const persistScore = (newScore) => {
+    if (!isCloudUser) return;
+    saveScore(user.id, newScore).catch((e) => console.error("[saveScore]", e));
+  };
+
   const handleAddTask = (text, options = {}) => {
     const now = Date.now();
     const newTask = {
@@ -922,149 +925,152 @@ export default function App() {
       isVital: false,
     };
     setTasks((currentTasks) => [newTask, ...currentTasks]);
+    persistTask(newTask);
     setHighlightTaskId(newTask.id);
     trackDailyAction();
   };
 
   const handleTouch = (taskId) => {
+    let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
-      if (t.id === taskId) {
-        const newHeatBase = Math.min(100, t.heatCurrent + TOUCH_HEAT_BONUS);
-        return { ...t, lastUpdated: Date.now(), heatBase: newHeatBase, heatCurrent: newHeatBase };
-      }
-      return t;
+      if (t.id !== taskId) return t;
+      const newHeatBase = Math.min(100, t.heatCurrent + TOUCH_HEAT_BONUS);
+      saved = { ...t, lastUpdated: Date.now(), heatBase: newHeatBase, heatCurrent: newHeatBase };
+      return saved;
     }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
     trackDailyAction();
   };
 
   const handleAddSubtask = (taskId, text) => {
+    let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
-      if (t.id === taskId) {
-        const newSubtasks = [...(t.subtasks || []), { id: Date.now().toString(), text, completed: false }];
-        return { ...t, subtasks: newSubtasks, lastUpdated: Date.now() };
-      }
-      return t;
+      if (t.id !== taskId) return t;
+      const newSubtasks = [...(t.subtasks || []), { id: Date.now().toString(), text, completed: false }];
+      saved = { ...t, subtasks: newSubtasks, lastUpdated: Date.now() };
+      return saved;
     }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
     trackDailyAction();
   };
 
   const handleDeleteSubtask = (taskId, subtaskId) => {
+    let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          subtasks: (t.subtasks || []).filter(s => s.id !== subtaskId),
-          lastUpdated: Date.now(),
-        };
-      }
-      return t;
+      if (t.id !== taskId) return t;
+      saved = { ...t, subtasks: (t.subtasks || []).filter(s => s.id !== subtaskId), lastUpdated: Date.now() };
+      return saved;
     }));
+    if (saved) persistTask(saved);
   };
 
   const handleEditSubtask = (taskId, subtaskId, newText) => {
     if (!newText.trim()) return;
+    let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          subtasks: (t.subtasks || []).map(s =>
-            s.id === subtaskId ? { ...s, text: newText.trim() } : s
-          ),
-          lastUpdated: Date.now(),
-        };
-      }
-      return t;
+      if (t.id !== taskId) return t;
+      saved = {
+        ...t,
+        subtasks: (t.subtasks || []).map(s => s.id === subtaskId ? { ...s, text: newText.trim() } : s),
+        lastUpdated: Date.now(),
+      };
+      return saved;
     }));
+    if (saved) persistTask(saved);
   };
 
   const handleToggleSubtask = (taskId, subtaskId) => {
+    let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
-      if (t.id === taskId) {
-        const completedBefore = (t.subtasks || []).filter((subtask) => subtask.completed).length;
-        const newSubtasks = (t.subtasks || []).map(s => {
-          if (s.id === subtaskId) {
-            return { ...s, completed: !s.completed };
-          }
-          return s;
-        });
-        
-        const subtasksCount = newSubtasks.length;
-        const completedAfter = newSubtasks.filter((subtask) => subtask.completed).length;
-        const completionDelta = completedAfter - completedBefore;
-        const subtaskWeight = subtasksCount > 0 ? (SUBTASK_COMPLETION_CAP / subtasksCount) : 0;
-        
-        let newHeatBase = t.heatCurrent;
-        newHeatBase = Math.min(100, Math.max(0, newHeatBase + completionDelta * subtaskWeight));
-        
-        return { 
-          ...t, 
-          subtasks: newSubtasks, 
-          heatBase: newHeatBase, 
-          heatCurrent: newHeatBase,
-          lastUpdated: Date.now() 
-        };
-      }
-      return t;
+      if (t.id !== taskId) return t;
+      const completedBefore = (t.subtasks || []).filter((subtask) => subtask.completed).length;
+      const newSubtasks = (t.subtasks || []).map(s =>
+        s.id === subtaskId ? { ...s, completed: !s.completed } : s
+      );
+      const subtasksCount = newSubtasks.length;
+      const completedAfter = newSubtasks.filter((subtask) => subtask.completed).length;
+      const completionDelta = completedAfter - completedBefore;
+      const subtaskWeight = subtasksCount > 0 ? (SUBTASK_COMPLETION_CAP / subtasksCount) : 0;
+      let newHeatBase = Math.min(100, Math.max(0, t.heatCurrent + completionDelta * subtaskWeight));
+      saved = { ...t, subtasks: newSubtasks, heatBase: newHeatBase, heatCurrent: newHeatBase, lastUpdated: Date.now() };
+      return saved;
     }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
     trackDailyAction();
   };
 
   const handleSetUrgency = (taskId, urgency) => {
-    setTasks((currentTasks) => currentTasks.map(task => (
-      task.id === taskId
-        ? { ...task, urgency, lastUpdated: Date.now() }
-        : task
-    )));
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(task => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, urgency, lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
   };
 
   const handleSetResistance = (taskId, resistance) => {
-    setTasks((currentTasks) => currentTasks.map(task => (
-      task.id === taskId
-        ? { ...task, resistance, lastUpdated: Date.now() }
-        : task
-    )));
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(task => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, resistance, lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
   };
 
   const handleSetDeadline = (taskId, deadlineAt) => {
-    setTasks((currentTasks) => currentTasks.map(task => (
-      task.id === taskId
-        ? { ...task, deadlineAt, lastUpdated: Date.now() }
-        : task
-    )));
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(task => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, deadlineAt, lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
   };
 
   const handleToggleVital = (taskId) => {
-    setTasks((currentTasks) => currentTasks.map(task => (
-      task.id === taskId
-        ? { ...task, isVital: !task.isVital, lastUpdated: Date.now() }
-        : task
-    )));
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(task => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, isVital: !task.isVital, lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
   };
 
   const handleComplete = (taskId) => {
-    setTasks((currentTasks) => currentTasks.map((task) => (
-      task.id === taskId
-        ? { ...task, status: "completed", isToday: false, lastUpdated: Date.now() }
-        : task
-    )));
-    setScore(s => s + 10);
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map((task) => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, status: "completed", isToday: false, lastUpdated: Date.now() };
+      return saved;
+    }));
+    const newScore = score + 10;
+    setScore(newScore);
+    if (saved) persistTask(saved);
+    persistScore(newScore);
     trackDailyAction();
   };
 
   const handleKill = (taskId) => {
-    setTasks((currentTasks) => currentTasks.map((task) => (
-      task.id === taskId
-        ? { ...task, status: "dead", isToday: false, lastUpdated: Date.now() }
-        : task
-    )));
-    setScore(s => s - 5);
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map((task) => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, status: "dead", isToday: false, lastUpdated: Date.now() };
+      return saved;
+    }));
+    const newScore = score - 5;
+    setScore(newScore);
+    if (saved) persistTask(saved);
+    persistScore(newScore);
   };
 
   const handleConnectCalendar = async () => {
@@ -1100,43 +1106,38 @@ export default function App() {
   };
 
   const handleResurrect = (taskId) => {
-    setTasks((currentTasks) => currentTasks.map((task) => (
-      task.id === taskId
-        ? {
-            ...task,
-            status: "active",
-            heatBase: DEFAULT_TASK_HEAT,
-            heatCurrent: DEFAULT_TASK_HEAT,
-            lastUpdated: Date.now(),
-            isToday: false,
-          }
-        : task
-    )));
-    setScore(s => s - 2);
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map((task) => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, status: "active", heatBase: DEFAULT_TASK_HEAT, heatCurrent: DEFAULT_TASK_HEAT, lastUpdated: Date.now(), isToday: false };
+      return saved;
+    }));
+    const newScore = score - 2;
+    setScore(newScore);
+    if (saved) persistTask(saved);
+    persistScore(newScore);
     setHighlightTaskId(taskId);
     trackDailyAction();
   };
 
   const handleReopenCompleted = (taskId) => {
-    setTasks((currentTasks) => currentTasks.map((task) => (
-      task.id === taskId
-        ? {
-            ...task,
-            status: "active",
-            heatBase: DEFAULT_TASK_HEAT,
-            heatCurrent: DEFAULT_TASK_HEAT,
-            lastUpdated: Date.now(),
-            isToday: false,
-          }
-        : task
-    )));
-    setScore((currentScore) => currentScore - 10);
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map((task) => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, status: "active", heatBase: DEFAULT_TASK_HEAT, heatCurrent: DEFAULT_TASK_HEAT, lastUpdated: Date.now(), isToday: false };
+      return saved;
+    }));
+    const newScore = score - 10;
+    setScore(newScore);
+    if (saved) persistTask(saved);
+    persistScore(newScore);
     setHighlightTaskId(taskId);
     trackDailyAction();
   };
 
   const handleToggleToday = (taskId) => {
     let message = "";
+    let saved = null;
 
     setTasks((currentTasks) => {
       const currentTodayCount = currentTasks.filter((task) => task.status === "active" && task.isToday).length;
@@ -1154,13 +1155,13 @@ export default function App() {
           ? "Задача попала в шортлист на сегодня."
           : "Задача снята с ручного списка на сегодня.";
 
-        return { ...task, isToday: nextValue, lastUpdated: Date.now() };
+        saved = { ...task, isToday: nextValue, lastUpdated: Date.now() };
+        return saved;
       });
     });
 
-    if (message) {
-      setNudgeStatus(message);
-    }
+    if (saved) persistTask(saved);
+    if (message) setNudgeStatus(message);
     if (message !== "На сегодня можно закрепить максимум 3 задачи. Иначе список снова расползётся.") {
       setHighlightTaskId(taskId);
     }

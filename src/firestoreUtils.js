@@ -1,153 +1,131 @@
 // firestoreUtils.js
-import { addDoc, collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { db } from "./firebase";
 
-function normalizeSubtaskForFingerprint(subtask = {}) {
-  return {
-    id: String(subtask.id || ""),
-    text: String(subtask.text || "").trim(),
-    completed: Boolean(subtask.completed),
-  };
+// ── Subcollection: subscribe to all tasks (real-time) ─────────────────────────
+export function subscribeToTasks(userId, onTasks, onError) {
+  const tasksRef = collection(db, "Users", userId, "tasks");
+  return onSnapshot(
+    tasksRef,
+    (snapshot) => {
+      const tasks = snapshot.docs.map((d) => d.data());
+      onTasks(tasks, snapshot.metadata);
+    },
+    (error) => {
+      console.error("[Firestore] subscribeToTasks error:", error);
+      if (typeof onError === "function") onError(error);
+    },
+  );
 }
 
-function normalizeTaskForFingerprint(task = {}) {
-  return {
-    id: String(task.id || ""),
-    text: String(task.text || "").trim(),
-    status: String(task.status || "active"),
-    urgency: String(task.urgency || "medium"),
-    resistance: String(task.resistance || "medium"),
-    isToday: Boolean(task.isToday),
-    isVital: Boolean(task.isVital),
-    deadlineAt: String(task.deadlineAt || ""),
-    source: String(task.source || ""),
-    subtasks: Array.isArray(task.subtasks)
-      ? task.subtasks.map(normalizeSubtaskForFingerprint)
-      : [],
-  };
+// ── Subcollection: write one task ─────────────────────────────────────────────
+export async function saveTask(userId, task) {
+  const taskRef = doc(db, "Users", userId, "tasks", String(task.id));
+  await setDoc(taskRef, task, { merge: true });
 }
 
-function buildPlannerFingerprint(tasks = [], score = 0) {
-  return JSON.stringify({
-    score: typeof score === "number" ? score : 0,
-    tasks: Array.isArray(tasks) ? tasks.map(normalizeTaskForFingerprint) : [],
-  });
+// ── Root doc: write score ─────────────────────────────────────────────────────
+export async function saveScore(userId, score) {
+  await setDoc(doc(db, "Users", userId), { score }, { merge: true });
 }
 
-function hasMeaningfulPlannerState(tasks = [], score = 0) {
-  return (Array.isArray(tasks) && tasks.length > 0) || Number(score || 0) !== 0;
-}
-
-export function buildClientFingerprint(tasks = [], score = 0) {
-  return buildPlannerFingerprint(tasks, score);
-}
-
-async function writePlannerSnapshot(userId, snapshotData, source) {
-  const tasks = Array.isArray(snapshotData?.tasks) ? snapshotData.tasks : [];
-  const score = typeof snapshotData?.score === "number" ? snapshotData.score : 0;
-
-  if (!hasMeaningfulPlannerState(tasks, score)) {
-    return;
+// ── Root doc: read score (one-time) ──────────────────────────────────────────
+export async function getUserScore(userId) {
+  try {
+    const snap = await getDoc(doc(db, "Users", userId));
+    if (!snap.exists()) return 0;
+    return typeof snap.data().score === "number" ? snap.data().score : 0;
+  } catch (e) {
+    console.warn("[Firestore] getUserScore failed:", e);
+    return 0;
   }
-
-  await addDoc(collection(db, "Users", userId, "taskSnapshots"), {
-    source,
-    kind: "pre_write",
-    taskCount: tasks.length,
-    score,
-    fingerprint: buildPlannerFingerprint(tasks, score),
-    capturedAt: Date.now(),
-    createdAt: serverTimestamp(),
-    tasks,
-  });
 }
 
-/**
- * Получаем задачи и очки пользователя из облака
- */
+// ── Migration: array-in-doc → subcollection (runs once) ──────────────────────
+export async function migrateTasksToSubcollection(userId) {
+  try {
+    const userDocRef = doc(db, "Users", userId);
+    const userDocSnap = await getDoc(userDocRef);
+    if (!userDocSnap.exists()) return { migrated: 0 };
+
+    const data = userDocSnap.data();
+    const oldTasks = Array.isArray(data.tasks) ? data.tasks : [];
+    if (oldTasks.length === 0) return { migrated: 0 };
+
+    // Check subcollection is still empty (don't double-migrate)
+    const existingSnap = await getDocs(collection(db, "Users", userId, "tasks"));
+    if (!existingSnap.empty) return { migrated: 0, skipped: true };
+
+    // Write backup snapshot of old state before migrating
+    try {
+      await addDoc(collection(db, "Users", userId, "taskSnapshots"), {
+        source: "migration_pre_subcollection",
+        kind: "backup",
+        taskCount: oldTasks.length,
+        score: data.score || 0,
+        capturedAt: Date.now(),
+        createdAt: serverTimestamp(),
+        tasks: oldTasks,
+      });
+    } catch (snapErr) {
+      console.warn("[Migration] Could not write pre-migration snapshot:", snapErr);
+    }
+
+    // Write each task to subcollection
+    for (const task of oldTasks) {
+      if (!task.id) continue;
+      await saveTask(userId, task);
+    }
+
+    console.log(`[Migration] Moved ${oldTasks.length} tasks to subcollection`);
+    return { migrated: oldTasks.length, score: data.score };
+  } catch (e) {
+    console.error("[Migration] Failed:", e);
+    return { migrated: 0, error: e };
+  }
+}
+
+// ── Legacy: getUserData (still used for brand-new account init) ───────────────
 export async function getUserData(userId, email, name) {
   try {
     const userDocRef = doc(db, "Users", userId);
     const userDocSnap = await getDoc(userDocRef);
     if (!userDocSnap.exists()) {
-      // Инициализация нового аккаунта
       const initialData = { name, email, tasks: [], score: 0 };
       await setDoc(userDocRef, initialData);
       return initialData;
-    } else {
-      return userDocSnap.data();
     }
+    return userDocSnap.data();
   } catch (error) {
     console.error("Ошибка при получении данных:", error);
-    if (error.code === 'permission-denied') {
-      alert("🚨 Ошибка доступа к Firestore (чтение). Зайдите в Firebase Console -> Firestore Database -> Rules и разрешите доступ для авторизованных пользователей.");
+    if (error.code === "permission-denied") {
+      alert(
+        "🚨 Ошибка доступа к Firestore (чтение). Зайдите в Firebase Console -> Firestore Database -> Rules.",
+      );
     }
     return null;
   }
 }
 
-/**
- * Обновляем задачи и очки
- */
-export async function updateUserData(userId, tasks, score) {
-  try {
-    const userDocRef = doc(db, "Users", userId);
-    const currentDoc = await getDoc(userDocRef);
-    const currentData = currentDoc.exists() ? currentDoc.data() : { tasks: [], score: 0 };
-    const currentTasks = Array.isArray(currentData.tasks) ? currentData.tasks : [];
-    const currentScore = typeof currentData.score === "number" ? currentData.score : 0;
-    const currentFingerprint = buildPlannerFingerprint(currentTasks, currentScore);
-    const nextFingerprint = buildPlannerFingerprint(tasks, score);
-
-    if (currentFingerprint !== nextFingerprint) {
-      try {
-        await writePlannerSnapshot(userId, { tasks: currentTasks, score: currentScore }, "web");
-      } catch (snapshotError) {
-        console.warn("Не удалось сохранить backup snapshot перед записью:", snapshotError);
-      }
-    }
-
-    await setDoc(userDocRef, { tasks, score }, { merge: true });
-  } catch (error) {
-    console.error("Ошибка при обновлении данных:", error);
-    if (error.code === 'permission-denied') {
-      alert("🚨 Ошибка сохранения в Firestore! Зайдите в Firebase Console -> Firestore Database -> Rules. Сейчас сохранение на сервер заблокировано правилами базы.");
-    }
-  }
+// ── No-ops kept so any still-imported callers don't crash ────────────────────
+export function buildClientFingerprint() {
+  return "";
 }
 
-export function subscribeUserData(userId, email, name, onData, onError) {
-  const userDocRef = doc(db, "Users", userId);
+export async function updateUserData() {
+  // Deprecated: use saveTask() per task instead
+}
 
-  return onSnapshot(
-    userDocRef,
-    (userDocSnap) => {
-      if (!userDocSnap.exists()) {
-        // NEVER auto-create the document here. A missing doc in onSnapshot
-        // can happen when the snapshot comes from an empty local cache on a
-        // new device/browser while the network hasn't responded yet.
-        // Writing {tasks:[]} would overwrite the real user data in Firestore.
-        // Account creation is handled by getUserData during sign-up only.
-        if (userDocSnap.metadata.fromCache) {
-          console.warn("[Firestore] Snapshot from cache, document missing — waiting for server.");
-          return;
-        }
-        // Server confirmed the document truly does not exist.
-        // This should only happen for brand-new accounts.
-        console.warn("[Firestore] Document does not exist on server — initializing.");
-        const initialData = { name, email, tasks: [], score: 0 };
-        setDoc(userDocRef, initialData).catch(e => console.error("Init error:", e));
-        onData(initialData);
-        return;
-      }
-
-      onData(userDocSnap.data(), userDocSnap.metadata);
-    },
-    (error) => {
-      console.error("Ошибка realtime-подписки на Firestore:", error);
-      if (typeof onError === "function") {
-        onError(error);
-      }
-    },
-  );
+export function subscribeUserData() {
+  // Deprecated: use subscribeToTasks() instead
+  return () => {};
 }
