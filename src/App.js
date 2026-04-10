@@ -769,12 +769,11 @@ export default function App() {
           const currentHeatValue = Math.max(0, task.heatBase * (1 - timeElapsed / decayWindowMs));
           
           let newTask = { ...task, heatCurrent: currentHeatValue };
-          
-          if (currentHeatValue <= 0) {
-            newTask.status = "dead";
-            newScore -= 5;
-            changed = true;
-          } else if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
+
+          // Do NOT auto-kill tasks here — silent auto-kill causes data loss when
+          // the browser is left open overnight and writes dead status to Firestore.
+          // Tasks stay visible at 0% heat; user kills them manually via the ✖ button.
+          if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
             changed = true;
           }
           return newTask;
