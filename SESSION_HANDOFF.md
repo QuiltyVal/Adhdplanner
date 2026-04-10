@@ -121,17 +121,36 @@ When starting a new session, verify this sequence:
 6. Delete subtask from Telegram text
 7. Verify web reflects all of it without reload weirdness
 
+## Current data architecture (as of 2026-04-10)
+
+Migration to subcollection is DONE. Structure:
+```
+Users/{userId}/tasks/{taskId}   ← each task is its own document ✅
+Users/{userId}                  ← root doc: score, telegramContext, telegramChatId only
+Users/{userId}/taskSnapshots/   ← backup trail (unchanged)
+Users/{userId}/telegramLogs/    ← telegram debug logs (unchanged)
+```
+
+Web app (Vercel) reads/writes subcollection correctly.
+**Hetzner server needs deploy** — `git pull origin main && pm2 restart all`.
+Until Hetzner is updated, Telegram reads/writes from the correct subcollection
+but the old server code is still running.
+
 ## Best next steps
 
-**#1 priority — MUST DO before anything else:**
-- Migrate tasks from array-in-document to Firestore subcollection per task.
-- Plan is fully written in `MIGRATION_TASKS_SUBCOLLECTION.md`.
-- This is the only real fix for multi-device task loss.
+**#1 — Deploy Hetzner** (if not done yet):
+```bash
+cd ~/adhdplanner   # or wherever the server code lives
+git pull origin main
+pm2 restart all
+```
 
-Other steps (after migration):
-1. Move Telegram nudges from Vercel Cron to Hetzner
+Then test: add task via Telegram → verify appears in web instantly.
+
+Other steps:
+1. Move Telegram nudges from Vercel Cron to Hetzner (timing unreliable on Vercel)
 2. Add manual movement of tasks between heat zones
-3. Add restore-from-snapshot tooling
+3. Add restore-from-snapshot UI
 4. Add time tracking per task
 
 ## Things agents should not do casually

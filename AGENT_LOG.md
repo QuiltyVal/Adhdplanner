@@ -29,6 +29,26 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-10 (evening) — Claude (Sonnet 4.6, remote session)
+
+- Summary: Completed subcollection migration for web + server. Added subtask inline editing. Deployed to Vercel via git push. Hetzner NOT yet updated (user needs to run git pull + pm2 restart manually).
+- Changed:
+  - `src/firestoreUtils.js`: full rewrite — new `subscribeToTasks`, `saveTask`, `saveScore`, `getUserScore`, `migrateTasksToSubcollection`; old functions kept as no-ops
+  - `src/App.js`: loading switched to `subscribeToTasks`; auto-migration on first empty snapshot; all handlers now call `persistTask`/`persistScore` directly; removed bulk sync effect and all race guards; game tick only saves newly dead tasks
+  - `api/_lib/planner-store.js`: `getPlannerData` now reads tasks from subcollection; `mutatePlanner` replaced Firestore transaction with WriteBatch writing to subcollection; root doc only stores score + metadata (no tasks array)
+  - `src/TaskColumn.js` + `src/TaskColumn.css`: inline subtask editing (double-click to edit, Enter saves, Escape cancels)
+  - Firestore Rules updated (user did this in Firebase Console): added `match /tasks/{taskId}` and `match /taskSnapshots/{snapshotId}` under Users/{userId}
+- Verified:
+  - `npm run build` passes
+  - `node -e "require('./api/_lib/planner-store')..."` passes
+  - Firestore subcollection appeared after first web app load (migration ran)
+  - Web app reads/writes correctly from subcollection
+- Risks / follow-up:
+  - **⚠️ Hetzner server NOT updated** — Telegram bot still runs old planner-store.js from before this session. Must `git pull origin main && pm2 restart all` on Hetzner.
+  - After Hetzner deploy: test Telegram → add task → verify appears in web instantly
+  - MCP server on Hetzner also uses planner-store.js — same git pull will fix it too
+  - Old `tasks: []` array still exists in root doc (not deleted) — safe to ignore, web app no longer reads it
+
 ## 2026-04-10 — Claude (Sonnet 4.6 / Opus 4.6, work session)
 
 - Summary: UI/UX session + data loss investigation. Added AI agent chat, Google Calendar, font cleanup. Found and partially fixed task sync bugs. Wrote subcollection migration plan.
