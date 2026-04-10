@@ -967,6 +967,17 @@ export default function App() {
     if (saved) persistTask(saved);
   };
 
+  const handleAddTime = (taskId, elapsedMs) => {
+    if (!elapsedMs || elapsedMs <= 0) return;
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(t => {
+      if (t.id !== taskId) return t;
+      saved = { ...t, timeSpent: (t.timeSpent || 0) + elapsedMs, lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
+  };
+
   const handleDeleteSubtask = (taskId, subtaskId) => {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
@@ -1481,6 +1492,7 @@ export default function App() {
             onKill={handleKill}
             onAddTask={handleAddTask}
             onEditTask={handleEditTask}
+            onAddTime={handleAddTime}
             onAddSubtask={handleAddSubtask}
             onDeleteSubtask={handleDeleteSubtask}
             onEditSubtask={handleEditSubtask}

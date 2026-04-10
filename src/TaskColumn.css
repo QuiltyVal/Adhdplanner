@@ -859,6 +859,45 @@
   }
 }
 
+/* === TIMER === */
+.timer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.timer-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid #444;
+  color: #9ca3af;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+
+.timer-btn:hover { border-color: #666; color: #e0e0e0; }
+
+.timer-btn.timer-running {
+  border-color: #10b981;
+  color: #10b981;
+  animation: timer-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.timer-total {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+
 /* === CALENDAR PICKER === */
 .cal-btn { background: #111; border: 1px solid #333; color: #aaa; padding: 5px 8px; }
 .cal-btn:hover { color: #fff; border-color: #555; }

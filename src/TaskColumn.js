@@ -1,5 +1,5 @@
 // src/TaskColumn.js
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./TaskColumn.css";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -53,6 +53,17 @@ function getDeadlineBadge(deadlineAt) {
   return { tone: "calm", label: `До ${shortDate}` };
 }
 
+function formatMs(ms) {
+  if (!ms || ms <= 0) return null;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}ч ${m}м`;
+  if (m > 0) return `${m}м ${s}с`;
+  return `${s}с`;
+}
+
 export default function TaskColumn({
   type,
   tasks,
@@ -63,6 +74,7 @@ export default function TaskColumn({
   onReopenCompleted,
   onAddTask,
   onEditTask,
+  onAddTime,
   onAddSubtask,
   onDeleteSubtask,
   onEditSubtask,
@@ -79,8 +91,17 @@ export default function TaskColumn({
   const [newSubtaskText, setNewSubtaskText] = useState({}); // {taskId: text}
   const [confirmTaskId, setConfirmTaskId] = useState(null);
   const [editingSubtask, setEditingSubtask] = useState(null); // { taskId, subId, text }
-  const [editingTaskId, setEditingTaskId] = useState(null);   // taskId being edited
+  const [editingTaskId, setEditingTaskId] = useState(null);
   const [editingTaskText, setEditingTaskText] = useState("");
+  const [activeTimerTaskId, setActiveTimerTaskId] = useState(null);
+  const [timerTick, setTimerTick] = useState(0);
+  const timerStartRef = useRef(null);
+
+  useEffect(() => {
+    if (!activeTimerTaskId) return;
+    const interval = setInterval(() => setTimerTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [activeTimerTaskId]);
   const [calPickerTaskId, setCalPickerTaskId] = useState(null);
   const [calDate, setCalDate] = useState("");
   const [calTime, setCalTime] = useState("10:00");
@@ -371,6 +392,42 @@ export default function TaskColumn({
           />
           <button className="subtask-add-btn" onClick={() => addSubtask(task.id)}>+</button>
         </div>
+      </div>
+
+      <div className="timer-row">
+        {(() => {
+          const isRunning = activeTimerTaskId === task.id;
+          const elapsed = isRunning && timerStartRef.current
+            ? Date.now() - timerStartRef.current
+            : 0;
+          const totalMs = (task.timeSpent || 0) + elapsed;
+          return (
+            <>
+              <button
+                className={`timer-btn ${isRunning ? 'timer-running' : ''}`}
+                onClick={() => {
+                  if (isRunning) {
+                    const spent = Date.now() - timerStartRef.current;
+                    if (onAddTime) onAddTime(task.id, spent);
+                    timerStartRef.current = null;
+                    setActiveTimerTaskId(null);
+                  } else {
+                    timerStartRef.current = Date.now();
+                    setActiveTimerTaskId(task.id);
+                  }
+                }}
+                title={isRunning ? 'Остановить таймер' : 'Запустить таймер'}
+              >
+                {isRunning ? '⏹ Стоп' : '▶ Старт'}
+              </button>
+              {totalMs > 0 && (
+                <span className="timer-total">
+                  ⏱ {formatMs(totalMs)}
+                </span>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       <div className="task-actions">
