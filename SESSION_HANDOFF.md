@@ -73,8 +73,9 @@ Important:
 
 3. Heat model is still product-incomplete.
    - `deadlineAt` affects mission priority and nudges
-   - it does not directly change `heatCurrent`
-   - `isVital` also does not directly change heat decay
+   - it does not directly raise `heatCurrent`
+   - as of 2026-04-10, tasks with `deadlineAt`, `isToday`, or `isVital` are protected from automatic cemetery moves caused only by cooling
+   - urgency decay windows were relaxed to `low=21d`, `medium=14d`, `high=10d`
 
 4. Manual task movement between heat zones does not exist yet.
 
@@ -129,6 +130,7 @@ Useful Telegram `action` values now include:
 
 - `upsert_task_created`
 - `upsert_task_updated`
+- `add_subtask_from_text`
 - `delete_subtask`
 - `complete_from_text`
 - `reopen_latest_completed`

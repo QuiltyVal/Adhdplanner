@@ -113,6 +113,31 @@ function parseDeleteSubtaskRequest(text = "") {
   };
 }
 
+function parseAddSubtaskRequest(text = "") {
+  const lowered = String(text).toLowerCase();
+  if (!/добавь|добавить/.test(lowered) || !/подзадач|шаг/.test(lowered)) {
+    return null;
+  }
+
+  const quoted = extractQuotedSegments(text);
+  if (quoted.length >= 2) {
+    return {
+      taskText: quoted[0],
+      subtaskText: quoted[1],
+    };
+  }
+
+  const match = String(text).match(
+    /(?:^|\b)(?:добавь|добавить)\s+(?:к|в\s+задачу\s+)?(.+?)\s+(?:подзачу|подзадачу|шаг)\s+[«"]?(.+?)[»"]?$/i,
+  );
+  if (!match) return null;
+
+  return {
+    taskText: match[1].trim(),
+    subtaskText: match[2].trim(),
+  };
+}
+
 function getUrgencyRank(urgency) {
   if (urgency === "high") return 3;
   if (urgency === "medium") return 2;
@@ -599,6 +624,79 @@ async function handleDeleteSubtaskRequest(chatId, plannerData, request) {
   });
 }
 
+async function handleAddSubtaskRequest(chatId, plannerData, request) {
+  const task = findTaskByText(plannerData.tasks, request.taskText, ["active"]);
+  if (!task) {
+    await sendText(chatId, `Не нашла активную задачу: <b>${escapeHtml(request.taskText)}</b>`);
+    return;
+  }
+
+  const subtaskText = String(request.subtaskText || "").trim();
+  if (!subtaskText) {
+    await sendText(chatId, "Подзадача пустая. Напиши текст шага после слова «подзадачу».");
+    return;
+  }
+
+  const duplicate = findSubtaskByText(task.subtasks || [], subtaskText);
+  if (duplicate) {
+    await sendText(
+      chatId,
+      `В задаче <b>${escapeHtml(task.text)}</b> уже есть похожая подзадача: <b>${escapeHtml(duplicate.text)}</b>.`,
+      { reply_markup: plannerTaskKeyboard(task.id) },
+    );
+    return;
+  }
+
+  let updatedTask = null;
+  let createdSubtask = null;
+  await mutatePlanner(
+    getTargetUserId(),
+    (current) => {
+      const tasks = current.tasks.map((currentTask) => {
+        if (currentTask.id !== task.id) return currentTask;
+        createdSubtask = buildSubtask(subtaskText, `${currentTask.id}-sub-${Date.now()}`);
+        updatedTask = {
+          ...currentTask,
+          subtasks: [...(currentTask.subtasks || []), createdSubtask],
+          lastUpdated: Date.now(),
+        };
+        return updatedTask;
+      });
+
+      return {
+        ...current,
+        tasks,
+        telegramContext: buildTelegramContext(updatedTask || task, "add_subtask"),
+      };
+    },
+    {
+      source: "telegram",
+      reason: "add_subtask_from_text",
+    },
+  );
+
+  if (!updatedTask || !createdSubtask) {
+    await sendText(chatId, "Не смогла добавить подзадачу. Попробуй ещё раз.");
+    return;
+  }
+
+  await sendText(
+    chatId,
+    `🪜 Добавила подзадачу <b>${escapeHtml(createdSubtask.text)}</b> в <b>${escapeHtml(updatedTask.text)}</b>.`,
+    { reply_markup: plannerTaskKeyboard(updatedTask.id) },
+  );
+
+  await safeWriteTelegramLog({
+    kind: "action",
+    action: "add_subtask_from_text",
+    chatId: String(chatId),
+    taskId: updatedTask.id,
+    taskText: updatedTask.text,
+    subtaskId: createdSubtask.id,
+    subtaskText: createdSubtask.text,
+  });
+}
+
 async function handleCompleteTaskRequest(chatId, plannerData, taskQuery = "") {
   const task =
     (taskQuery && findTaskByText(plannerData.tasks, taskQuery, ["active"])) ||
@@ -679,9 +777,15 @@ async function handlePlainCapture(chatId, text) {
   const userId = getTargetUserId();
   const plannerData = await getPlannerData(userId);
   const deleteSubtaskRequest = parseDeleteSubtaskRequest(cleaned);
+  const addSubtaskRequest = parseAddSubtaskRequest(cleaned);
 
   if (deleteSubtaskRequest) {
     await handleDeleteSubtaskRequest(chatId, plannerData, deleteSubtaskRequest);
+    return;
+  }
+
+  if (addSubtaskRequest) {
+    await handleAddSubtaskRequest(chatId, plannerData, addSubtaskRequest);
     return;
   }
 

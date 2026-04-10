@@ -27,9 +27,9 @@ const DEFAULT_TASK_HEAT = 35;
 const TOUCH_HEAT_BONUS = 12;
 const SUBTASK_COMPLETION_CAP = 18;
 const URGENCY_DECAY_WINDOWS_MS = {
-  low: 7 * DAY_MS,
-  medium: 5 * DAY_MS,
-  high: 3 * DAY_MS,
+  low: 21 * DAY_MS,
+  medium: 14 * DAY_MS,
+  high: 10 * DAY_MS,
 };
 const MIN_LOADING_MS = 350;
 const NUDGE_INTERVAL_MS = 20 * 60 * 1000;
@@ -185,6 +185,10 @@ function getTaskHeat(task) {
 
 function getTaskDecayWindowMs(task) {
   return URGENCY_DECAY_WINDOWS_MS[task?.urgency || "medium"] || URGENCY_DECAY_WINDOWS_MS.medium;
+}
+
+function isAutoDeathProtected(task) {
+  return Boolean(task?.isToday || task?.isVital || task?.deadlineAt);
 }
 
 function parseDeadline(deadlineAt) {
@@ -759,10 +763,12 @@ export default function App() {
         const decayWindowMs = getTaskDecayWindowMs(task);
         const currentHeatValue = Math.max(0, task.heatBase * (1 - timeElapsed / decayWindowMs));
         const newTask = { ...task, heatCurrent: currentHeatValue };
+        const protectedFromAutoDeath = isAutoDeathProtected(task);
 
-        if (currentHeatValue <= 0) {
+        if (currentHeatValue <= 0 && !protectedFromAutoDeath) {
           newTask.status = "dead";
           newTask.deadAt = now;
+          newTask.isToday = false;
           newScore -= 5;
           changed = true;
           newlyDead.push(newTask);

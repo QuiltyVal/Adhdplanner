@@ -29,6 +29,19 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-10 22:35 Europe/Berlin - Codex
+
+- Summary: Made task auto-death less brutal for important tasks and taught Telegram to parse explicit “add subtask to task” phrasing without creating a new task.
+- Changed:
+  - `src/App.js`: extended urgency decay windows and blocked automatic cemetery moves for tasks with `isToday`, `isVital`, or any `deadlineAt`
+  - `api/telegram-webhook.js`: added `parseAddSubtaskRequest` / `handleAddSubtaskRequest` and `add_subtask_from_text` action logging
+- Verified:
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); require('./api/telegram-nudge'); console.log('server ok')"`
+- Risks / follow-up:
+  - protected tasks can now cool all the way to `0` heat while staying active; that is intentional for now, but nudging cadence may need tuning
+  - Telegram phrasing coverage is still rule-based for subtask additions; more variants may appear in real use
+
 ## 2026-04-10 22:20 Europe/Berlin - Codex
 
 - Summary: Added explicit Telegram `action` logs for successful task upserts so debug sessions can distinguish creation vs update without inferring from `intent` + `message_out`.
