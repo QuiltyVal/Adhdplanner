@@ -125,6 +125,14 @@ Useful log kinds:
 - `callback_out`
 - `error`
 
+Useful Telegram `action` values now include:
+
+- `upsert_task_created`
+- `upsert_task_updated`
+- `delete_subtask`
+- `complete_from_text`
+- `reopen_latest_completed`
+
 If the bot does something stupid, inspect logs before changing prompts.
 
 ## Handoff discipline

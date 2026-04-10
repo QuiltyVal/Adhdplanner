@@ -29,6 +29,17 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-10 22:20 Europe/Berlin - Codex
+
+- Summary: Added explicit Telegram `action` logs for successful task upserts so debug sessions can distinguish creation vs update without inferring from `intent` + `message_out`.
+- Changed:
+  - `api/telegram-webhook.js`: `upsertTask` now writes `upsert_task_created` / `upsert_task_updated` logs and reports an explicit error log if the mutation returns no outcome
+- Verified:
+  - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); require('./api/telegram-nudge'); console.log('server ok')"`
+- Risks / follow-up:
+  - this improves observability only; it does not change Telegram NLP behavior
+  - next live test should confirm these new `action` logs appear in Firestore after a real Telegram add/update
+
 ## 2026-04-10 22:10 Europe/Berlin - Codex
 
 - Summary: Verified end-to-end that the live Vercel Telegram webhook is active and writes explicit `add_task` requests into `Users/<uid>/tasks` subcollection. Removed the debug task afterwards.

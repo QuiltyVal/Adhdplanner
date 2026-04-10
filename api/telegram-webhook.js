@@ -226,6 +226,31 @@ async function upsertTask(chatId, incoming) {
   if (task?.urgency === "high") meta.push("⏰ срочно");
   if (task?.subtasks?.length) meta.push(`🪜 шагов: ${task.subtasks.length}`);
 
+  if (!task || !outcome?.type) {
+    await safeWriteTelegramLog({
+      kind: "error",
+      chatId: String(chatId),
+      errorMessage: "upsertTask finished without outcome",
+      incomingText: incoming.text,
+    });
+    await sendText(chatId, "Не смогла сохранить задачу. Попробуй ещё раз.");
+    return;
+  }
+
+  await safeWriteTelegramLog({
+    kind: "action",
+    action: outcome.type === "updated" ? "upsert_task_updated" : "upsert_task_created",
+    chatId: String(chatId),
+    taskId: task.id,
+    taskText: task.text,
+    taskStatus: task.status,
+    isToday: Boolean(task.isToday),
+    isVital: Boolean(task.isVital),
+    deadlineAt: task.deadlineAt || "",
+    urgency: task.urgency || "medium",
+    subtaskCount: Array.isArray(task.subtasks) ? task.subtasks.length : 0,
+  });
+
   if (outcome?.type === "updated") {
     await sendText(
       chatId,
