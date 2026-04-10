@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md
 
-Last updated: 2026-04-09
+Last updated: 2026-04-10
 
 This file exists so the project can survive context loss and switching between Codex, Claude, or another coding agent.
 
@@ -123,8 +123,12 @@ When starting a new session, verify this sequence:
 
 ## Best next steps
 
-Choose one of these, not all at once:
+**#1 priority — MUST DO before anything else:**
+- Migrate tasks from array-in-document to Firestore subcollection per task.
+- Plan is fully written in `MIGRATION_TASKS_SUBCOLLECTION.md`.
+- This is the only real fix for multi-device task loss.
 
+Other steps (after migration):
 1. Move Telegram nudges from Vercel Cron to Hetzner
 2. Add manual movement of tasks between heat zones
 3. Add restore-from-snapshot tooling
