@@ -53,17 +53,18 @@ function getDeadlineBadge(deadlineAt) {
   return { tone: "calm", label: `До ${shortDate}` };
 }
 
-export default function TaskColumn({ 
-  type, 
-  tasks, 
-  onTouch, 
-  onComplete, 
-  onKill, 
-  onResurrect, 
+export default function TaskColumn({
+  type,
+  tasks,
+  onTouch,
+  onComplete,
+  onKill,
+  onResurrect,
   onReopenCompleted,
   onAddTask,
   onAddSubtask,
   onDeleteSubtask,
+  onEditSubtask,
   onToggleSubtask,
   onToggleToday,
   onToggleVital,
@@ -76,6 +77,7 @@ export default function TaskColumn({
   const [newTaskText, setNewTaskText] = useState("");
   const [newSubtaskText, setNewSubtaskText] = useState({}); // {taskId: text}
   const [confirmTaskId, setConfirmTaskId] = useState(null);
+  const [editingSubtask, setEditingSubtask] = useState(null); // { taskId, subId, text }
   const [calPickerTaskId, setCalPickerTaskId] = useState(null);
   const [calDate, setCalDate] = useState("");
   const [calTime, setCalTime] = useState("10:00");
@@ -292,9 +294,34 @@ export default function TaskColumn({
               onChange={() => onToggleSubtask(task.id, sub.id)}
               className="subtask-checkbox"
             />
-            <span style={{textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.5 : 1, flex: 1}}>
-              {sub.text}
-            </span>
+            {editingSubtask && editingSubtask.taskId === task.id && editingSubtask.subId === sub.id ? (
+              <input
+                autoFocus
+                className="subtask-edit-input"
+                value={editingSubtask.text}
+                onChange={e => setEditingSubtask({ ...editingSubtask, text: e.target.value })}
+                onBlur={() => {
+                  if (onEditSubtask) onEditSubtask(task.id, sub.id, editingSubtask.text);
+                  setEditingSubtask(null);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    if (onEditSubtask) onEditSubtask(task.id, sub.id, editingSubtask.text);
+                    setEditingSubtask(null);
+                  } else if (e.key === 'Escape') {
+                    setEditingSubtask(null);
+                  }
+                }}
+              />
+            ) : (
+              <span
+                style={{ textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.5 : 1, flex: 1 }}
+                onDoubleClick={() => setEditingSubtask({ taskId: task.id, subId: sub.id, text: sub.text })}
+                title="Двойной клик — редактировать"
+              >
+                {sub.text}
+              </span>
+            )}
             {onDeleteSubtask && (
               <button
                 className="subtask-delete-btn"

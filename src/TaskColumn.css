@@ -623,6 +623,19 @@
   flex-shrink: 0;
 }
 
+.subtask-edit-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #8a1c1c;
+  color: #e0e0e0;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+  padding: 2px 4px;
+  min-width: 0;
+}
+
 .subtask-delete-btn {
   background: none;
   border: none;

@@ -963,6 +963,22 @@ export default function App() {
     }));
   };
 
+  const handleEditSubtask = (taskId, subtaskId, newText) => {
+    if (!newText.trim()) return;
+    setTasks((currentTasks) => currentTasks.map(t => {
+      if (t.id === taskId) {
+        return {
+          ...t,
+          subtasks: (t.subtasks || []).map(s =>
+            s.id === subtaskId ? { ...s, text: newText.trim() } : s
+          ),
+          lastUpdated: Date.now(),
+        };
+      }
+      return t;
+    }));
+  };
+
   const handleToggleSubtask = (taskId, subtaskId) => {
     setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id === taskId) {
@@ -1454,6 +1470,7 @@ export default function App() {
             onAddTask={handleAddTask}
             onAddSubtask={handleAddSubtask}
             onDeleteSubtask={handleDeleteSubtask}
+            onEditSubtask={handleEditSubtask}
             onToggleSubtask={handleToggleSubtask}
             onToggleToday={handleToggleToday}
             onToggleVital={handleToggleVital}
