@@ -12,6 +12,11 @@ Companion file:
 - The project is actively used by a real user, not just as a prototype.
 - Stability matters more than adding flashy features.
 - Data loss already happened once because stale local web state overwrote newer Firestore data.
+- Firestore still contains two task representations:
+  - legacy array field `Users/<uid>.tasks` kept only as rollback safety
+  - canonical subcollection `Users/<uid>/tasks`
+- On 2026-04-10 the canonical 12-task set was imported into `Users/<uid>/tasks` after a bad migration started from a stale 11-task office state.
+- The legacy array was intentionally left untouched and still holds that older 11-task state. Do not treat it as current truth.
 
 ## Production endpoints
 
@@ -24,6 +29,8 @@ Companion file:
 - ghost tasks surviving local cache after cloud deletion
 - stale cloud cache older than 30 minutes is now ignored on startup
 - Firestore `taskSnapshots` backup layer
+- canonical human task set restored into `Users/<uid>/tasks`
+- subcollection storage landed in code on `origin/main`
 - Telegram duplicate task prevention
 - Telegram reopen completed flow
 - Telegram contextual actions:
@@ -75,6 +82,12 @@ Important:
    - It is now capped to 30 minutes max age.
    - If the UI ever shows obviously old tasks again, verify Firestore before trusting local cache.
 
+6. Deployment state may be mixed across environments.
+   - `origin/main` contains the subcollection migration.
+   - Vercel should follow git deploys, but Hetzner may still lag until explicitly updated.
+   - Treat `Users/<uid>/tasks` as the canonical live task set.
+   - Do not trust `Users/<uid>.tasks` as current truth.
+
 ## Live-server note
 
 The Hetzner MCP server was patched live to add safer mutation behavior:
@@ -123,7 +136,7 @@ When starting a new session, verify this sequence:
 
 ## Current data architecture (as of 2026-04-10)
 
-Migration to subcollection is DONE. Structure:
+Canonical storage is the subcollection. Structure:
 ```
 Users/{userId}/tasks/{taskId}   ← each task is its own document ✅
 Users/{userId}                  ← root doc: score, telegramContext, telegramChatId only
@@ -131,14 +144,23 @@ Users/{userId}/taskSnapshots/   ← backup trail (unchanged)
 Users/{userId}/telegramLogs/    ← telegram debug logs (unchanged)
 ```
 
-Web app (Vercel) reads/writes subcollection correctly.
-**Hetzner server needs deploy** — `git pull origin main && pm2 restart all`.
-Until Hetzner is updated, Telegram reads/writes from the correct subcollection
-but the old server code is still running.
+`Users/{userId}.tasks` still exists as a legacy rollback artifact and currently contains an older 11-task snapshot. Keep it until the new subcollection flow is verified everywhere, then remove it deliberately.
+
+`origin/main` contains the subcollection migration for web + server.
+If Hetzner is still on older code, it needs:
+```bash
+git pull origin main
+pm2 restart all
+```
 
 ## Best next steps
 
-**#1 — Deploy Hetzner** (if not done yet):
+**#1 — Verify every live writer is using the subcollection**
+- web app on Vercel
+- Telegram on Hetzner
+- MCP on Hetzner
+
+**#2 — Deploy Hetzner** (if not done yet):
 ```bash
 cd ~/adhdplanner   # or wherever the server code lives
 git pull origin main

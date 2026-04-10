@@ -29,6 +29,21 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-10 09:40 Europe/Berlin - Codex
+
+- Summary: Exported live Firestore, built a canonical task set locally, and imported that canonical set into `Users/<uid>/tasks` without touching the legacy array field.
+- Changed:
+  - live Firestore only
+  - canonical export files under `/tmp/adhd-planner-export-2026-04-10/`
+  - `Users/<uid>/tasks` now holds 12 canonical human tasks
+- Verified:
+  - pre-import backup: `/tmp/adhd-planner-export-2026-04-10/pre-import-backup.json`
+  - post-import backup: `/tmp/adhd-planner-export-2026-04-10/post-import-backup.json`
+  - verified counts after import: `subcollection = 12`, `legacy array = 11`
+- Risks / follow-up:
+  - the import repaired live data, but older legacy array data still exists as rollback safety
+  - next agent should verify every writer is truly using the subcollection before trusting day-to-day edits again
+
 ## 2026-04-10 (late evening) — Claude (Sonnet 4.6, remote session, session 2)
 
 - Summary: Added task text editing, time tracking per task, recorded drag-drop plan.
