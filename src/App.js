@@ -879,6 +879,42 @@ export default function App() {
     return () => clearInterval(interval);
   }, [notificationPermission, pulseState.lastNudgeAt, pulseState.notificationsEnabled, rescueDeadline?.reminderIntervalMs, rescueTask]);
 
+  // Exhumation nudge — Angel checks on dead tasks older than 30 days, once per day
+  useEffect(() => {
+    if (notificationPermission !== "granted") return;
+    if (!pulseState.notificationsEnabled) return;
+    if (!dataLoaded) return;
+
+    const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+    const EXHUMATION_INTERVAL_MS = 24 * 60 * 60 * 1000;
+    const storageKey = `adhd_exhumation_nudge_${user?.id}`;
+
+    const check = () => {
+      if (document.visibilityState !== "hidden") return;
+      const lastSent = Number(localStorage.getItem(storageKey) || 0);
+      if (Date.now() - lastSent < EXHUMATION_INTERVAL_MS) return;
+
+      const candidate = deadTasks.find(t => {
+        const deadAt = t.deadAt || (/^\d{10,}$/.test(t.id) ? Number(t.id) : null);
+        return deadAt && (Date.now() - deadAt) > MONTH_MS;
+      });
+      if (!candidate) return;
+
+      const phrases = [
+        `«${candidate.text}» лежит на кладбище уже больше месяца. Может, попробуем ещё раз?`,
+        `Помнишь «${candidate.text}»? Прошёл месяц. Иногда второй шанс — самый важный.`,
+        `«${candidate.text}» всё ещё здесь. Может, теперь это проще, чем казалось?`,
+      ];
+      const body = phrases[Math.floor(Math.random() * phrases.length)];
+
+      new Notification("👼 Ангел стучится", { body, tag: `exhumation-${candidate.id}` });
+      localStorage.setItem(storageKey, String(Date.now()));
+    };
+
+    const interval = setInterval(check, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [notificationPermission, pulseState.notificationsEnabled, dataLoaded, deadTasks, user?.id]);
+
   useEffect(() => {
     if (!panicEndsAt) return;
 
