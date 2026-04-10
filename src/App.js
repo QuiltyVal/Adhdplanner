@@ -762,6 +762,7 @@ export default function App() {
 
         if (currentHeatValue <= 0) {
           newTask.status = "dead";
+          newTask.deadAt = now;
           newScore -= 5;
           changed = true;
           newlyDead.push(newTask);
@@ -1086,7 +1087,7 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map((task) => {
       if (task.id !== taskId) return task;
-      saved = { ...task, status: "dead", isToday: false, lastUpdated: Date.now() };
+      saved = { ...task, status: "dead", isToday: false, lastUpdated: Date.now(), deadAt: Date.now() };
       return saved;
     }));
     const newScore = score - 5;

@@ -193,20 +193,37 @@ export default function TaskColumn({
   }
 
   if (type === "cemetery") {
-    // ... cemetery render ...
+    const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+    const exhumationPhrases = [
+      "Слушай, она тут уже давно лежит. Может, попробуем ещё раз — с минимальным пульсом?",
+      "Месяц прошёл. Иногда задачи возвращаются сами. Дать ей шанс?",
+      "Она не забыта — просто ждёт. Воскресить с нуля?",
+      "Прошло больше месяца. Может, теперь это проще, чем казалось?",
+    ];
     return (
       <div className="task-column-container">
         <div className="tasks-grid">
-          {tasks.map(task => (
-            <div key={task.id} className="tombstone animated-fade-in">
-              <div className="tombstone-rip">R.I.P.</div>
-              <div className="tombstone-task-name">{task.text}</div>
-              <div style={{color: '#ef4444', fontSize: '0.85rem', marginBottom: '10px'}}>-5 points</div>
-              <button className="resurrect-btn" onClick={() => onResurrect(task.id)}>
-                🔄 Воскресить
-              </button>
-            </div>
-          ))}
+          {tasks.map((task, i) => {
+            const deadAt = task.deadAt || ((/^\d{10,}$/.test(task.id)) ? Number(task.id) : null);
+            const isOld = deadAt && (Date.now() - deadAt) > MONTH_MS;
+            const phrase = exhumationPhrases[i % exhumationPhrases.length];
+            return (
+              <div key={task.id} className="tombstone animated-fade-in">
+                <div className="tombstone-rip">R.I.P.</div>
+                <div className="tombstone-task-name">{task.text}</div>
+                <div style={{color: '#ef4444', fontSize: '0.85rem', marginBottom: '10px'}}>-5 points</div>
+                {isOld && (
+                  <div className="exhumation-prompt">
+                    <span className="exhumation-angel">👼</span>
+                    <p className="exhumation-text">{phrase}</p>
+                  </div>
+                )}
+                <button className="resurrect-btn" onClick={() => onResurrect(task.id)}>
+                  🔄 Воскресить
+                </button>
+              </div>
+            );
+          })}
           {tasks.length === 0 && <p style={{color: '#8a1c1c', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8}}>Кладбище пустует. Так держать!</p>}
         </div>
       </div>

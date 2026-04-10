@@ -268,6 +268,32 @@
   word-break: break-word;
 }
 
+/* === EXHUMATION PROMPT === */
+.exhumation-prompt {
+  background: rgba(58, 237, 255, 0.05);
+  border: 1px solid rgba(58, 237, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.exhumation-angel {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.exhumation-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  color: #a0d6ff;
+  margin: 0;
+  line-height: 1.4;
+  text-align: left;
+}
+
 /* === RESURRECT BUTTON === */
 .resurrect-btn {
   background: #1a1a1a;
