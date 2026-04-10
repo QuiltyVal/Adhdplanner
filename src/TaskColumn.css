@@ -859,6 +859,14 @@
   }
 }
 
+/* === DAYS ALIVE === */
+.days-alive {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  color: #4b5563;
+  letter-spacing: 0.3px;
+}
+
 /* === TIMER === */
 .timer-row {
   display: flex;

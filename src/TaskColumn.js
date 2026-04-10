@@ -53,6 +53,13 @@ function getDeadlineBadge(deadlineAt) {
   return { tone: "calm", label: `До ${shortDate}` };
 }
 
+function getDaysAlive(task) {
+  // task.id is Date.now() string for web-created tasks
+  const createdAt = /^\d{10,}$/.test(task.id) ? Number(task.id) : null;
+  if (!createdAt) return null;
+  return Math.max(0, Math.floor((Date.now() - createdAt) / (24 * 60 * 60 * 1000)));
+}
+
 function formatMs(ms) {
   if (!ms || ms <= 0) return null;
   const totalSec = Math.floor(ms / 1000);
@@ -285,6 +292,12 @@ export default function TaskColumn({
         )}
       </div>
       
+      {getDaysAlive(task) !== null && (
+        <div className="days-alive">
+          🗓 {getDaysAlive(task) === 0 ? 'сегодня' : `${getDaysAlive(task)} дн.`}
+        </div>
+      )}
+
       <div className="heat-slider-container">
         <div className="heat-label">Пульс</div>
         <div style={{
