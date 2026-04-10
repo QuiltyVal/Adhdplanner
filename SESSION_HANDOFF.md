@@ -102,6 +102,13 @@ It was patched live to add safer mutation behavior:
 This was applied directly on the server and restarted via PM2.
 Do not assume every live Hetzner change is already represented elsewhere unless you verify it.
 
+Telegram webhook is separate from that server:
+
+- live Telegram webhook runs on Vercel at `/api/telegram-webhook`
+- on 2026-04-10 it was verified end-to-end with a synthetic message that explicit `add_task` requests write to `Users/<uid>/tasks`
+- the temporary debug task was removed immediately after verification
+- this means "Telegram is broken" should now be treated as a behavior/debugging issue, not as proof that the whole route is dead
+
 ## How to debug Telegram now
 
 Look in Firestore under the user document:
@@ -164,7 +171,8 @@ pm2 restart all
 - Telegram on Hetzner
 - MCP on Hetzner
 
-MCP on Hetzner is already patched live. The remaining question is whether Telegram is actually served from the same Hetzner process or from Vercel routes.
+MCP on Hetzner is already patched live.
+Telegram webhook was confirmed on Vercel, not on the Hetzner MCP process.
 
 Other steps:
 1. Move Telegram nudges from Vercel Cron to Hetzner (timing unreliable on Vercel)

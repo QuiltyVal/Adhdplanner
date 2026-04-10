@@ -29,6 +29,19 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-10 22:10 Europe/Berlin - Codex
+
+- Summary: Verified end-to-end that the live Vercel Telegram webhook is active and writes explicit `add_task` requests into `Users/<uid>/tasks` subcollection. Removed the debug task afterwards.
+- Changed:
+  - live Firestore only: added then removed `DEBUG TG ROUTE 1775851666`
+- Verified:
+  - `POST https://planner.valquilty.com/api/telegram-webhook` with `добавь задачу DEBUG TG ROUTE 1775851666` returned `200 {"ok":true}`
+  - task appeared in subcollection and did not appear in legacy root array
+  - removed the debug task right after verification
+- Risks / follow-up:
+  - Telegram still does not log a distinct `action` record for successful `add_task`, which makes future debugging noisier than it should be
+  - the earlier missing `ТГ тест` is consistent with later canonical re-import removing test data, not with Telegram being dead
+
 ## 2026-04-10 11:15 Europe/Berlin - Codex
 
 - Summary: Patched the live Hetzner MCP server to stop reading/writing the legacy root `tasks` array and use `Users/<uid>/tasks` subcollection instead.
