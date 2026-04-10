@@ -956,6 +956,17 @@ export default function App() {
     trackDailyAction();
   };
 
+  const handleEditTask = (taskId, newText) => {
+    if (!newText.trim()) return;
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(t => {
+      if (t.id !== taskId) return t;
+      saved = { ...t, text: newText.trim(), lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
+  };
+
   const handleDeleteSubtask = (taskId, subtaskId) => {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
@@ -1469,6 +1480,7 @@ export default function App() {
             onComplete={handleComplete}
             onKill={handleKill}
             onAddTask={handleAddTask}
+            onEditTask={handleEditTask}
             onAddSubtask={handleAddSubtask}
             onDeleteSubtask={handleDeleteSubtask}
             onEditSubtask={handleEditSubtask}

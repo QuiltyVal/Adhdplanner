@@ -623,6 +623,20 @@
   flex-shrink: 0;
 }
 
+.task-text-edit-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #555;
+  color: #e0e0e0;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  outline: none;
+  padding: 0;
+  width: 100%;
+  line-height: 1.4;
+}
+
 .subtask-edit-input {
   flex: 1;
   background: transparent;

@@ -62,6 +62,7 @@ export default function TaskColumn({
   onResurrect,
   onReopenCompleted,
   onAddTask,
+  onEditTask,
   onAddSubtask,
   onDeleteSubtask,
   onEditSubtask,
@@ -78,6 +79,8 @@ export default function TaskColumn({
   const [newSubtaskText, setNewSubtaskText] = useState({}); // {taskId: text}
   const [confirmTaskId, setConfirmTaskId] = useState(null);
   const [editingSubtask, setEditingSubtask] = useState(null); // { taskId, subId, text }
+  const [editingTaskId, setEditingTaskId] = useState(null);   // taskId being edited
+  const [editingTaskText, setEditingTaskText] = useState("");
   const [calPickerTaskId, setCalPickerTaskId] = useState(null);
   const [calDate, setCalDate] = useState("");
   const [calTime, setCalTime] = useState("10:00");
@@ -232,8 +235,33 @@ export default function TaskColumn({
         <div className={`deadline-badge ${deadlineBadge.tone}`}>{deadlineBadge.label}</div>
       )}
       <div className="task-text" style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'Inter', sans-serif", lineHeight: '1.4' }}>
-       {task.isVital ? '🚨 ' : isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
-       {task.text}
+        {task.isVital ? '🚨 ' : isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
+        {editingTaskId === task.id ? (
+          <input
+            autoFocus
+            className="task-text-edit-input"
+            value={editingTaskText}
+            onChange={e => setEditingTaskText(e.target.value)}
+            onBlur={() => {
+              if (onEditTask) onEditTask(task.id, editingTaskText);
+              setEditingTaskId(null);
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                if (onEditTask) onEditTask(task.id, editingTaskText);
+                setEditingTaskId(null);
+              } else if (e.key === 'Escape') {
+                setEditingTaskId(null);
+              }
+            }}
+          />
+        ) : (
+          <span
+            onDoubleClick={() => { setEditingTaskId(task.id); setEditingTaskText(task.text); }}
+            title="Двойной клик — редактировать"
+            style={{ cursor: 'text' }}
+          >{task.text}</span>
+        )}
       </div>
       
       <div className="heat-slider-container">
