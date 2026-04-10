@@ -29,6 +29,21 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-10 (late evening) — Claude (Sonnet 4.6, remote session, session 2)
+
+- Summary: Added task text editing, time tracking per task, recorded drag-drop plan.
+- Changed:
+  - `src/App.js`: `handleEditTask` (edit main task text), `handleAddTime` (accumulate timeSpent)
+  - `src/TaskColumn.js`: double-click on task title edits it inline; ▶/⏹ timer button per task, shows running elapsed + total timeSpent; `formatMs` helper
+  - `src/TaskColumn.css`: `.timer-row`, `.timer-btn`, `.timer-running` pulse animation, `.timer-total`
+  - `SESSION_HANDOFF.md`: added drag-drop plan for next agent
+- Verified:
+  - `npm run build` passes, pushed to main
+- Risks / follow-up:
+  - Hetzner still needs `git pull + pm2 restart` (Telegram still broken until then)
+  - Timer resets on page reload (by design — only saved time is persisted)
+  - Drag & drop plan written in SESSION_HANDOFF.md — needs `@dnd-kit` install
+
 ## 2026-04-10 (evening) — Claude (Sonnet 4.6, remote session)
 
 - Summary: Completed subcollection migration for web + server. Added subtask inline editing. Deployed to Vercel via git push. Hetzner NOT yet updated (user needs to run git pull + pm2 restart manually).

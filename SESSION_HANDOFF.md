@@ -149,9 +149,26 @@ Then test: add task via Telegram → verify appears in web instantly.
 
 Other steps:
 1. Move Telegram nudges from Vercel Cron to Hetzner (timing unreliable on Vercel)
-2. Add manual movement of tasks between heat zones
+2. **Drag & drop между зонами** (см. ниже)
 3. Add restore-from-snapshot UI
-4. Add time tracking per task
+4. Stats: показать timeSpent суммарно / за неделю
+
+## Drag & drop — план для следующего агента
+
+Пользователь хочет:
+- Перетаскивать задачи мышью/пальцем между зонами (🔥 → 🧊 → 🥶)
+- Бросать задачу на иконку чёртика → отправляется на кладбище (как handleKill)
+- Бросать задачу на иконку ангела → отправляется в рай (как handleComplete)
+- Обратно: из рая/кладбища перетащить обратно в активные
+
+Реализация:
+- Установить `@dnd-kit/core` + `@dnd-kit/sortable` (легче чем react-beautiful-dnd)
+- Зоны становятся drop targets
+- Компоненты ангела/чёртика в Companions.js становятся drop targets
+- При drop на зону: менять heatBase задачи (hot=80, passive=40, purgatory=10) и вызывать persistTask
+- При drop на чёртика: вызывать handleKill
+- При drop на ангела: вызывать handleComplete (с подтверждением)
+- timeSpent уже хранится в задаче — трекинг готов
 
 ## Things agents should not do casually
 
