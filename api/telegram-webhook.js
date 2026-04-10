@@ -545,6 +545,7 @@ async function handleReopenLatestCompleted(chatId, plannerData) {
                 ? task.heatBase
                 : 35,
           lastUpdated: Date.now(),
+          deadAt: null,
         };
       return reopenedTask;
       });
@@ -923,6 +924,7 @@ async function handleCallback(chatId, callbackQuery) {
           heatBase: typeof task.heatBase === "number" ? task.heatBase : 35,
           heatCurrent: typeof task.heatCurrent === "number" ? task.heatCurrent : (typeof task.heatBase === "number" ? task.heatBase : 35),
           lastUpdated: Date.now(),
+          deadAt: null,
         };
         return reopenedTask;
       }

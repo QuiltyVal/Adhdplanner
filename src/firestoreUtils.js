@@ -6,6 +6,7 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
+  runTransaction,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
@@ -30,7 +31,29 @@ export function subscribeToTasks(userId, onTasks, onError) {
 // ── Subcollection: write one task ─────────────────────────────────────────────
 export async function saveTask(userId, task) {
   const taskRef = doc(db, "Users", userId, "tasks", String(task.id));
-  await setDoc(taskRef, task, { merge: true });
+  await runTransaction(db, async (transaction) => {
+    const existingSnap = await transaction.get(taskRef);
+    if (existingSnap.exists()) {
+      const existingTask = existingSnap.data() || {};
+      const existingUpdatedAt =
+        typeof existingTask.lastUpdated === "number" ? existingTask.lastUpdated : 0;
+      const incomingUpdatedAt = typeof task.lastUpdated === "number" ? task.lastUpdated : 0;
+
+      // Refuse stale writes that would roll a task back to an older version.
+      if (existingUpdatedAt > incomingUpdatedAt) {
+        console.warn("[Firestore] saveTask skipped stale overwrite", {
+          taskId: task.id,
+          existingUpdatedAt,
+          incomingUpdatedAt,
+          existingStatus: existingTask.status,
+          incomingStatus: task.status,
+        });
+        return;
+      }
+    }
+
+    transaction.set(taskRef, task, { merge: true });
+  });
 }
 
 // ── Root doc: write score ─────────────────────────────────────────────────────

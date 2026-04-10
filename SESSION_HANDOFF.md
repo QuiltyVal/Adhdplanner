@@ -184,6 +184,23 @@ pm2 restart all
 MCP on Hetzner is already patched live.
 Telegram webhook was confirmed on Vercel, not on the Hetzner MCP process.
 
+## Repeated false-death bug (2026-04-10)
+
+One protected task (`🚨 Anerkennungszuschuss + IHK FOSA — подать заявки`) kept returning to `dead` even after resurrection.
+
+Live snapshot inspection showed this was **not** a normal cooling death:
+- the task regressed from a newer active version to an older dead version
+- dead snapshots had `deadAt = null`
+- current auto-death code always sets `deadAt`, so this points to a stale writer / old tab overwriting newer data
+
+Mitigation now in `main`:
+- `src/firestoreUtils.js` refuses stale per-task overwrites when incoming `lastUpdated` is older than the document already in Firestore
+- `src/App.js` auto-revives any invalid protected dead task (`status = dead`, `deadAt` missing, and task is protected by `isToday` / `isVital` / `deadlineAt`)
+- resurrect / reopen paths now clear `deadAt`
+
+Residual risk:
+- a truly old already-open browser tab can still keep attempting bad writes until it is refreshed or closed
+
 Other steps:
 1. Move Telegram nudges from Vercel Cron to Hetzner (timing unreliable on Vercel)
 2. **Drag & drop между зонами** (см. ниже)

@@ -275,3 +275,17 @@ Entry template:
   - files created and committed in `82f92e0`
 - Risks / follow-up:
   - logging was not mandatory yet; add explicit logging contract next
+
+## 2026-04-10 00:45 Europe/Berlin - Codex
+
+- Summary: Fixed a repeated false-death bug where a protected task (`isToday` / `isVital` / `deadlineAt`) was being overwritten by an older stale `dead` version from the web. The key signal was `status = dead` with `deadAt = null` and an older `lastUpdated`, which cannot come from the current auto-death code.
+- Changed:
+  - `src/firestoreUtils.js`
+  - `src/App.js`
+  - `api/telegram-webhook.js`
+- Verified:
+  - queried live Firestore on Hetzner and confirmed the broken task regressed from a newer active version to an older dead version
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); console.log('server ok')"`
+- Risks / follow-up:
+  - this hardens refreshed clients and auto-heals invalid protected dead tasks, but a truly old already-open browser tab can still keep trying stale writes until the tab is refreshed or closed

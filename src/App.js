@@ -191,6 +191,21 @@ function isAutoDeathProtected(task) {
   return Boolean(task?.isToday || task?.isVital || task?.deadlineAt);
 }
 
+function shouldAutoReviveProtectedDeadTask(task) {
+  return task?.status === "dead" && !task?.deadAt && isAutoDeathProtected(task);
+}
+
+function reviveProtectedDeadTask(task) {
+  return {
+    ...task,
+    status: "active",
+    heatBase: typeof task?.heatBase === "number" ? task.heatBase : DEFAULT_TASK_HEAT,
+    heatCurrent: DEFAULT_TASK_HEAT,
+    lastUpdated: Date.now(),
+    deadAt: null,
+  };
+}
+
 function parseDeadline(deadlineAt) {
   if (!deadlineAt || !/^\d{4}-\d{2}-\d{2}$/.test(deadlineAt)) return null;
   const [year, month, day] = deadlineAt.split("-").map(Number);
@@ -691,7 +706,27 @@ export default function App() {
                 firestoreReadyRef.current = true;
               }
 
-              setTasks(tasks);
+              const healedTasks = tasks.map((task) =>
+                shouldAutoReviveProtectedDeadTask(task) ? reviveProtectedDeadTask(task) : task,
+              );
+
+              const repairedTasks = healedTasks.filter(
+                (task, index) => task !== tasks[index],
+              );
+
+              if (repairedTasks.length > 0) {
+                console.warn(
+                  "[Planner] Auto-revived protected dead tasks from stale state:",
+                  repairedTasks.map((task) => task.text),
+                );
+                repairedTasks.forEach((task) => {
+                  saveTask(parsedUser.id, task).catch((error) => {
+                    console.error("[Planner] auto-revive save failed:", error);
+                  });
+                });
+              }
+
+              setTasks(healedTasks);
               setLoading(false);
               setDataLoaded(true);
             },
@@ -1174,7 +1209,15 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map((task) => {
       if (task.id !== taskId) return task;
-      saved = { ...task, status: "active", heatBase: DEFAULT_TASK_HEAT, heatCurrent: DEFAULT_TASK_HEAT, lastUpdated: Date.now(), isToday: false };
+      saved = {
+        ...task,
+        status: "active",
+        heatBase: DEFAULT_TASK_HEAT,
+        heatCurrent: DEFAULT_TASK_HEAT,
+        lastUpdated: Date.now(),
+        isToday: false,
+        deadAt: null,
+      };
       return saved;
     }));
     const newScore = score - 2;
@@ -1189,7 +1232,15 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map((task) => {
       if (task.id !== taskId) return task;
-      saved = { ...task, status: "active", heatBase: DEFAULT_TASK_HEAT, heatCurrent: DEFAULT_TASK_HEAT, lastUpdated: Date.now(), isToday: false };
+      saved = {
+        ...task,
+        status: "active",
+        heatBase: DEFAULT_TASK_HEAT,
+        heatCurrent: DEFAULT_TASK_HEAT,
+        lastUpdated: Date.now(),
+        isToday: false,
+        deadAt: null,
+      };
       return saved;
     }));
     const newScore = score - 10;
