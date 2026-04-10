@@ -859,6 +859,20 @@
   }
 }
 
+/* === SUBTASK PROGRESS === */
+.subtask-progress {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid #333;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 /* === DAYS ALIVE === */
 .days-alive {
   font-family: 'Inter', sans-serif;

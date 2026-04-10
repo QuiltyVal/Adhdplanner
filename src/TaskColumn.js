@@ -264,6 +264,13 @@ export default function TaskColumn({
       )}
       <div className="task-text" style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'Inter', sans-serif", lineHeight: '1.4' }}>
         {task.isVital ? '🚨 ' : isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
+        {(() => {
+          const total = (task.subtasks || []).length;
+          const done = (task.subtasks || []).filter(s => s.completed).length;
+          return total > 0 ? (
+            <span className="subtask-progress">{done}/{total}</span>
+          ) : null;
+        })()}
         {editingTaskId === task.id ? (
           <input
             autoFocus
@@ -500,7 +507,7 @@ export default function TaskColumn({
 
       <div className="zones-grid">
         <div className="zone-column focus-zone">
-          <h3 className="zone-title">🔥 В ФОКУСЕ (&gt;60%)</h3>
+          <h3 className="zone-title">🔥 В ФОКУСЕ ({hotTasks.length})</h3>
           <div className="tasks-list">
             {hotTasks.map(t => renderTaskCard(t, false, "#10b981"))}
             {hotTasks.length === 0 && <div className="empty-zone">Нет пламенных задач</div>}
@@ -508,7 +515,7 @@ export default function TaskColumn({
         </div>
 
         <div className="zone-column passive-zone">
-          <h3 className="zone-title">🧊 НА ФОНЕ (25-60%)</h3>
+          <h3 className="zone-title">🧊 НА ФОНЕ ({passiveTasks.length})</h3>
           <div className="tasks-list">
             {passiveTasks.map(t => renderTaskCard(t, false, "#3b82f6"))}
             {passiveTasks.length === 0 && <div className="empty-zone">Все либо горит, либо замерзает</div>}
@@ -516,7 +523,7 @@ export default function TaskColumn({
         </div>
 
         <div className="zone-column purgatory-zone">
-          <h3 className="zone-title" style={{color: '#f59e0b'}}>🥶 ЧИСТИЛИЩЕ (&lt;25%)</h3>
+          <h3 className="zone-title" style={{color: '#f59e0b'}}>🥶 ЧИСТИЛИЩЕ ({purgatoryTasks.length})</h3>
           <div className="tasks-list">
             {purgatoryTasks.map(t => renderTaskCard(t, true, "#ef4444"))}
             {purgatoryTasks.length === 0 && <div className="empty-zone">Никто не замерзает</div>}
