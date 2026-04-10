@@ -29,6 +29,21 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-10 11:15 Europe/Berlin - Codex
+
+- Summary: Patched the live Hetzner MCP server to stop reading/writing the legacy root `tasks` array and use `Users/<uid>/tasks` subcollection instead.
+- Changed:
+  - live server only: `/root/adhd-mcp/index.js`
+  - created backup on server: `/root/adhd-mcp/index.array-storage-backup-2026-04-10.js`
+  - restarted PM2 process `adhd-mcp`
+- Verified:
+  - `node --check /root/adhd-mcp/index.js`
+  - `pm2 restart adhd-mcp`
+  - confirmed patched helpers exist in live file: `userDocRef`, `tasksColRef`, batch writes to subcollection
+- Risks / follow-up:
+  - Hetzner app is not a git checkout; future deploys there are still manual unless that setup is changed
+  - this fixes MCP storage on Hetzner; if Telegram bot still misbehaves, that is likely a separate planner/Vercel path to inspect
+
 ## 2026-04-10 09:40 Europe/Berlin - Codex
 
 - Summary: Exported live Firestore, built a canonical task set locally, and imported that canonical set into `Users/<uid>/tasks` without touching the legacy array field.

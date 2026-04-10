@@ -90,10 +90,14 @@ Important:
 
 ## Live-server note
 
-The Hetzner MCP server was patched live to add safer mutation behavior:
+The Hetzner MCP server is a standalone manual deployment at `/root/adhd-mcp`, not a git checkout.
+
+It was patched live to add safer mutation behavior:
 
 - `add_subtask` updates `lastUpdated`
 - MCP state mutations now also create Firestore `taskSnapshots`
+- as of 2026-04-10 11:15 Europe/Berlin, the live MCP server reads/writes `Users/<uid>/tasks` subcollection instead of the legacy root `tasks` array
+- server backup file exists at `/root/adhd-mcp/index.array-storage-backup-2026-04-10.js`
 
 This was applied directly on the server and restarted via PM2.
 Do not assume every live Hetzner change is already represented elsewhere unless you verify it.
@@ -160,14 +164,7 @@ pm2 restart all
 - Telegram on Hetzner
 - MCP on Hetzner
 
-**#2 — Deploy Hetzner** (if not done yet):
-```bash
-cd ~/adhdplanner   # or wherever the server code lives
-git pull origin main
-pm2 restart all
-```
-
-Then test: add task via Telegram → verify appears in web instantly.
+MCP on Hetzner is already patched live. The remaining question is whether Telegram is actually served from the same Hetzner process or from Vercel routes.
 
 Other steps:
 1. Move Telegram nudges from Vercel Cron to Hetzner (timing unreliable on Vercel)
