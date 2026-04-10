@@ -14,6 +14,10 @@ function userDoc(userId) {
   return getDb().collection("Users").doc(userId);
 }
 
+function tasksCol(userId) {
+  return getDb().collection("Users").doc(userId).collection("tasks");
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -323,8 +327,13 @@ function createTask(text, options = {}) {
 }
 
 async function getPlannerData(userId) {
-  const snapshot = await userDoc(userId).get();
-  return ensurePlannerDoc(snapshot.data(), userId);
+  const [rootSnap, tasksSnap] = await Promise.all([
+    userDoc(userId).get(),
+    tasksCol(userId).get(),
+  ]);
+  const rootData = rootSnap.exists ? (rootSnap.data() || {}) : {};
+  const tasks = tasksSnap.docs.map((d) => d.data());
+  return ensurePlannerDoc({ ...rootData, tasks }, userId);
 }
 
 function buildTelegramContext(task, action = "focus") {
@@ -337,33 +346,51 @@ function buildTelegramContext(task, action = "focus") {
 }
 
 async function mutatePlanner(userId, mutator, options = {}) {
-  const ref = userDoc(userId);
-  return getDb().runTransaction(async (transaction) => {
-    const snapshot = await transaction.get(ref);
-    const current = ensurePlannerDoc(snapshot.data(), userId);
-    const next = await mutator(current);
-    const nextSafe = ensurePlannerDoc(next, userId);
-    const currentFingerprint = buildPlannerFingerprint(current);
-    const nextFingerprint = buildPlannerFingerprint(nextSafe);
+  const current = await getPlannerData(userId);
+  const next = await mutator(current);
+  const nextSafe = ensurePlannerDoc(next, userId);
 
-    if (currentFingerprint !== nextFingerprint && hasMeaningfulPlannerState(current)) {
-      const snapshotRef = ref.collection("taskSnapshots").doc();
-      transaction.set(snapshotRef, {
-        source: options.source || "server",
-        kind: "pre_mutation",
-        reason: options.reason || "mutation",
-        userId,
-        taskCount: current.tasks.length,
-        score: current.score,
-        fingerprint: currentFingerprint,
-        capturedAt: Date.now(),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        tasks: current.tasks,
-      });
+  const currentFingerprint = buildPlannerFingerprint(current);
+  const nextFingerprint = buildPlannerFingerprint(nextSafe);
+
+  const batch = getDb().batch();
+
+  // Backup snapshot before mutation (if something meaningful changed)
+  if (currentFingerprint !== nextFingerprint && hasMeaningfulPlannerState(current)) {
+    const snapshotRef = userDoc(userId).collection("taskSnapshots").doc();
+    batch.set(snapshotRef, {
+      source: options.source || "server",
+      kind: "pre_mutation",
+      reason: options.reason || "mutation",
+      userId,
+      taskCount: current.tasks.length,
+      score: current.score,
+      fingerprint: currentFingerprint,
+      capturedAt: Date.now(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      tasks: current.tasks,
+    });
+  }
+
+  // Write each task to subcollection
+  for (const task of nextSafe.tasks) {
+    batch.set(tasksCol(userId).doc(String(task.id)), task);
+  }
+
+  // Delete tasks that were removed by the mutator
+  const nextTaskIds = new Set(nextSafe.tasks.map((t) => String(t.id)));
+  for (const task of current.tasks) {
+    if (!nextTaskIds.has(String(task.id))) {
+      batch.delete(tasksCol(userId).doc(String(task.id)));
     }
-    transaction.set(ref, nextSafe, { merge: true });
-    return nextSafe;
-  });
+  }
+
+  // Write root doc fields (score, telegramContext, etc.) — NOT tasks array
+  const { tasks: _omitTasks, ...rootFields } = nextSafe;
+  batch.set(userDoc(userId), rootFields, { merge: true });
+
+  await batch.commit();
+  return nextSafe;
 }
 
 async function linkTelegramChat(userId, chatId) {
