@@ -29,6 +29,22 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-10 22:45 Europe/Berlin - Codex
+
+- Summary: Expanded Telegram subtask parsing to handle real user phrasing like `добавь в ... подзадачу ...` and common typos like `добваь`.
+- Changed:
+  - `api/telegram-webhook.js`: `parseAddSubtaskRequest` now accepts `добавь в`, `добавь к`, `добавить подзадачу X в Y`, and two common typos
+- Verified:
+  - local string checks for:
+    - `добавь в проверить лог подзадачу N2`
+    - `добваь в проверить лог подзадачу N2`
+    - `добавь к проверить лог подзадачу "N2"`
+    - `добавить подзадачу N2 в проверить лог`
+    - `добавь в задачу проверить лог подзадачу N2`
+  - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); require('./api/telegram-nudge'); console.log('server ok')"`
+- Risks / follow-up:
+  - the parser is still explicit-rule based, not semantic; unusual wording can still fall through to generic intent parsing
+
 ## 2026-04-10 22:35 Europe/Berlin - Codex
 
 - Summary: Made task auto-death less brutal for important tasks and taught Telegram to parse explicit “add subtask to task” phrasing without creating a new task.

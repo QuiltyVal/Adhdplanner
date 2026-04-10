@@ -115,7 +115,7 @@ function parseDeleteSubtaskRequest(text = "") {
 
 function parseAddSubtaskRequest(text = "") {
   const lowered = String(text).toLowerCase();
-  if (!/добавь|добавить/.test(lowered) || !/подзадач|шаг/.test(lowered)) {
+  if (!/добавь|добавить|добваь|добаьв/.test(lowered) || !/подзадач|шаг/.test(lowered)) {
     return null;
   }
 
@@ -127,15 +127,28 @@ function parseAddSubtaskRequest(text = "") {
     };
   }
 
-  const match = String(text).match(
-    /(?:^|\b)(?:добавь|добавить)\s+(?:к|в\s+задачу\s+)?(.+?)\s+(?:подзачу|подзадачу|шаг)\s+[«"]?(.+?)[»"]?$/i,
-  );
-  if (!match) return null;
+  const patterns = [
+    {
+      pattern: /(?:^|\b)(?:добавь|добавить|добваь|добаьв)\s+(?:к|в(?:\s+задачу)?)\s+(.+?)\s+(?:подзачу|подзадачу|шаг)\s+[«"]?(.+?)[»"]?$/i,
+      extract: (match) => ({
+        taskText: match[1].trim(),
+        subtaskText: match[2].trim(),
+      }),
+    },
+    {
+      pattern: /(?:^|\b)(?:добавь|добавить|добваь|добаьв)\s+(?:подзачу|подзадачу|шаг)\s+[«"]?(.+?)[»"]?\s+(?:в|к|для)\s+(.+?)$/i,
+      extract: (match) => ({
+        taskText: match[2].trim(),
+        subtaskText: match[1].trim(),
+      }),
+    },
+  ];
+  for (const candidate of patterns) {
+    const match = String(text).match(candidate.pattern);
+    if (match) return candidate.extract(match);
+  }
 
-  return {
-    taskText: match[1].trim(),
-    subtaskText: match[2].trim(),
-  };
+  return null;
 }
 
 function getUrgencyRank(urgency) {
