@@ -121,15 +121,27 @@ export function subscribeUserData(userId, email, name, onData, onError) {
 
   return onSnapshot(
     userDocRef,
-    async (userDocSnap) => {
+    (userDocSnap) => {
       if (!userDocSnap.exists()) {
+        // NEVER auto-create the document here. A missing doc in onSnapshot
+        // can happen when the snapshot comes from an empty local cache on a
+        // new device/browser while the network hasn't responded yet.
+        // Writing {tasks:[]} would overwrite the real user data in Firestore.
+        // Account creation is handled by getUserData during sign-up only.
+        if (userDocSnap.metadata.fromCache) {
+          console.warn("[Firestore] Snapshot from cache, document missing — waiting for server.");
+          return;
+        }
+        // Server confirmed the document truly does not exist.
+        // This should only happen for brand-new accounts.
+        console.warn("[Firestore] Document does not exist on server — initializing.");
         const initialData = { name, email, tasks: [], score: 0 };
-        await setDoc(userDocRef, initialData);
+        setDoc(userDocRef, initialData).catch(e => console.error("Init error:", e));
         onData(initialData);
         return;
       }
 
-      onData(userDocSnap.data());
+      onData(userDocSnap.data(), userDocSnap.metadata);
     },
     (error) => {
       console.error("Ошибка realtime-подписки на Firestore:", error);

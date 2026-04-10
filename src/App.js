@@ -665,13 +665,17 @@ export default function App() {
             parsedUser.id,
             parsedUser.email,
             parsedUser.first_name,
-            (data) => {
+            (data, metadata) => {
               if (isCancelled) return;
+
+              // First snapshot: always apply (authoritative load from server).
+              // Subsequent snapshots from our own pending writes: skip to avoid
+              // overwriting local state that hasn't been flushed to server yet.
+              if (firestoreReadyRef.current && metadata?.hasPendingWrites) return;
+
               skipNextCloudSyncRef.current = true;
               firestoreReadyRef.current = true;
               lastWrittenFingerprintRef.current = buildClientFingerprint(data.tasks || [], typeof data.score === "number" ? data.score : 0);
-              // Firestore is the source of truth here. If we keep local-only tasks
-              // on every snapshot, deleted cloud tasks become permanent ghosts.
               setTasks(data.tasks || []);
               setScore(typeof data.score === "number" ? data.score : 0);
               setLoading(false);
@@ -770,10 +774,11 @@ export default function App() {
           
           let newTask = { ...task, heatCurrent: currentHeatValue };
 
-          // Do NOT auto-kill tasks here — silent auto-kill causes data loss when
-          // the browser is left open overnight and writes dead status to Firestore.
-          // Tasks stay visible at 0% heat; user kills them manually via the ✖ button.
-          if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
+          if (currentHeatValue <= 0) {
+            newTask.status = "dead";
+            newScore -= 5;
+            changed = true;
+          } else if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
             changed = true;
           }
           return newTask;
