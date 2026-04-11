@@ -1,7 +1,6 @@
 const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeTelegramLog } = require("./_lib/planner-store");
-const { executePlannerAction } = require("./_lib/planner-action-executor");
 const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
-const { routePlannerAgentInput } = require("./_lib/planner-agent-router");
+const { parseTelegramIntent } = require("./_lib/telegram-intent");
 const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
 
 const DEFAULT_USER_ID = process.env.PLANNER_DEFAULT_USER_ID;
@@ -33,80 +32,23 @@ function normalizeTaskText(text = "") {
   return String(text).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function normalizeTaskLookupText(text = "") {
-  return normalizeTaskText(text)
-    .replace(/[«»"'`]/g, " ")
-    .replace(/ё/g, "е")
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractQuotedSegments(text = "") {
-  return Array.from(String(text).matchAll(/[«"]([^«»"]+)[»"]/g)).map((match) => match[1].trim()).filter(Boolean);
-}
-
-function levenshteinDistance(left = "", right = "") {
-  if (left === right) return 0;
-  if (!left) return right.length;
-  if (!right) return left.length;
-
-  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
-  const current = new Array(right.length + 1);
-
-  for (let i = 0; i < left.length; i += 1) {
-    current[0] = i + 1;
-    for (let j = 0; j < right.length; j += 1) {
-      const substitutionCost = left[i] === right[j] ? 0 : 1;
-      current[j + 1] = Math.min(
-        current[j] + 1,
-        previous[j + 1] + 1,
-        previous[j] + substitutionCost,
-      );
-    }
-
-    for (let j = 0; j < current.length; j += 1) {
-      previous[j] = current[j];
-    }
-  }
-
-  return previous[right.length];
-}
-
 function findTaskByText(tasks = [], query, allowedStatuses = ["active"]) {
   const normalizedQuery = normalizeTaskText(query);
   if (!normalizedQuery) return null;
 
-  const normalizedLookupQuery = normalizeTaskLookupText(query);
-  const candidates = tasks.filter((task) => allowedStatuses.includes(task.status));
-
-  const exact =
-    candidates.find((task) => normalizeTaskText(task.text) === normalizedQuery) ||
-    candidates.find((task) => normalizeTaskLookupText(task.text) === normalizedLookupQuery);
-  if (exact) return exact;
-
-  const contains =
-    candidates.find((task) => normalizeTaskText(task.text).includes(normalizedQuery)) ||
-    candidates.find((task) => normalizeTaskLookupText(task.text).includes(normalizedLookupQuery));
-  if (contains) return contains;
-
-  if (!normalizedLookupQuery || normalizedLookupQuery.length < 5) return null;
-
-  let bestMatch = null;
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  for (const task of candidates) {
-    const candidateText = normalizeTaskLookupText(task.text);
-    if (!candidateText) continue;
-    const distance = levenshteinDistance(candidateText, normalizedLookupQuery);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestMatch = task;
-    }
-  }
-
-  const threshold = Math.min(3, Math.max(1, Math.floor(normalizedLookupQuery.length * 0.2)));
-  return bestDistance <= threshold ? bestMatch : null;
+  return (
+    tasks.find(
+      (task) =>
+        allowedStatuses.includes(task.status) &&
+        normalizeTaskText(task.text) === normalizedQuery,
+    ) ||
+    tasks.find(
+      (task) =>
+        allowedStatuses.includes(task.status) &&
+        normalizeTaskText(task.text).includes(normalizedQuery),
+    ) ||
+    null
+  );
 }
 
 function findSubtaskByText(subtasks = [], query) {
@@ -118,583 +60,6 @@ function findSubtaskByText(subtasks = [], query) {
     subtasks.find((subtask) => normalizeTaskText(subtask.text).includes(normalizedQuery)) ||
     null
   );
-}
-
-function looksLikeContextTaskQuery(query = "") {
-  const lowered = normalizeTaskText(query)
-    .replace(/[«»"]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!lowered) return true;
-
-  return (
-    /последн.*добавлен.*задач/.test(lowered) ||
-    /последн.*задач/.test(lowered) ||
-    /текущ.*задач/.test(lowered) ||
-    /это[йу]?\s+задач/.test(lowered) ||
-    /эту\s+задачу/.test(lowered) ||
-    /к ней/.test(lowered) ||
-    /к н[её]й задаче/.test(lowered) ||
-    /е[её]\s+в\s+активн/.test(lowered) ||
-    /^(е[её]|эта|эту|этой|ней|ней задаче|последняя|последнюю|последней)$/.test(lowered)
-  );
-}
-
-function resolveTaskReference(plannerData, taskQuery, allowedStatuses = ["active"]) {
-  const query = String(taskQuery || "").trim();
-  if (!query || query === "last_task" || looksLikeContextTaskQuery(query)) {
-    return resolveContextTask(plannerData, { statuses: allowedStatuses });
-  }
-
-  return findTaskByText(plannerData.tasks, query, allowedStatuses);
-}
-
-function resolveTodayTaskReference(plannerData, taskQuery = "") {
-  const todayTasks = Array.isArray(plannerData?.tasks)
-    ? plannerData.tasks.filter((task) => task.status === "active" && task.isToday)
-    : [];
-  const query = String(taskQuery || "").trim();
-  const lowered = normalizeTaskText(query);
-
-  if (!todayTasks.length) return null;
-
-  if (!query || query === "last_task") {
-    const contextTask = resolveContextTask(plannerData, { statuses: ["active"], fallbackLatest: false });
-    return contextTask?.isToday ? contextTask : todayTasks[todayTasks.length - 1];
-  }
-
-  if (/последн/.test(lowered)) {
-    return todayTasks[todayTasks.length - 1] || null;
-  }
-
-  if (/перв/.test(lowered)) {
-    return todayTasks[0] || null;
-  }
-
-  if (looksLikeContextTaskQuery(query)) {
-    const contextTask = resolveContextTask(plannerData, { statuses: ["active"], fallbackLatest: false });
-    if (contextTask?.isToday) return contextTask;
-  }
-
-  return findTaskByText(todayTasks, query, ["active"]);
-}
-
-function resolveSuggestedTodayTaskReference(plannerData, taskQuery = "") {
-  const context = plannerData?.telegramContext || {};
-  const tasks = Array.isArray(plannerData?.tasks) ? plannerData.tasks : [];
-  const candidateTaskIds = Array.isArray(context.candidateTaskIds) ? context.candidateTaskIds : [];
-  const candidateTasks = candidateTaskIds
-    .map((taskId) => tasks.find((task) => task.id === taskId && task.status === "active" && task.isToday))
-    .filter(Boolean);
-
-  if (!candidateTasks.length) {
-    return resolveTodayTaskReference(plannerData, taskQuery);
-  }
-
-  const query = String(taskQuery || "").trim();
-  const lowered = normalizeTaskText(query);
-
-  if (!query) {
-    return candidateTasks.find((task) => task.id === context.suggestedTaskId) || candidateTasks[candidateTasks.length - 1];
-  }
-
-  if (/последн/.test(lowered)) {
-    return candidateTasks[candidateTasks.length - 1] || null;
-  }
-
-  if (/перв/.test(lowered)) {
-    return candidateTasks[0] || null;
-  }
-
-  if (/втор/.test(lowered)) {
-    return candidateTasks[1] || null;
-  }
-
-  if (/треть/.test(lowered)) {
-    return candidateTasks[2] || null;
-  }
-
-  if (looksLikeContextTaskQuery(query)) {
-    return candidateTasks.find((task) => task.id === context.suggestedTaskId) || candidateTasks[0] || null;
-  }
-
-  return findTaskByText(candidateTasks, query, ["active"]);
-}
-
-async function handleReopenTaskRequest(chatId, plannerData, taskQuery = "") {
-  const task = resolveTaskReference(plannerData, taskQuery, ["completed", "dead"]);
-
-  if (!task) {
-    await sendText(chatId, "Не нашла задачу, которую нужно вернуть в активные.");
-    return;
-  }
-
-  let reopenedTask = null;
-  await mutatePlanner(
-    getTargetUserId(),
-    (current) => {
-      const tasks = current.tasks.map((currentTask) => {
-        if (currentTask.id !== task.id) return currentTask;
-        reopenedTask = {
-          ...currentTask,
-          status: "active",
-          isToday: false,
-          heatBase: typeof currentTask.heatBase === "number" ? currentTask.heatBase : 35,
-          heatCurrent:
-            typeof currentTask.heatCurrent === "number"
-              ? currentTask.heatCurrent
-              : typeof currentTask.heatBase === "number"
-                ? currentTask.heatBase
-                : 35,
-          lastUpdated: Date.now(),
-          deadAt: null,
-        };
-        return reopenedTask;
-      });
-
-      return {
-        ...current,
-        tasks,
-        telegramContext: buildTelegramContext(reopenedTask || task, "reopen"),
-      };
-    },
-    {
-      source: "telegram",
-      reason: "reopen_from_text",
-    },
-  );
-
-  if (!reopenedTask) {
-    await sendText(chatId, "Не смогла вернуть задачу в активные.");
-    return;
-  }
-
-  await sendText(
-    chatId,
-    `↩️ <b>${escapeHtml(reopenedTask.text)}</b> снова в активных.`,
-    { reply_markup: plannerTaskKeyboard(reopenedTask.id) },
-  );
-
-  await safeWriteTelegramLog({
-    kind: "action",
-    action: "reopen_from_text",
-    chatId: String(chatId),
-    taskId: reopenedTask.id,
-    taskText: reopenedTask.text,
-  });
-}
-
-async function handleSetTodayRequest(chatId, plannerData, taskQuery = "") {
-  const task = resolveTaskReference(plannerData, taskQuery, ["active"]);
-
-  if (!task) {
-    await sendText(chatId, "Не нашла активную задачу, которую нужно закрепить на сегодня.");
-    return;
-  }
-
-  if (task.isToday) {
-    await sendText(
-      chatId,
-      `📌 <b>${escapeHtml(task.text)}</b> уже закреплена на сегодня.`,
-      { reply_markup: plannerTaskKeyboard(task.id) },
-    );
-    return;
-  }
-
-  const currentTodayCount = plannerData.tasks.filter((item) => item.status === "active" && item.isToday).length;
-  if (currentTodayCount >= 3) {
-    const todayTasks = plannerData.tasks.filter((item) => item.status === "active" && item.isToday);
-    const sortedToday = sortTasksByPriority(todayTasks);
-    const recommendedToUnpin = sortedToday[sortedToday.length - 1] || todayTasks[0] || null;
-
-    await mutatePlanner(
-      getTargetUserId(),
-      (current) => ({
-        ...current,
-        telegramContext: buildTelegramContext(recommendedToUnpin || task, "today_limit", {
-          suggestedTaskId: recommendedToUnpin?.id || null,
-          candidateTaskIds: todayTasks.map((item) => item.id),
-        }),
-      }),
-      {
-        source: "telegram",
-        reason: "today_limit_reached",
-      },
-    );
-
-    await sendText(
-      chatId,
-      [
-        "На сегодня уже закреплены 3 задачи.",
-        recommendedToUnpin
-          ? `Я бы сначала открепила: <b>${escapeHtml(recommendedToUnpin.text)}</b>`
-          : "Сначала открепи что-то лишнее.",
-        "Если хочешь, напиши: <b>предложи что открепить</b>.",
-      ].join("\n"),
-    );
-
-    if (recommendedToUnpin) {
-      await sendText(
-        chatId,
-        `📌 <b>${escapeHtml(recommendedToUnpin.text)}</b>`,
-        { reply_markup: plannerTaskKeyboard(recommendedToUnpin.id) },
-      );
-    }
-    return;
-  }
-
-  let updatedTask = null;
-  await mutatePlanner(
-    getTargetUserId(),
-    (current) => {
-      const tasks = current.tasks.map((currentTask) => {
-        if (currentTask.id !== task.id) return currentTask;
-        updatedTask = {
-          ...currentTask,
-          isToday: true,
-          lastUpdated: Date.now(),
-        };
-        return updatedTask;
-      });
-
-      return {
-        ...current,
-        tasks,
-        telegramContext: buildTelegramContext(updatedTask || task, "today"),
-      };
-    },
-    {
-      source: "telegram",
-      reason: "set_today_from_text",
-    },
-  );
-
-  if (!updatedTask) {
-    await sendText(chatId, "Не смогла закрепить задачу на сегодня.");
-    return;
-  }
-
-  await sendText(
-    chatId,
-    `📌 Закрепила на сегодня: <b>${escapeHtml(updatedTask.text)}</b>`,
-    { reply_markup: plannerTaskKeyboard(updatedTask.id) },
-  );
-
-  await safeWriteTelegramLog({
-    kind: "action",
-    action: "set_today_from_text",
-    chatId: String(chatId),
-    taskId: updatedTask.id,
-    taskText: updatedTask.text,
-  });
-}
-
-async function handleSetVitalRequest(chatId, plannerData, taskQuery = "") {
-  const task = resolveTaskReference(plannerData, taskQuery, ["active"]);
-
-  if (!task) {
-    await sendText(chatId, "Не нашла активную задачу, которую нужно сделать критичной.");
-    return;
-  }
-
-  if (task.isVital) {
-    await sendText(
-      chatId,
-      `🚨 <b>${escapeHtml(task.text)}</b> уже помечена как критичная.`,
-      { reply_markup: plannerTaskKeyboard(task.id) },
-    );
-    return;
-  }
-
-  let updatedTask = null;
-  await mutatePlanner(
-    getTargetUserId(),
-    (current) => {
-      const tasks = current.tasks.map((currentTask) => {
-        if (currentTask.id !== task.id) return currentTask;
-        updatedTask = {
-          ...currentTask,
-          isVital: true,
-          urgency: "high",
-          lastUpdated: Date.now(),
-        };
-        return updatedTask;
-      });
-
-      return {
-        ...current,
-        tasks,
-        telegramContext: buildTelegramContext(updatedTask || task, "vital"),
-      };
-    },
-    {
-      source: "telegram",
-      reason: "set_vital_from_text",
-    },
-  );
-
-  if (!updatedTask) {
-    await sendText(chatId, "Не смогла пометить задачу как критичную.");
-    return;
-  }
-
-  await sendText(
-    chatId,
-    `🚨 Пометила как критичную: <b>${escapeHtml(updatedTask.text)}</b>`,
-    { reply_markup: plannerTaskKeyboard(updatedTask.id) },
-  );
-
-  await safeWriteTelegramLog({
-    kind: "action",
-    action: "set_vital_from_text",
-    chatId: String(chatId),
-    taskId: updatedTask.id,
-    taskText: updatedTask.text,
-  });
-}
-
-async function handleUnsetTodayRequest(chatId, plannerData, taskQuery = "") {
-  const task =
-    ["today_limit", "suggest_unpin_today"].includes(plannerData?.telegramContext?.lastAction || "")
-      ? resolveSuggestedTodayTaskReference(plannerData, taskQuery)
-      : resolveTodayTaskReference(plannerData, taskQuery);
-
-  if (!task) {
-    await sendText(chatId, "Не нашла задачу на сегодня, которую нужно открепить.");
-    return;
-  }
-
-  if (!task.isToday) {
-    await sendText(chatId, `📌 <b>${escapeHtml(task.text)}</b> уже не закреплена на сегодня.`);
-    return;
-  }
-
-  let updatedTask = null;
-  await mutatePlanner(
-    getTargetUserId(),
-    (current) => {
-      const tasks = current.tasks.map((currentTask) => {
-        if (currentTask.id !== task.id) return currentTask;
-        updatedTask = {
-          ...currentTask,
-          isToday: false,
-          lastUpdated: Date.now(),
-        };
-        return updatedTask;
-      });
-
-      return {
-        ...current,
-        tasks,
-        telegramContext: buildTelegramContext(updatedTask || task, "unset_today"),
-      };
-    },
-    {
-      source: "telegram",
-      reason: "unset_today_from_text",
-    },
-  );
-
-  if (!updatedTask) {
-    await sendText(chatId, "Не смогла открепить задачу от сегодня.");
-    return;
-  }
-
-  await sendText(
-    chatId,
-    `📌 Сняла с сегодня: <b>${escapeHtml(updatedTask.text)}</b>`,
-    { reply_markup: plannerTaskKeyboard(updatedTask.id) },
-  );
-
-  await safeWriteTelegramLog({
-    kind: "action",
-    action: "unset_today_from_text",
-    chatId: String(chatId),
-    taskId: updatedTask.id,
-    taskText: updatedTask.text,
-  });
-}
-
-async function handleSuggestUnpinRequest(chatId, plannerData) {
-  const todayTasks = plannerData.tasks.filter((task) => task.status === "active" && task.isToday);
-
-  if (todayTasks.length === 0) {
-    await sendText(chatId, "На сегодня сейчас ничего не закреплено.");
-    return;
-  }
-
-  const sortedToday = sortTasksByPriority(todayTasks);
-  const recommendedToUnpin = sortedToday[sortedToday.length - 1] || todayTasks[0];
-
-  await mutatePlanner(
-    getTargetUserId(),
-    (current) => ({
-      ...current,
-      telegramContext: buildTelegramContext(recommendedToUnpin, "suggest_unpin_today", {
-        suggestedTaskId: recommendedToUnpin.id,
-        candidateTaskIds: todayTasks.map((task) => task.id),
-      }),
-    }),
-    {
-      source: "telegram",
-      reason: "suggest_unpin_today",
-    },
-  );
-
-  await sendText(
-    chatId,
-    [
-      `Я бы открепила: <b>${escapeHtml(recommendedToUnpin.text)}</b>`,
-      "Ниже присылаю текущие задачи на сегодня. Нажми 📌 у той, которую хочешь снять.",
-    ].join("\n"),
-  );
-
-  for (const task of todayTasks) {
-    await sendText(
-      chatId,
-      `📌 <b>${escapeHtml(task.text)}</b>`,
-      { reply_markup: plannerTaskKeyboard(task.id) },
-    );
-  }
-
-  await safeWriteTelegramLog({
-    kind: "action",
-    action: "suggest_unpin_today",
-    chatId: String(chatId),
-    taskId: recommendedToUnpin.id,
-    taskText: recommendedToUnpin.text,
-  });
-}
-
-function looksLikeReopenRequest(text = "") {
-  const lowered = String(text).toLowerCase();
-  return /верни|вернуть|из рая|назад в актив/.test(lowered) && /(задач|е[её]|\bее\b|\bеё\b|\bэту\b)/.test(lowered);
-}
-
-function looksLikeCompleteRequest(text = "") {
-  const lowered = String(text).toLowerCase();
-  return /(в рай|выполненн|готов[ао]|заверши|сделай готов|отправь.*в рай)/.test(lowered);
-}
-
-function looksLikeSuggestUnpinRequest(text = "") {
-  const lowered = String(text).toLowerCase();
-  return (
-    /что открепить|какую открепить|что убрать с сегодня|какую убрать с сегодня|что снять с сегодня|какую снять с сегодня/.test(lowered) ||
-    (/(предложи|посоветуй|какую|что)/.test(lowered) && !/(задач|добав|удал|подзадач|шаг|календар|паник|горит)/.test(lowered))
-  );
-}
-
-function looksLikeUnsetTodayRequest(text = "") {
-  const lowered = String(text).toLowerCase();
-  return /(открепи|открепить|сними с сегодня|убери с сегодня|убрать с сегодня|снять с сегодня)/.test(lowered);
-}
-
-function extractTaskNameForCompletion(text = "") {
-  const quoted = extractQuotedSegments(text);
-  if (quoted.length > 0) return quoted[0];
-
-  const cleaned = String(text)
-    .replace(/^(ну\s+)?(нет\s+)?/i, "")
-    .replace(/^(отправь|переведи|сделай|заверши|завершить)\s+/i, "")
-    .replace(/\s+(в рай|в выполненные|готовой|готовым|готово)$/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return cleaned && !/^(е[её]|эту|эту задачу)$/i.test(cleaned) ? cleaned : "";
-}
-
-function extractTaskNameForUnsetToday(text = "") {
-  const quoted = extractQuotedSegments(text);
-  if (quoted.length > 0) return quoted[0];
-
-  const cleaned = String(text)
-    .replace(/^(ну\s+)?/i, "")
-    .replace(/^(открепи|открепить|сними|снять|убери|убрать)\s+/i, "")
-    .replace(/\s+(с сегодня|на сегодня)$/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (/^(е[её]|эта|эту|этой|ней|последнюю|последней|последняя|первую|первой|первую из списка)$/i.test(cleaned)) {
-    return cleaned;
-  }
-
-  return cleaned;
-}
-
-function extractTaskNameForReopen(text = "") {
-  const quoted = extractQuotedSegments(text);
-  if (quoted.length > 0) return quoted[0];
-
-  const cleaned = String(text)
-    .replace(/^(ну\s+)?(нет\s+)?/i, "")
-    .replace(/^(верни|вернуть|воскреси|восстанови|достань)\s+/i, "")
-    .replace(/\s+(назад\s+)?(в активные|в активную|из рая|обратно)$/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return cleaned && !/^(е[её]|эту|эту задачу|последнюю|последнюю задачу)$/i.test(cleaned) ? cleaned : "";
-}
-
-function parseDeleteSubtaskRequest(text = "") {
-  const lowered = String(text).toLowerCase();
-  if (!/удали|удалить/.test(lowered) || !/подзадач|шаг/.test(lowered)) {
-    return null;
-  }
-
-  const quoted = extractQuotedSegments(text);
-  if (quoted.length >= 2) {
-    return {
-      taskText: quoted[0],
-      subtaskText: quoted[1],
-    };
-  }
-
-  const match = String(text).match(/в задачу\s+(.+?)\s+удали(?:ть)?\s+(?:подзадачу|шаг)\s+(.+)/i);
-  if (!match) return null;
-
-  return {
-    taskText: match[1].trim(),
-    subtaskText: match[2].trim(),
-  };
-}
-
-function parseAddSubtaskRequest(text = "") {
-  const lowered = String(text).toLowerCase();
-  if (!/добавь|добавить|добваь|добаьв/.test(lowered) || !/подзадач|шаг/.test(lowered)) {
-    return null;
-  }
-
-  const quoted = extractQuotedSegments(text);
-  if (quoted.length >= 2) {
-    return {
-      taskText: quoted[0],
-      subtaskText: quoted[1],
-    };
-  }
-
-  const patterns = [
-    {
-      pattern: /(?:^|\b)(?:добавь|добавить|добваь|добаьв)\s+(?:к|в(?:\s+задачу)?)\s+(.+?)\s+(?:подзачу|подзадачу|шаг)\s+[«"]?(.+?)[»"]?$/i,
-      extract: (match) => ({
-        taskText: match[1].trim(),
-        subtaskText: match[2].trim(),
-      }),
-    },
-    {
-      pattern: /(?:^|\b)(?:добавь|добавить|добваь|добаьв)\s+(?:подзачу|подзадачу|шаг)\s+[«"]?(.+?)[»"]?\s+(?:в|к|для)\s+(.+?)$/i,
-      extract: (match) => ({
-        taskText: match[2].trim(),
-        subtaskText: match[1].trim(),
-      }),
-    },
-  ];
-  for (const candidate of patterns) {
-    const match = String(text).match(candidate.pattern);
-    if (match) return candidate.extract(match);
-  }
-
-  return null;
 }
 
 function getUrgencyRank(urgency) {
@@ -809,31 +174,6 @@ async function upsertTask(chatId, incoming) {
   if (task?.isVital) meta.push("🚨 критично");
   if (task?.urgency === "high") meta.push("⏰ срочно");
   if (task?.subtasks?.length) meta.push(`🪜 шагов: ${task.subtasks.length}`);
-
-  if (!task || !outcome?.type) {
-    await safeWriteTelegramLog({
-      kind: "error",
-      chatId: String(chatId),
-      errorMessage: "upsertTask finished without outcome",
-      incomingText: incoming.text,
-    });
-    await sendText(chatId, "Не смогла сохранить задачу. Попробуй ещё раз.");
-    return;
-  }
-
-  await safeWriteTelegramLog({
-    kind: "action",
-    action: outcome.type === "updated" ? "upsert_task_updated" : "upsert_task_created",
-    chatId: String(chatId),
-    taskId: task.id,
-    taskText: task.text,
-    taskStatus: task.status,
-    isToday: Boolean(task.isToday),
-    isVital: Boolean(task.isVital),
-    deadlineAt: task.deadlineAt || "",
-    urgency: task.urgency || "medium",
-    subtaskCount: Array.isArray(task.subtasks) ? task.subtasks.length : 0,
-  });
 
   if (outcome?.type === "updated") {
     await sendText(
@@ -1065,67 +405,14 @@ async function handleCalendar(chatId) {
   );
 }
 
-async function handleReopenLatestCompleted(chatId, plannerData) {
+// Kept for reference — plain-text reopen now goes through handleReopenTask via LLM intent
+async function _unusedHandleReopenLatestCompleted(chatId, plannerData) {
   const latestCompleted = resolveContextTask(plannerData, { statuses: ["completed"] });
-
   if (!latestCompleted) {
     await sendText(chatId, "В раю сейчас нечего возвращать. Завершённых задач нет.");
     return;
   }
-
-  let reopenedTask = null;
-  await mutatePlanner(
-    getTargetUserId(),
-    (current) => {
-      const tasks = current.tasks.map((task) => {
-        if (task.id !== latestCompleted.id) return task;
-        reopenedTask = {
-          ...task,
-          status: "active",
-          isToday: false,
-          heatBase: typeof task.heatBase === "number" ? task.heatBase : 35,
-          heatCurrent:
-            typeof task.heatCurrent === "number"
-              ? task.heatCurrent
-              : typeof task.heatBase === "number"
-                ? task.heatBase
-                : 35,
-          lastUpdated: Date.now(),
-          deadAt: null,
-        };
-      return reopenedTask;
-      });
-
-      return {
-        ...current,
-        tasks,
-        telegramContext: buildTelegramContext(reopenedTask || latestCompleted, "reopen"),
-      };
-    },
-    {
-      source: "telegram",
-      reason: "reopen_latest_completed",
-    },
-  );
-
-  if (!reopenedTask) {
-    await sendText(chatId, "Не смогла найти последнюю завершённую задачу для возврата.");
-    return;
-  }
-
-  await sendText(
-    chatId,
-    `↩️ Вернула в активные: <b>${escapeHtml(reopenedTask.text)}</b>`,
-    { reply_markup: plannerTaskKeyboard(reopenedTask.id) },
-  );
-
-  await safeWriteTelegramLog({
-    kind: "action",
-    action: "reopen_latest_completed",
-    chatId: String(chatId),
-    taskId: reopenedTask.id,
-    taskText: reopenedTask.text,
-  });
+  await handleReopenTask(chatId, plannerData, latestCompleted.text);
 }
 
 async function handleDeleteSubtaskRequest(chatId, plannerData, request) {
@@ -1184,81 +471,10 @@ async function handleDeleteSubtaskRequest(chatId, plannerData, request) {
   });
 }
 
-async function handleAddSubtaskRequest(chatId, plannerData, request) {
-  const task = resolveTaskReference(plannerData, request.taskText, ["active"]);
-  if (!task) {
-    await sendText(chatId, `Не нашла активную задачу: <b>${escapeHtml(request.taskText)}</b>`);
-    return;
-  }
-
-  const subtaskText = String(request.subtaskText || "").trim();
-  if (!subtaskText) {
-    await sendText(chatId, "Подзадача пустая. Напиши текст шага после слова «подзадачу».");
-    return;
-  }
-
-  const duplicate = findSubtaskByText(task.subtasks || [], subtaskText);
-  if (duplicate) {
-    await sendText(
-      chatId,
-      `В задаче <b>${escapeHtml(task.text)}</b> уже есть похожая подзадача: <b>${escapeHtml(duplicate.text)}</b>.`,
-      { reply_markup: plannerTaskKeyboard(task.id) },
-    );
-    return;
-  }
-
-  let updatedTask = null;
-  let createdSubtask = null;
-  await mutatePlanner(
-    getTargetUserId(),
-    (current) => {
-      const tasks = current.tasks.map((currentTask) => {
-        if (currentTask.id !== task.id) return currentTask;
-        createdSubtask = buildSubtask(subtaskText, `${currentTask.id}-sub-${Date.now()}`);
-        updatedTask = {
-          ...currentTask,
-          subtasks: [...(currentTask.subtasks || []), createdSubtask],
-          lastUpdated: Date.now(),
-        };
-        return updatedTask;
-      });
-
-      return {
-        ...current,
-        tasks,
-        telegramContext: buildTelegramContext(updatedTask || task, "add_subtask"),
-      };
-    },
-    {
-      source: "telegram",
-      reason: "add_subtask_from_text",
-    },
-  );
-
-  if (!updatedTask || !createdSubtask) {
-    await sendText(chatId, "Не смогла добавить подзадачу. Попробуй ещё раз.");
-    return;
-  }
-
-  await sendText(
-    chatId,
-    `🪜 Добавила подзадачу <b>${escapeHtml(createdSubtask.text)}</b> в <b>${escapeHtml(updatedTask.text)}</b>.`,
-    { reply_markup: plannerTaskKeyboard(updatedTask.id) },
-  );
-
-  await safeWriteTelegramLog({
-    kind: "action",
-    action: "add_subtask_from_text",
-    chatId: String(chatId),
-    taskId: updatedTask.id,
-    taskText: updatedTask.text,
-    subtaskId: createdSubtask.id,
-    subtaskText: createdSubtask.text,
-  });
-}
-
 async function handleCompleteTaskRequest(chatId, plannerData, taskQuery = "") {
-  const task = resolveTaskReference(plannerData, taskQuery, ["active"]);
+  const task =
+    (taskQuery && findTaskByText(plannerData.tasks, taskQuery, ["active"])) ||
+    resolveContextTask(plannerData, { statuses: ["active"] });
 
   if (!task) {
     await sendText(chatId, "Не нашла активную задачу, которую нужно отправить в рай.");
@@ -1312,21 +528,201 @@ async function handleCompleteTaskRequest(chatId, plannerData, taskQuery = "") {
   });
 }
 
-async function handlePlainCapture(chatId, text) {
-  const cleaned = text.trim();
-  if (!cleaned) return;
+async function handleSuggestUnpin(chatId, plannerData) {
   const userId = getTargetUserId();
-  const plannerData = await getPlannerData(userId);
-  const route = await routePlannerAgentInput({
-    text: cleaned,
-    plannerData,
-  });
+  const todayTasks = plannerData.tasks.filter((t) => t.status === "active" && t.isToday);
 
-  if (route.type === "noop") {
+  if (todayTasks.length === 0) {
+    await sendText(chatId, "Сейчас нет задач, закреплённых на сегодня.");
     return;
   }
 
-  if (route.type === "unknown_command") {
+  const suggestedTaskTexts = todayTasks.map((t) => t.text);
+
+  await sendText(
+    chatId,
+    [
+      "📌 <b>Задачи на сегодня:</b>",
+      "",
+      ...todayTasks.map((t, i) => `${i + 1}. ${escapeHtml(t.text)}`),
+      "",
+      "Напиши номер или название — и я открепю.",
+    ].join("\n"),
+  );
+
+  await mutatePlanner(userId, (current) => ({
+    ...current,
+    telegramContext: buildTelegramContext(todayTasks[0], "suggest_unpin", { suggestedTaskTexts }),
+  }), { source: "telegram", reason: "suggest_unpin" });
+}
+
+async function handleSetToday(chatId, plannerData, taskRef) {
+  const task =
+    (taskRef && findTaskByText(plannerData.tasks, taskRef, ["active"])) ||
+    resolveContextTask(plannerData, { statuses: ["active"] });
+
+  if (!task) {
+    await sendText(chatId, taskRef
+      ? `Не нашла задачу: <b>${escapeHtml(taskRef)}</b>`
+      : "Не нашла активную задачу, чтобы закрепить на сегодня.");
+    return;
+  }
+
+  let updated = null;
+  await mutatePlanner(getTargetUserId(), (current) => {
+    const tasks = current.tasks.map((t) => {
+      if (t.id !== task.id) return t;
+      updated = { ...t, isToday: true, lastUpdated: Date.now() };
+      return updated;
+    });
+    return { ...current, tasks, telegramContext: buildTelegramContext(updated || task, "set_today") };
+  }, { source: "telegram", reason: "set_today" });
+
+  await sendText(chatId, `📌 Закрепила на сегодня: <b>${escapeHtml(task.text)}</b>`, {
+    reply_markup: plannerTaskKeyboard(task.id),
+  });
+}
+
+async function handleUnsetToday(chatId, plannerData, taskRef) {
+  const task =
+    (taskRef && findTaskByText(plannerData.tasks, taskRef, ["active"])) ||
+    resolveContextTask(plannerData, { statuses: ["active"] });
+
+  if (!task) {
+    await sendText(chatId, taskRef
+      ? `Не нашла задачу: <b>${escapeHtml(taskRef)}</b>`
+      : "Не нашла задачу, чтобы открепить от сегодня.");
+    return;
+  }
+
+  if (!task.isToday) {
+    await sendText(chatId, `<b>${escapeHtml(task.text)}</b> и так не закреплена на сегодня.`);
+    return;
+  }
+
+  let updated = null;
+  await mutatePlanner(getTargetUserId(), (current) => {
+    const tasks = current.tasks.map((t) => {
+      if (t.id !== task.id) return t;
+      updated = { ...t, isToday: false, lastUpdated: Date.now() };
+      return updated;
+    });
+    return { ...current, tasks, telegramContext: buildTelegramContext(updated || task, "unset_today") };
+  }, { source: "telegram", reason: "unset_today" });
+
+  await sendText(chatId, `🔓 Откреплена от сегодня: <b>${escapeHtml(task.text)}</b>`, {
+    reply_markup: plannerTaskKeyboard(task.id),
+  });
+}
+
+async function handleSetVital(chatId, plannerData, taskRef) {
+  const task =
+    (taskRef && findTaskByText(plannerData.tasks, taskRef, ["active"])) ||
+    resolveContextTask(plannerData, { statuses: ["active"] });
+
+  if (!task) {
+    await sendText(chatId, taskRef
+      ? `Не нашла задачу: <b>${escapeHtml(taskRef)}</b>`
+      : "Не нашла активную задачу, чтобы пометить критичной.");
+    return;
+  }
+
+  let updated = null;
+  await mutatePlanner(getTargetUserId(), (current) => {
+    const tasks = current.tasks.map((t) => {
+      if (t.id !== task.id) return t;
+      updated = { ...t, isVital: true, urgency: "high", lastUpdated: Date.now() };
+      return updated;
+    });
+    return { ...current, tasks, telegramContext: buildTelegramContext(updated || task, "set_vital") };
+  }, { source: "telegram", reason: "set_vital" });
+
+  await sendText(chatId, `🚨 Пометила как критичную: <b>${escapeHtml(task.text)}</b>`, {
+    reply_markup: plannerTaskKeyboard(task.id),
+  });
+}
+
+async function handleAddSubtask(chatId, plannerData, taskRef, subtaskText) {
+  if (!subtaskText) {
+    await sendText(chatId, "Напиши текст подзадачи. Например: добавь шаг «открыть сайт» к задаче «подать заявку».");
+    return;
+  }
+
+  const task =
+    (taskRef && findTaskByText(plannerData.tasks, taskRef, ["active"])) ||
+    resolveContextTask(plannerData, { statuses: ["active"] });
+
+  if (!task) {
+    await sendText(chatId, taskRef
+      ? `Не нашла задачу: <b>${escapeHtml(taskRef)}</b>`
+      : "Не нашла активную задачу для добавления подзадачи.");
+    return;
+  }
+
+  const newSubtask = {
+    id: `${task.id}-sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    text: subtaskText,
+    completed: false,
+  };
+
+  let updated = null;
+  await mutatePlanner(getTargetUserId(), (current) => {
+    const tasks = current.tasks.map((t) => {
+      if (t.id !== task.id) return t;
+      updated = { ...t, subtasks: [...(t.subtasks || []), newSubtask], lastUpdated: Date.now() };
+      return updated;
+    });
+    return { ...current, tasks, telegramContext: buildTelegramContext(updated || task, "add_subtask") };
+  }, { source: "telegram", reason: "add_subtask" });
+
+  await sendText(chatId, `🪜 Добавила шаг «<b>${escapeHtml(subtaskText)}</b>» к задаче <b>${escapeHtml(task.text)}</b>.`, {
+    reply_markup: plannerTaskKeyboard(task.id),
+  });
+}
+
+async function handleReopenTask(chatId, plannerData, taskRef) {
+  const task =
+    (taskRef && findTaskByText(plannerData.tasks, taskRef, ["completed", "dead"])) ||
+    resolveContextTask(plannerData, { statuses: ["completed"] });
+
+  if (!task) {
+    await sendText(chatId, taskRef
+      ? `Не нашла завершённую или удалённую задачу: <b>${escapeHtml(taskRef)}</b>`
+      : "В раю сейчас нечего возвращать.");
+    return;
+  }
+
+  let reopenedTask = null;
+  await mutatePlanner(getTargetUserId(), (current) => {
+    const tasks = current.tasks.map((t) => {
+      if (t.id !== task.id) return t;
+      reopenedTask = {
+        ...t,
+        status: "active",
+        isToday: false,
+        heatBase: typeof t.heatBase === "number" ? t.heatBase : 35,
+        heatCurrent: typeof t.heatCurrent === "number" ? t.heatCurrent : (typeof t.heatBase === "number" ? t.heatBase : 35),
+        lastUpdated: Date.now(),
+      };
+      return reopenedTask;
+    });
+    return { ...current, tasks, telegramContext: buildTelegramContext(reopenedTask || task, "reopen") };
+  }, { source: "telegram", reason: "reopen_task" });
+
+  if (!reopenedTask) {
+    await sendText(chatId, "Не смогла вернуть задачу.");
+    return;
+  }
+
+  await sendText(chatId, `↩️ Вернула в активные: <b>${escapeHtml(reopenedTask.text)}</b>`, {
+    reply_markup: plannerTaskKeyboard(reopenedTask.id),
+  });
+}
+
+async function handlePlainCapture(chatId, text) {
+  const cleaned = text.trim();
+  if (!cleaned) return;
+  if (cleaned.startsWith("/")) {
     await sendText(
       chatId,
       [
@@ -1343,24 +739,129 @@ async function handlePlainCapture(chatId, text) {
     return;
   }
 
+  const userId = getTargetUserId();
+  const plannerData = await getPlannerData(userId);
+
+  const intent = await parseTelegramIntent({
+    text: cleaned,
+    tasks: plannerData.tasks,
+    telegramContext: plannerData.telegramContext,
+  });
+
   await safeWriteTelegramLog({
     kind: "intent",
     chatId: String(chatId),
     messageText: cleaned,
-    intent: route.rawIntent || route,
+    intent,
   });
-  await executePlannerAction({
-    userId,
-    chatId,
-    plannerData,
-    route,
-    adapter: {
-      sendText: (messageText, extra = {}) => sendText(chatId, messageText, extra),
-      taskKeyboard: (taskId) => plannerTaskKeyboard(taskId),
-      completedTaskKeyboard: (taskId) => completedTaskKeyboard(taskId),
-      calendarConnectKeyboard: (url) => calendarConnectKeyboard(url),
-    },
-    log: safeWriteTelegramLog,
+
+  if (intent.intent === "show_today") {
+    await handleToday(chatId);
+    return;
+  }
+
+  if (intent.intent === "panic") {
+    await handlePanic(chatId);
+    return;
+  }
+
+  if (intent.intent === "suggest_unpin") {
+    await handleSuggestUnpin(chatId, plannerData);
+    return;
+  }
+
+  if (intent.intent === "set_today") {
+    await handleSetToday(chatId, plannerData, intent.task_ref);
+    return;
+  }
+
+  if (intent.intent === "unset_today") {
+    await handleUnsetToday(chatId, plannerData, intent.task_ref);
+    return;
+  }
+
+  if (intent.intent === "set_vital") {
+    await handleSetVital(chatId, plannerData, intent.task_ref);
+    return;
+  }
+
+  if (intent.intent === "complete_task") {
+    await handleCompleteTaskRequest(chatId, plannerData, intent.task_ref || "");
+    return;
+  }
+
+  if (intent.intent === "reopen_task") {
+    await handleReopenTask(chatId, plannerData, intent.task_ref);
+    return;
+  }
+
+  if (intent.intent === "add_subtask") {
+    await handleAddSubtask(chatId, plannerData, intent.task_ref, intent.subtask_text);
+    return;
+  }
+
+  if (intent.intent === "delete_subtask") {
+    await handleDeleteSubtaskRequest(chatId, plannerData, {
+      taskText: intent.task_ref || "",
+      subtaskText: intent.subtask_text || "",
+    });
+    return;
+  }
+
+  if (intent.intent === "schedule_task") {
+    const hasConnection = await hasGoogleCalendarConnection(userId);
+    if (!hasConnection) {
+      const url = buildGoogleCalendarConnectUrl(userId);
+      await sendText(
+        chatId,
+        "Сначала подключи Google Calendar. Потом я смогу создавать там события прямо из Telegram.",
+        { reply_markup: calendarConnectKeyboard(url) },
+      );
+      return;
+    }
+
+    if (!intent.deadline_at || !intent.start_time) {
+      await sendText(
+        chatId,
+        "Для календаря мне нужны дата и время. Например: запланируй на завтра в 14:00 задачу про диплом.",
+      );
+      return;
+    }
+
+    const taskTitle = intent.task_ref || intent.task_text || cleaned;
+    const createdEvent = await createCalendarEvent(userId, {
+      title: taskTitle,
+      date: intent.deadline_at,
+      startTime: intent.start_time,
+      durationMinutes: intent.duration_minutes || 60,
+      description: "Создано из ADHD Planner Telegram bot",
+    });
+
+    await sendText(
+      chatId,
+      `📅 Поставила в календарь: <b>${escapeHtml(createdEvent.summary || taskTitle)}</b>\n${escapeHtml(intent.deadline_at)} ${escapeHtml(intent.start_time)}`,
+    );
+    return;
+  }
+
+  if (intent.intent === "chat") {
+    await sendText(
+      chatId,
+      intent.reply_text || "Сформулируй это как задачу, или напиши /today или /panic.",
+    );
+    return;
+  }
+
+  // Default: add_task
+  const taskText = intent.task_text || cleaned;
+  await upsertTask(chatId, {
+    text: taskText,
+    source: "telegram",
+    deadlineAt: intent.deadline_at || "",
+    urgency: intent.urgency || "medium",
+    isToday: intent.is_today,
+    isVital: intent.is_vital,
+    subtasks: intent.subtasks || [],
   });
 }
 
@@ -1376,7 +877,6 @@ async function handleCallback(chatId, callbackQuery) {
   let panicTask = null;
   let reopenedTask = null;
   let completedTask = null;
-  let toggledTodayTask = null;
 
   await mutatePlanner(userId, (current) => {
     const nextTasks = current.tasks.map((task) => {
@@ -1397,7 +897,6 @@ async function handleCallback(chatId, callbackQuery) {
           heatBase: typeof task.heatBase === "number" ? task.heatBase : 35,
           heatCurrent: typeof task.heatCurrent === "number" ? task.heatCurrent : (typeof task.heatBase === "number" ? task.heatBase : 35),
           lastUpdated: Date.now(),
-          deadAt: null,
         };
         return reopenedTask;
       }
@@ -1405,8 +904,7 @@ async function handleCallback(chatId, callbackQuery) {
       if (action === "today") {
         const nextValue = !task.isToday;
         feedback = nextValue ? "Закрепил на сегодня." : "Открепил от сегодня.";
-        toggledTodayTask = { ...task, isToday: nextValue, lastUpdated: Date.now() };
-        return toggledTodayTask;
+        return { ...task, isToday: nextValue, lastUpdated: Date.now() };
       }
 
       if (action === "vital") {
@@ -1442,9 +940,7 @@ async function handleCallback(chatId, callbackQuery) {
             ? buildTelegramContext(reopenedTask, "reopen")
             : panicTask
               ? buildTelegramContext(panicTask, "panic")
-              : toggledTodayTask
-                ? buildTelegramContext(toggledTodayTask, toggledTodayTask.isToday ? "today" : "unset_today")
-                : current.telegramContext,
+              : current.telegramContext,
     };
   }, {
     source: "telegram",

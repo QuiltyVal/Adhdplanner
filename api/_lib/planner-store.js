@@ -45,6 +45,9 @@ function ensurePlannerDoc(data = {}, userId) {
             ? data.telegramContext.candidateTaskIds.map((value) => String(value)).filter(Boolean).slice(0, 10)
             : [],
           updatedAt: typeof data.telegramContext.updatedAt === "number" ? data.telegramContext.updatedAt : 0,
+          suggestedTaskTexts: Array.isArray(data.telegramContext.suggestedTaskTexts)
+            ? data.telegramContext.suggestedTaskTexts
+            : [],
         }
       : {
           lastTaskId: null,
@@ -53,6 +56,7 @@ function ensurePlannerDoc(data = {}, userId) {
           suggestedTaskId: null,
           candidateTaskIds: [],
           updatedAt: 0,
+          suggestedTaskTexts: [],
         },
     id: userId,
   };
@@ -352,6 +356,7 @@ function buildTelegramContext(task, action = "focus", extra = {}) {
       ? extra.candidateTaskIds.map((value) => String(value)).filter(Boolean).slice(0, 10)
       : [],
     updatedAt: Date.now(),
+    ...extra,
   };
 }
 

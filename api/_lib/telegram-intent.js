@@ -1,264 +1,125 @@
 const { openRouterChatCompletion } = require("./openrouter");
 
-const DEFAULT_TELEGRAM_INTENT_MODEL = "google/gemma-4-26b-a4b-it";
+const DEFAULT_TELEGRAM_INTENT_MODEL = "google/gemma-3-27b-it";
+
 const BERLIN_DATE_FORMAT = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Europe/Berlin",
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
 });
-const MONTH_INDEX = {
-  января: 0,
-  январь: 0,
-  jan: 0,
-  февраля: 1,
-  февраль: 1,
-  фев: 1,
-  марта: 2,
-  март: 2,
-  mar: 2,
-  апреля: 3,
-  апрель: 3,
-  апр: 3,
-  мая: 4,
-  май: 4,
-  июня: 5,
-  июнь: 5,
-  июн: 5,
-  июля: 6,
-  июль: 6,
-  июл: 6,
-  августа: 7,
-  август: 7,
-  авг: 7,
-  сентября: 8,
-  сентябрь: 8,
-  сен: 8,
-  октября: 9,
-  октябрь: 9,
-  окт: 9,
-  ноября: 10,
-  ноябрь: 10,
-  ноя: 10,
-  декабря: 11,
-  декабрь: 11,
-  дек: 11,
-};
 
 function getTodayIsoDate() {
   return BERLIN_DATE_FORMAT.format(new Date());
 }
 
-function pad(value) {
-  return String(value).padStart(2, "0");
-}
+const ALLOWED_INTENTS = new Set([
+  "add_task",
+  "complete_task",
+  "reopen_task",
+  "delete_subtask",
+  "add_subtask",
+  "set_today",
+  "unset_today",
+  "set_vital",
+  "suggest_unpin",
+  "show_today",
+  "panic",
+  "schedule_task",
+  "chat",
+]);
 
-function toIsoDate(date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
+function buildSystemPrompt({ tasks, telegramContext, todayDate }) {
+  const activeTasks = (tasks || []).filter((t) => t.status === "active");
+  const completedTasks = (tasks || [])
+    .filter((t) => t.status === "completed")
+    .sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0))
+    .slice(0, 5);
+  const deadTasks = (tasks || [])
+    .filter((t) => t.status === "dead")
+    .sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0))
+    .slice(0, 3);
 
-function extractRussianDate(text) {
-  const normalizedText = String(text || "").toLowerCase();
-  const now = new Date();
+  const ctx = telegramContext || {};
+  const lines = [
+    "Ты — умный роутер для Telegram-бота планировщика задач (ADHD Planner).",
+    "Твоя работа: понять что хочет пользователь и вернуть JSON с intent и параметрами.",
+    "Отвечай только JSON без markdown, без пояснений.",
+    `Сегодня (Europe/Berlin): ${todayDate}`,
+    "",
+    "## КОНТЕКСТ ПОСЛЕДНЕГО ДЕЙСТВИЯ БОТА",
+    `Последнее действие: ${ctx.lastAction || "нет"}`,
+    `Последняя задача: ${ctx.lastTaskText ? `"${ctx.lastTaskText}"` : "нет"}`,
+  ];
 
-  const isoMatch = normalizedText.match(/(20\d{2}-\d{2}-\d{2})/);
-  if (isoMatch) return isoMatch[1];
+  if (Array.isArray(ctx.suggestedTaskTexts) && ctx.suggestedTaskTexts.length > 0) {
+    lines.push(
+      `Бот только что показал этот список пользователю: ${ctx.suggestedTaskTexts.map((t, i) => `${i + 1}. "${t}"`).join(", ")}`,
+    );
+    lines.push(
+      "(Если пользователь говорит 'последнюю', 'первую', 'вторую', 'давай её', 'давай вот ту' — это ссылка на задачу из этого списка)",
+    );
+  }
 
-  const dottedMatch = normalizedText.match(/(^|[^\d])(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?(?=$|[^\d])/);
-  if (dottedMatch) {
-    const day = Number(dottedMatch[2]);
-    const month = Number(dottedMatch[3]) - 1;
-    let year = dottedMatch[4] ? Number(dottedMatch[4]) : now.getFullYear();
-    if (year < 100) year += 2000;
-
-    const candidate = new Date(year, month, day);
-    if (!Number.isNaN(candidate.getTime()) && candidate.getDate() === day && candidate.getMonth() === month) {
-      if (!dottedMatch[4] && candidate < now) {
-        candidate.setFullYear(candidate.getFullYear() + 1);
-      }
-      return toIsoDate(candidate);
+  lines.push("", "## АКТИВНЫЕ ЗАДАЧИ");
+  if (activeTasks.length === 0) {
+    lines.push("Активных задач нет.");
+  } else {
+    for (const t of activeTasks.slice(0, 15)) {
+      const flags = [];
+      if (t.isToday) flags.push("📌сегодня");
+      if (t.isVital) flags.push("🚨критично");
+      if (t.urgency === "high") flags.push("⏰срочно");
+      if (t.deadlineAt) flags.push(`📅${t.deadlineAt}`);
+      const subtaskCount = Array.isArray(t.subtasks) ? t.subtasks.length : 0;
+      if (subtaskCount > 0) flags.push(`${subtaskCount}подзадач`);
+      lines.push(`- "${t.text}"${flags.length ? ` [${flags.join(" ")}]` : ""}`);
     }
   }
 
-  const monthMatch = normalizedText.match(/(?:^|[\s,.;:])(до|к|на)?\s*(\d{1,2})\s+(января|январь|февраля|февраль|марта|март|апреля|апрель|мая|май|июня|июнь|июля|июль|августа|август|сентября|сентябрь|октября|октябрь|ноября|ноябрь|декабря|декабрь)(?=$|[\s,.;:!?])/);
-  if (monthMatch) {
-    const day = Number(monthMatch[2]);
-    const month = MONTH_INDEX[monthMatch[3]];
-    const candidate = new Date(now.getFullYear(), month, day);
-    if (!Number.isNaN(candidate.getTime()) && candidate.getDate() === day && candidate.getMonth() === month) {
-      if (candidate < now) {
-        candidate.setFullYear(candidate.getFullYear() + 1);
-      }
-      return toIsoDate(candidate);
-    }
+  if (completedTasks.length > 0) {
+    lines.push("", `## ВЫПОЛНЕННЫЕ (последние ${completedTasks.length})`);
+    for (const t of completedTasks) lines.push(`- "${t.text}"`);
   }
 
-  if (/(^|[\s,.;:!?])сегодня(?=$|[\s,.;:!?])/.test(normalizedText)) {
-    return toIsoDate(now);
+  if (deadTasks.length > 0) {
+    lines.push("", `## УДАЛЁННЫЕ (последние ${deadTasks.length})`);
+    for (const t of deadTasks) lines.push(`- "${t.text}"`);
   }
 
-  if (/(^|[\s,.;:!?])завтра(?=$|[\s,.;:!?])/.test(normalizedText)) {
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    return toIsoDate(tomorrow);
-  }
+  lines.push(
+    "",
+    "## РАЗРЕШЁННЫЕ INTENT (выбери один)",
+    "- add_task: добавить НОВУЮ задачу (сохрани, добавь, не забыть, занеси, напомни)",
+    "- complete_task: отправить задачу в рай/выполненные/готово",
+    "- reopen_task: вернуть задачу из рая или кладбища обратно в активные",
+    "- delete_subtask: удалить подзадачу (нужны task_ref И subtask_text)",
+    "- add_subtask: добавить подзадачу к задаче (нужны task_ref И subtask_text)",
+    "- set_today: закрепить задачу на сегодня",
+    "- unset_today: открепить задачу от сегодня (сними, открепи, убери с сегодня)",
+    "- set_vital: пометить задачу критичной/жизненно важной",
+    "- suggest_unpin: пользователь спрашивает 'что открепить', 'предложи другое', 'покажи список'",
+    "- show_today: показать что горит/главное сегодня",
+    "- panic: паника — выбрать одну задачу и один шаг",
+    "- schedule_task: создать событие в Google Calendar",
+    "- chat: просто разговор без действия",
+    "",
+    "## ПРАВИЛА",
+    "- task_ref: ТОЧНЫЙ текст существующей задачи из списков выше, или null",
+    "- Если пользователь ссылается на задачу приблизительно — подбери точное совпадение из списка",
+    "- После suggest_unpin: 'последнюю' = последняя задача из показанного списка (наибольший номер)",
+    "- После suggest_unpin: 'первую/вторую/третью' = задача по номеру из показанного списка",
+    "- 'её', 'эту', 'последнюю' без контекста = задача из 'Последняя задача' выше",
+    "- task_text только для add_task (текст новой задачи), для остальных — task_ref",
+    "- subtask_text для add_subtask и delete_subtask",
+    "- is_today=true если пользователь явно говорит 'на сегодня' для add_task",
+    "- Для chat верни короткий ответ по-русски в reply_text",
+    "",
+    "## JSON СХЕМА ОТВЕТА",
+    '{"intent":"add_task","task_ref":null,"subtask_text":null,"task_text":"","deadline_at":null,"start_time":null,"duration_minutes":null,"urgency":null,"is_today":false,"is_vital":false,"subtasks":[],"reply_text":null}',
+  );
 
-  return null;
-}
-
-function deriveTaskText(rawText) {
-  return String(rawText || "")
-    .trim()
-    .replace(/^(добавь|добавить|занеси|сохрани|запиши|напомни|мне нужно|надо)\s+(в\s+планер\s+)?/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function validateIntent(rawText, parsedIntent) {
-  const text = String(rawText || "").trim();
-  const lowered = text.toLowerCase();
-  const deadlineFromText = extractRussianDate(lowered);
-  const asksToday = lowered.includes("сегодня") || lowered.includes("на сегодня");
-  const asksPanic = /паник|panic|зависла|завис|не знаю с чего начать|помоги выбрать одно/.test(lowered);
-  const asksShowToday = /что у меня.*сегодня|что у меня.*горит|самое важное|что главное|покажи задачи/.test(lowered);
-  const asksSchedule = /запланируй|поставь в календарь|занеси в календарь|создай событие|забронируй время/.test(lowered);
-  const asksAddSubtask = /подзадач|шаг/.test(lowered) && /добавь|добавить|добваь|добаьв/.test(lowered);
-  const asksComplete = /(в рай|выполненн|готов[ао]|заверши|сделай готов|отправь.*в рай)/.test(lowered);
-  const asksReopen = /верни|вернуть|назад в актив|из рая|снова в актив/.test(lowered);
-  const asksSetToday = /(закреп|прикреп|отметь.*на сегодня|сделай.*на сегодня|перенеси.*на сегодня)/.test(lowered);
-  const asksUnsetToday = /(откреп|сними.*сегодня|снять.*сегодня|убери.*сегодня|убрать.*сегодня)/.test(lowered);
-  const asksSetVital = /(сделай|пометь|отметь|обозначь).*(критич|жизненно важ|важн)/.test(lowered);
-  const referencesContextTask = /последн|эту|этой|эта|ее|её|ней/.test(lowered);
-  const soundsLikeCapture = /добавь|добавить|занеси|запиши|сохрани|напомни|надо|нужно|не забыть/.test(lowered);
-  const soundsVital = /критич|жизненно важ|обязательно|любой ценой/.test(lowered);
-  const soundsUrgent = /срочно|горит|как можно скорее|немедленно|дедлайн/.test(lowered);
-  const timeMatch = lowered.match(/(?:в|на)\s*(\d{1,2})(?::|\.| )?(\d{2})?\b/);
-  const durationMatch =
-    lowered.match(/(\d+)\s*мин/) ||
-    lowered.match(/(\d+(?:[.,]\d+)?)\s*час/);
-
-  const intent = { ...parsedIntent };
-
-  if (asksPanic) {
-    intent.intent = "panic";
-  } else if (asksAddSubtask) {
-    intent.intent = "add_subtask";
-  } else if (asksReopen) {
-    intent.intent = "reopen_task";
-  } else if (asksComplete) {
-    intent.intent = "complete_task";
-  } else if (asksSetToday) {
-    intent.intent = "set_today";
-  } else if (asksUnsetToday) {
-    intent.intent = "unset_today";
-  } else if (asksSetVital) {
-    intent.intent = "set_vital";
-  } else if (asksSchedule) {
-    intent.intent = "schedule_task";
-  } else if (asksShowToday && intent.intent === "chat") {
-    intent.intent = "show_today";
-  } else if (soundsLikeCapture && intent.intent === "chat") {
-    intent.intent = "add_task";
-  }
-
-  if (intent.intent === "add_task") {
-    intent.task_text = intent.task_text || deriveTaskText(text) || text;
-  }
-
-  if (intent.intent === "add_subtask") {
-    if (!intent.subtask_text) {
-      const cleaned = text
-        .replace(/^(добавь|добавить|добваь|добаьв)\s+/i, "")
-        .replace(/^(к|в|для)\s+/i, "")
-        .replace(/\s+(подзачу|подзадачу|шаг)\s+/i, ": ")
-        .trim();
-      if (cleaned) {
-        const parts = cleaned.split(/\s*:\s*/);
-        if (parts.length >= 2) {
-          intent.task_ref = intent.task_ref || parts[0].trim();
-          intent.subtask_text = parts.slice(1).join(": ").trim();
-        }
-      }
-    }
-
-    if (!intent.task_ref && /последн|эту|этой|эта|ее|её|ней/.test(lowered)) {
-      intent.task_ref = "last_task";
-    }
-
-    if (!intent.subtask_text && intent.task_text) {
-      intent.subtask_text = intent.task_text;
-      intent.task_text = "";
-    }
-  }
-
-  if (["complete_task", "reopen_task", "set_today", "unset_today", "set_vital", "schedule_task"].includes(intent.intent)) {
-    if (!intent.task_ref && referencesContextTask) {
-      intent.task_ref = "last_task";
-    }
-  }
-
-  if (!intent.deadline_at && deadlineFromText) {
-    intent.deadline_at = deadlineFromText;
-  }
-
-  if (!intent.start_time && timeMatch) {
-    const hours = Math.min(23, Number(timeMatch[1]));
-    const minutes = Math.min(59, Number(timeMatch[2] || "00"));
-    intent.start_time = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-  }
-
-  if (!intent.duration_minutes && durationMatch) {
-    if (durationMatch[0].includes("мин")) {
-      intent.duration_minutes = Math.max(15, Math.min(480, Number(durationMatch[1])));
-    } else {
-      const hours = Number(String(durationMatch[1]).replace(",", "."));
-      intent.duration_minutes = Math.max(30, Math.min(480, Math.round(hours * 60)));
-    }
-  }
-
-  if (asksToday) {
-    intent.is_today = true;
-  }
-
-  if (soundsVital) {
-    intent.is_vital = true;
-  }
-
-  if (!intent.urgency && soundsUrgent) {
-    intent.urgency = "high";
-  }
-
-  if (!intent.urgency && intent.deadline_at) {
-    const today = new Date(getTodayIsoDate());
-    const deadline = new Date(`${intent.deadline_at}T00:00:00`);
-    const daysLeft = Math.ceil((deadline.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
-    if (daysLeft <= 3) {
-      intent.urgency = "high";
-    } else if (daysLeft <= 10) {
-      intent.urgency = "medium";
-    }
-  }
-
-  if (!intent.urgency && intent.intent === "add_task") {
-    intent.urgency = "medium";
-  }
-
-  if (!intent.duration_minutes && intent.intent === "schedule_task") {
-    intent.duration_minutes = 60;
-  }
-
-  if (intent.intent === "schedule_task") {
-    if (!intent.task_ref && referencesContextTask) {
-      intent.task_ref = "last_task";
-    }
-    intent.task_text = intent.task_text || deriveTaskText(text) || text;
-  }
-
-  if (!intent.reply_text && intent.intent === "chat") {
-    intent.reply_text = "Могу добавить это как задачу, показать что горит, или включить panic mode.";
-  }
-
-  return intent;
+  return lines.join("\n");
 }
 
 function extractJsonObject(rawText = "") {
@@ -282,20 +143,7 @@ function extractJsonObject(rawText = "") {
 }
 
 function normalizeIntent(payload = {}) {
-  const allowedIntents = new Set([
-    "add_task",
-    "add_subtask",
-    "complete_task",
-    "reopen_task",
-    "set_today",
-    "unset_today",
-    "set_vital",
-    "show_today",
-    "panic",
-    "schedule_task",
-    "chat",
-  ]);
-  const intent = allowedIntents.has(payload.intent) ? payload.intent : "chat";
+  const intent = ALLOWED_INTENTS.has(payload.intent) ? payload.intent : "chat";
 
   const urgency =
     payload.urgency === "high" || payload.urgency === "medium" || payload.urgency === "low"
@@ -304,9 +152,9 @@ function normalizeIntent(payload = {}) {
 
   return {
     intent,
+    task_ref: typeof payload.task_ref === "string" && payload.task_ref.trim() ? payload.task_ref.trim() : null,
+    subtask_text: typeof payload.subtask_text === "string" && payload.subtask_text.trim() ? payload.subtask_text.trim() : null,
     task_text: typeof payload.task_text === "string" ? payload.task_text.trim() : "",
-    task_ref: typeof payload.task_ref === "string" ? payload.task_ref.trim() : "",
-    subtask_text: typeof payload.subtask_text === "string" ? payload.subtask_text.trim() : "",
     subtasks: Array.isArray(payload.subtasks)
       ? payload.subtasks
           .filter((item) => typeof item === "string")
@@ -336,58 +184,12 @@ function normalizeIntent(payload = {}) {
   };
 }
 
-async function parseTelegramIntent({ text, tasks = [], telegramContext = null }) {
-  const compactTasks = tasks
-    .filter((task) => task.status === "active")
-    .slice(0, 8)
-    .map((task) => ({
-      text: task.text,
-      isToday: !!task.isToday,
-      isVital: !!task.isVital,
-      urgency: task.urgency || "medium",
-      deadlineAt: task.deadlineAt || "",
-    }));
-
-  const systemPrompt = [
-    "Ты разбираешь сообщения для Telegram-бота планировщика задач для человека с СДВГ.",
-    "Твоя работа — вернуть только JSON без markdown и без пояснений.",
-    "Сегодня в Europe/Berlin дата " + getTodayIsoDate() + ".",
-    "Разрешённые intent: add_task, add_subtask, complete_task, reopen_task, set_today, unset_today, set_vital, show_today, panic, schedule_task, chat.",
-    "Если пользователь просит сохранить, занести, не забыть, добавить, напомнить — чаще всего это add_task.",
-    "Если пользователь просит добавить шаг или подзадачу к существующей задаче — это add_subtask.",
-    "Если пользователь просит отправить задачу в рай / завершить — это complete_task.",
-    "Если пользователь просит вернуть задачу обратно — это reopen_task.",
-    "Если пользователь просит закрепить задачу на сегодня — это set_today.",
-    "Если пользователь просит открепить задачу от сегодня — это unset_today.",
-    "Если пользователь просит пометить задачу как критичную / жизненно важную — это set_vital.",
-    "Если пользователь спрашивает, что сейчас главное, что горит, что сегодня — это show_today.",
-    "Если пользователь пишет, что завис, не знает с чего начать, просит выбрать одно — это panic.",
-    "Если пользователь хочет поставить задачу в календарь, забронировать время, создать событие — это schedule_task.",
-    "Если это приветствие, уточнение, маленький разговор — это chat.",
-    "Если фраза двусмысленная, но выглядит как дело, которое нельзя потерять, предпочти add_task.",
-    "Для add_task сократи task_text до ясной короткой формулировки задачи на русском.",
-    "Для add_subtask верни subtask_text и task_ref.",
-    "Для complete_task, reopen_task, set_today, unset_today, set_vital, schedule_task тоже используй task_ref.",
-    "Если пользователь ссылается на последнюю/эту/её задачу, ставь task_ref='last_task'.",
-    "Если он называет задачу текстом, клади её название в task_ref.",
-    "Для schedule_task верни task_text как название события, deadline_at как дату события, start_time как HH:MM, duration_minutes числом.",
-    "Если в сообщении после двоеточия, тире или списка перечислены шаги, верни их как subtasks массивом строк.",
-    "Если в тексте есть дедлайн, верни deadline_at в формате YYYY-MM-DD. Иначе null.",
-    "Если задача звучит очень срочно или с жёстким сроком, urgency=high. Если обычная — medium. Если можно потом — low.",
-    "Если пользователь явно просит на сегодня — is_today=true.",
-    "Если задача звучит жизненно критично — is_vital=true.",
-    "Для chat верни короткий ответ по-русски в reply_text.",
-    "JSON-схема ответа:",
-    '{"intent":"add_task|add_subtask|complete_task|reopen_task|set_today|unset_today|set_vital|show_today|panic|schedule_task|chat","task_text":"string","task_ref":"string","subtask_text":"string","subtasks":["string"],"deadline_at":"YYYY-MM-DD|null","start_time":"HH:MM|null","duration_minutes":60,"urgency":"low|medium|high|null","is_today":false,"is_vital":false,"reply_text":"string|null"}',
-    "Текущий Telegram context:",
-    JSON.stringify({
-      lastTaskId: telegramContext?.lastTaskId || null,
-      lastTaskText: telegramContext?.lastTaskText || "",
-      lastAction: telegramContext?.lastAction || "",
-    }),
-    "Вот краткий контекст активных задач пользователя:",
-    JSON.stringify(compactTasks),
-  ].join("\n");
+async function parseTelegramIntent({ text, tasks = [], telegramContext = {} }) {
+  const systemPrompt = buildSystemPrompt({
+    tasks,
+    telegramContext,
+    todayDate: getTodayIsoDate(),
+  });
 
   const data = await openRouterChatCompletion({
     model: process.env.TELEGRAM_INTENT_MODEL || DEFAULT_TELEGRAM_INTENT_MODEL,
@@ -395,17 +197,16 @@ async function parseTelegramIntent({ text, tasks = [], telegramContext = null })
       { role: "system", content: systemPrompt },
       { role: "user", content: text },
     ],
-    maxTokens: 220,
+    maxTokens: 300,
     responseFormat: { type: "json_object" },
   });
 
   const content = data?.choices?.[0]?.message?.content || "";
   const parsed = JSON.parse(extractJsonObject(content));
-  return validateIntent(text, normalizeIntent(parsed));
+  return normalizeIntent(parsed);
 }
 
 module.exports = {
   DEFAULT_TELEGRAM_INTENT_MODEL,
-  extractRussianDate,
   parseTelegramIntent,
 };
