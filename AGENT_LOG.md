@@ -313,3 +313,17 @@ Entry template:
 - Risks / follow-up:
   - local synthetic parse could not be executed end-to-end without `OPENROUTER_API_KEY`
   - next step is to extend the same `task_ref` mechanism to complete/reopen/today/vital actions, not just add-subtask
+
+## 2026-04-11 11:05 Europe/Berlin - Codex
+
+- Summary: Prepared the Hetzner-side Telegram nudge move. Added a standalone ops script that can trigger `/api/telegram-nudge` from Hetzner on exact cron times, and made the Vercel nudge route accept an explicit `slot=morning|evening` override.
+- Changed:
+  - `api/telegram-nudge.js`
+  - `/Users/valquilty/Documents/My Website/adhd-planner-ops/sendTelegramNudge.mjs`
+  - `/Users/valquilty/Documents/My Website/adhd-planner-ops/telegram-nudge.env.example`
+- Verified:
+  - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-nudge'); console.log('server ok')"`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `node /Users/valquilty/Documents/My Website/adhd-planner-ops/sendTelegramNudge.mjs` fails cleanly with `PLANNER_NUDGE_SECRET is not configured`
+- Risks / follow-up:
+  - Hetzner cron cannot be activated until we have the Vercel `CRON_SECRET` (or a new shared replacement) to authorize the request

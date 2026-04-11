@@ -38,6 +38,12 @@ function getNudgeSlot(now = new Date()) {
   return getBerlinHour(now) < 13 ? "morning" : "evening";
 }
 
+function normalizeRequestedSlot(value = "") {
+  const lowered = String(value || "").trim().toLowerCase();
+  if (lowered === "morning" || lowered === "evening") return lowered;
+  return null;
+}
+
 function buildScheduledNudgeMessage(task, slot) {
   const base = buildNudgeMessage(task);
 
@@ -78,7 +84,8 @@ module.exports = async function handler(req, res) {
     }
 
     const task = pickRescueTask(plannerData.tasks);
-    const slot = getNudgeSlot();
+    const requestedSlot = normalizeRequestedSlot(req.query?.slot || req.body?.slot);
+    const slot = requestedSlot || getNudgeSlot();
     const text = buildScheduledNudgeMessage(task, slot);
 
     await telegramRequest("sendMessage", {
