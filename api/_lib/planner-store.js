@@ -40,12 +40,18 @@ function ensurePlannerDoc(data = {}, userId) {
           lastTaskId: data.telegramContext.lastTaskId || null,
           lastTaskText: data.telegramContext.lastTaskText || "",
           lastAction: data.telegramContext.lastAction || "",
+          suggestedTaskId: data.telegramContext.suggestedTaskId || null,
+          candidateTaskIds: Array.isArray(data.telegramContext.candidateTaskIds)
+            ? data.telegramContext.candidateTaskIds.map((value) => String(value)).filter(Boolean).slice(0, 10)
+            : [],
           updatedAt: typeof data.telegramContext.updatedAt === "number" ? data.telegramContext.updatedAt : 0,
         }
       : {
           lastTaskId: null,
           lastTaskText: "",
           lastAction: "",
+          suggestedTaskId: null,
+          candidateTaskIds: [],
           updatedAt: 0,
         },
     id: userId,
@@ -336,11 +342,15 @@ async function getPlannerData(userId) {
   return ensurePlannerDoc({ ...rootData, tasks }, userId);
 }
 
-function buildTelegramContext(task, action = "focus") {
+function buildTelegramContext(task, action = "focus", extra = {}) {
   return {
     lastTaskId: task?.id || null,
     lastTaskText: task?.text || "",
     lastAction: action,
+    suggestedTaskId: extra.suggestedTaskId || null,
+    candidateTaskIds: Array.isArray(extra.candidateTaskIds)
+      ? extra.candidateTaskIds.map((value) => String(value)).filter(Boolean).slice(0, 10)
+      : [],
     updatedAt: Date.now(),
   };
 }

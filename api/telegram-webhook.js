@@ -179,6 +179,48 @@ function resolveTodayTaskReference(plannerData, taskQuery = "") {
   return findTaskByText(todayTasks, query, ["active"]);
 }
 
+function resolveSuggestedTodayTaskReference(plannerData, taskQuery = "") {
+  const context = plannerData?.telegramContext || {};
+  const tasks = Array.isArray(plannerData?.tasks) ? plannerData.tasks : [];
+  const candidateTaskIds = Array.isArray(context.candidateTaskIds) ? context.candidateTaskIds : [];
+  const candidateTasks = candidateTaskIds
+    .map((taskId) => tasks.find((task) => task.id === taskId && task.status === "active" && task.isToday))
+    .filter(Boolean);
+
+  if (!candidateTasks.length) {
+    return resolveTodayTaskReference(plannerData, taskQuery);
+  }
+
+  const query = String(taskQuery || "").trim();
+  const lowered = normalizeTaskText(query);
+
+  if (!query) {
+    return candidateTasks.find((task) => task.id === context.suggestedTaskId) || candidateTasks[candidateTasks.length - 1];
+  }
+
+  if (/последн/.test(lowered)) {
+    return candidateTasks[candidateTasks.length - 1] || null;
+  }
+
+  if (/перв/.test(lowered)) {
+    return candidateTasks[0] || null;
+  }
+
+  if (/втор/.test(lowered)) {
+    return candidateTasks[1] || null;
+  }
+
+  if (/треть/.test(lowered)) {
+    return candidateTasks[2] || null;
+  }
+
+  if (looksLikeContextTaskQuery(query)) {
+    return candidateTasks.find((task) => task.id === context.suggestedTaskId) || candidateTasks[0] || null;
+  }
+
+  return findTaskByText(candidateTasks, query, ["active"]);
+}
+
 async function handleReopenTaskRequest(chatId, plannerData, taskQuery = "") {
   const task = resolveTaskReference(plannerData, taskQuery, ["completed", "dead"]);
 
@@ -269,7 +311,10 @@ async function handleSetTodayRequest(chatId, plannerData, taskQuery = "") {
       getTargetUserId(),
       (current) => ({
         ...current,
-        telegramContext: buildTelegramContext(recommendedToUnpin || task, "today_limit"),
+        telegramContext: buildTelegramContext(recommendedToUnpin || task, "today_limit", {
+          suggestedTaskId: recommendedToUnpin?.id || null,
+          candidateTaskIds: todayTasks.map((item) => item.id),
+        }),
       }),
       {
         source: "telegram",
@@ -409,7 +454,10 @@ async function handleSetVitalRequest(chatId, plannerData, taskQuery = "") {
 }
 
 async function handleUnsetTodayRequest(chatId, plannerData, taskQuery = "") {
-  const task = resolveTodayTaskReference(plannerData, taskQuery);
+  const task =
+    ["today_limit", "suggest_unpin_today"].includes(plannerData?.telegramContext?.lastAction || "")
+      ? resolveSuggestedTodayTaskReference(plannerData, taskQuery)
+      : resolveTodayTaskReference(plannerData, taskQuery);
 
   if (!task) {
     await sendText(chatId, "Не нашла задачу на сегодня, которую нужно открепить.");
@@ -482,7 +530,10 @@ async function handleSuggestUnpinRequest(chatId, plannerData) {
     getTargetUserId(),
     (current) => ({
       ...current,
-      telegramContext: buildTelegramContext(recommendedToUnpin, "suggest_unpin_today"),
+      telegramContext: buildTelegramContext(recommendedToUnpin, "suggest_unpin_today", {
+        suggestedTaskId: recommendedToUnpin.id,
+        candidateTaskIds: todayTasks.map((task) => task.id),
+      }),
     }),
     {
       source: "telegram",

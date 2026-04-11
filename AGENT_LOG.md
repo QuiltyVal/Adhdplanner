@@ -42,6 +42,19 @@ Entry template:
   - execution still lives in Telegram-specific handlers; next architectural step is a shared planner action executor so other channels can reuse the same mutation layer
   - webhook still contains some now-duplicate parsing helpers that can be removed after a short stabilization period
 
+## 2026-04-11 12:35 Europe/Berlin - Codex
+
+- Summary: Taught Telegram to treat follow-ups like `давай последнюю` and `нет, последняя была ...` as a selection from the last unpin suggestion list instead of a generic context task.
+- Changed:
+  - `api/_lib/planner-store.js`: `telegramContext` now preserves `suggestedTaskId` and `candidateTaskIds`
+  - `api/_lib/planner-agent-router.js`: added selection-context routing for follow-ups after `today_limit` / `suggest_unpin_today`
+  - `api/telegram-webhook.js`: added `resolveSuggestedTodayTaskReference()` and now uses the stored candidate list when unpinning from a suggested shortlist
+- Verified:
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `node -e "require('./api/_lib/planner-store'); require('./api/_lib/telegram-intent'); require('./api/_lib/planner-agent-router'); require('./api/telegram-webhook'); console.log('server ok')"`
+- Risks / follow-up:
+  - selection memory is currently tailored to the today-unpin flow; if similar list-based choices appear elsewhere, move this into a generalized `selection_context` layer
+
 ## 2026-04-11 11:55 Europe/Berlin - Codex
 
 - Summary: Added a dedicated Telegram `unset_today` path so follow-ups like `открепи последнюю` no longer reopen the wrong task, and added fuzzy task matching for small typos in task names.

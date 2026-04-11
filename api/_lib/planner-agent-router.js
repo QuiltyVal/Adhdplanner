@@ -61,6 +61,33 @@ function extractTaskNameForUnsetToday(text = "") {
   return cleaned;
 }
 
+function looksLikeTodaySelectionReply(text = "") {
+  const lowered = String(text).toLowerCase().trim();
+  return (
+    /^(давай|тогда|ок|ладно|хорошо)\b/.test(lowered) ||
+    /^(последн|перв|втор|треть|эту|эту давай|ее|её)\b/.test(lowered) ||
+    /^нет\b/.test(lowered)
+  );
+}
+
+function extractTaskNameForTodaySelection(text = "") {
+  const quoted = extractQuotedSegments(text);
+  if (quoted.length > 0) return quoted[0];
+
+  const cleaned = String(text)
+    .replace(/^нет[, ]*/i, "")
+    .replace(/^(ну\s+)?/i, "")
+    .replace(/^(давай|тогда|ок|ладно|хорошо)\s+/i, "")
+    .replace(/^(открепи|открепить|сними|снять|убери|убрать)\s+/i, "")
+    .replace(/^последняя\s+была\s+/i, "")
+    .replace(/^это\s+была\s+/i, "")
+    .replace(/\s+(с сегодня|на сегодня)$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned;
+}
+
 function extractTaskNameForReopen(text = "") {
   const quoted = extractQuotedSegments(text);
   if (quoted.length > 0) return quoted[0];
@@ -184,6 +211,18 @@ async function routePlannerAgentInput({ text, plannerData }) {
     return {
       type: "suggest_unpin",
       source: "explicit_rule",
+      rawText: cleaned,
+    };
+  }
+
+  if (
+    ["today_limit", "suggest_unpin_today"].includes(plannerData?.telegramContext?.lastAction || "") &&
+    looksLikeTodaySelectionReply(cleaned)
+  ) {
+    return {
+      type: "unset_today",
+      taskRef: extractTaskNameForTodaySelection(cleaned),
+      source: "selection_context",
       rawText: cleaned,
     };
   }

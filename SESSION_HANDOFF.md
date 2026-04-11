@@ -41,6 +41,7 @@ Companion file:
 - today mission rules clarified and aligned across web + Telegram
 - Telegram logs written to Firestore `telegramLogs`
 - Telegram text input now goes through `api/_lib/planner-agent-router.js` before executing actions
+- Telegram today-unpin flow now stores the last suggested shortlist in `telegramContext` so follow-ups like `давай последнюю` can resolve against that list
 
 ## Very recent commits
 
