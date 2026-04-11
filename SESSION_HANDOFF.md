@@ -202,10 +202,22 @@ Residual risk:
 - a truly old already-open browser tab can still keep attempting bad writes until it is refreshed or closed
 
 Other steps:
-1. Move Telegram nudges from Vercel Cron to Hetzner (timing unreliable on Vercel)
-2. **Drag & drop между зонами** (см. ниже)
-3. Add restore-from-snapshot UI
-4. Stats: показать timeSpent суммарно / за неделю
+1. **Drag & drop между зонами** (см. ниже)
+2. Add restore-from-snapshot UI
+3. Stats: показать timeSpent суммарно / за неделю
+
+## Telegram nudges now run from Hetzner
+
+Live state as of 2026-04-11:
+- Hetzner root crontab has exact-time jobs at `09:00` and `18:00` with `CRON_TZ=Europe/Berlin`
+- bridge script lives at `/root/adhd-mcp/sendTelegramNudge.mjs`
+- wrapper lives at `/root/adhd-mcp/runTelegramNudge.sh`
+- secret env lives at `/root/adhd-mcp/.telegram-nudge.env`
+- Vercel route `/api/telegram-nudge` still does the actual message send, but scheduling is no longer delegated to Vercel cron
+
+Important:
+- `vercel.json` was changed to remove Vercel crons; once that deploy lands, duplicate nudges from Vercel should stop
+- `CRON_SECRET` is now shared between Vercel and Hetzner; rotate it later in both places
 
 ## Drag & drop — план для следующего агента
 

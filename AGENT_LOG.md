@@ -327,3 +327,22 @@ Entry template:
   - `node /Users/valquilty/Documents/My Website/adhd-planner-ops/sendTelegramNudge.mjs` fails cleanly with `PLANNER_NUDGE_SECRET is not configured`
 - Risks / follow-up:
   - Hetzner cron cannot be activated until we have the Vercel `CRON_SECRET` (or a new shared replacement) to authorize the request
+
+## 2026-04-11 11:12 Europe/Berlin - Codex
+
+- Summary: Finished the Hetzner Telegram nudge move. Installed the bridge script on Hetzner, created exact cron jobs for 09:00 and 18:00 Berlin time, and manually verified one successful morning nudge end-to-end.
+- Changed:
+  - `vercel.json` (remove Vercel cron jobs to avoid duplicates after next deploy)
+  - live Hetzner files:
+    - `/root/adhd-mcp/sendTelegramNudge.mjs`
+    - `/root/adhd-mcp/.telegram-nudge.env`
+    - `/root/adhd-mcp/runTelegramNudge.sh`
+    - root crontab entries for `runTelegramNudge.sh morning|evening`
+- Verified:
+  - Hetzner manual run succeeded and returned `ok: true`
+  - live response payload confirmed slot `morning` and a real task id/text
+- Risks / follow-up:
+  - `CRON_SECRET` is now stored on Hetzner too; rotate it later in **both** places:
+    - Vercel env `CRON_SECRET`
+    - `/root/adhd-mcp/.telegram-nudge.env`
+  - after `vercel.json` deploy, Vercel cron duplicates should stop

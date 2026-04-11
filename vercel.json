@@ -1,12 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/telegram-nudge",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/telegram-nudge",
-      "schedule": "0 16 * * *"
-    }
-  ]
-}
+{}
