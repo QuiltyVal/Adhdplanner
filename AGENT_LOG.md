@@ -300,3 +300,16 @@ Entry template:
   - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); console.log('server ok')"`
 - Risks / follow-up:
   - this fixes relative references for add-subtask; broader natural-language task references still deserve a shared resolver instead of scattered regexes
+
+## 2026-04-11 00:25 Europe/Berlin - Codex
+
+- Summary: Started the real AI-aware Telegram routing. `telegram-intent` now supports `add_subtask` and can return `task_ref='last_task'`, with webhook passing `telegramContext` into the model and resolving relative task references server-side.
+- Changed:
+  - `api/_lib/telegram-intent.js`
+  - `api/telegram-webhook.js`
+- Verified:
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `node -e "require('./api/_lib/planner-store'); require('./api/_lib/telegram-intent'); require('./api/telegram-webhook'); console.log('server ok')"`
+- Risks / follow-up:
+  - local synthetic parse could not be executed end-to-end without `OPENROUTER_API_KEY`
+  - next step is to extend the same `task_ref` mechanism to complete/reopen/today/vital actions, not just add-subtask

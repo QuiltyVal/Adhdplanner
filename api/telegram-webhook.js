@@ -87,6 +87,15 @@ function looksLikeContextTaskQuery(query = "") {
   );
 }
 
+function resolveTaskReference(plannerData, taskQuery, allowedStatuses = ["active"]) {
+  const query = String(taskQuery || "").trim();
+  if (!query || query === "last_task" || looksLikeContextTaskQuery(query)) {
+    return resolveContextTask(plannerData, { statuses: allowedStatuses });
+  }
+
+  return findTaskByText(plannerData.tasks, query, allowedStatuses);
+}
+
 function looksLikeReopenRequest(text = "") {
   const lowered = String(text).toLowerCase();
   return /верни|вернуть|из рая|назад в актив/.test(lowered) && /(задач|е[её]|\bее\b|\bеё\b|\bэту\b)/.test(lowered);
@@ -660,11 +669,7 @@ async function handleDeleteSubtaskRequest(chatId, plannerData, request) {
 }
 
 async function handleAddSubtaskRequest(chatId, plannerData, request) {
-  const task =
-    (looksLikeContextTaskQuery(request.taskText)
-      ? resolveContextTask(plannerData, { statuses: ["active"] })
-      : null) ||
-    findTaskByText(plannerData.tasks, request.taskText, ["active"]);
+  const task = resolveTaskReference(plannerData, request.taskText, ["active"]);
   if (!task) {
     await sendText(chatId, `Не нашла активную задачу: <b>${escapeHtml(request.taskText)}</b>`);
     return;
@@ -841,6 +846,7 @@ async function handlePlainCapture(chatId, text) {
   const intent = await parseTelegramIntent({
     text: cleaned,
     tasks: plannerData.tasks,
+    telegramContext: plannerData.telegramContext,
   });
 
   await safeWriteTelegramLog({
@@ -894,6 +900,14 @@ async function handlePlainCapture(chatId, text) {
       chatId,
       `📅 Поставила в календарь: <b>${escapeHtml(createdEvent.summary || intent.task_text || cleaned)}</b>\n${escapeHtml(intent.deadline_at)} ${escapeHtml(intent.start_time)}`,
     );
+    return;
+  }
+
+  if (intent.intent === "add_subtask") {
+    await handleAddSubtaskRequest(chatId, plannerData, {
+      taskText: intent.task_ref || "last_task",
+      subtaskText: intent.subtask_text || intent.task_text || "",
+    });
     return;
   }
 

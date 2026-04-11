@@ -122,6 +122,7 @@ function validateIntent(rawText, parsedIntent) {
   const asksPanic = /паник|panic|зависла|завис|не знаю с чего начать|помоги выбрать одно/.test(lowered);
   const asksShowToday = /что у меня.*сегодня|что у меня.*горит|самое важное|что главное|покажи задачи/.test(lowered);
   const asksSchedule = /запланируй|поставь в календарь|занеси в календарь|создай событие|забронируй время/.test(lowered);
+  const asksAddSubtask = /подзадач|шаг/.test(lowered) && /добавь|добавить|добваь|добаьв/.test(lowered);
   const soundsLikeCapture = /добавь|добавить|занеси|запиши|сохрани|напомни|надо|нужно|не забыть/.test(lowered);
   const soundsVital = /критич|жизненно важ|обязательно|любой ценой/.test(lowered);
   const soundsUrgent = /срочно|горит|как можно скорее|немедленно|дедлайн/.test(lowered);
@@ -134,6 +135,8 @@ function validateIntent(rawText, parsedIntent) {
 
   if (asksPanic) {
     intent.intent = "panic";
+  } else if (asksAddSubtask) {
+    intent.intent = "add_subtask";
   } else if (asksSchedule) {
     intent.intent = "schedule_task";
   } else if (asksShowToday && intent.intent === "chat") {
@@ -144,6 +147,32 @@ function validateIntent(rawText, parsedIntent) {
 
   if (intent.intent === "add_task") {
     intent.task_text = intent.task_text || deriveTaskText(text) || text;
+  }
+
+  if (intent.intent === "add_subtask") {
+    if (!intent.subtask_text) {
+      const cleaned = text
+        .replace(/^(добавь|добавить|добваь|добаьв)\s+/i, "")
+        .replace(/^(к|в|для)\s+/i, "")
+        .replace(/\s+(подзачу|подзадачу|шаг)\s+/i, ": ")
+        .trim();
+      if (cleaned) {
+        const parts = cleaned.split(/\s*:\s*/);
+        if (parts.length >= 2) {
+          intent.task_ref = intent.task_ref || parts[0].trim();
+          intent.subtask_text = parts.slice(1).join(": ").trim();
+        }
+      }
+    }
+
+    if (!intent.task_ref && /последн|эту|этой|эта|ее|её|ней/.test(lowered)) {
+      intent.task_ref = "last_task";
+    }
+
+    if (!intent.subtask_text && intent.task_text) {
+      intent.subtask_text = intent.task_text;
+      intent.task_text = "";
+    }
   }
 
   if (!intent.deadline_at && deadlineFromText) {
@@ -228,7 +257,7 @@ function extractJsonObject(rawText = "") {
 }
 
 function normalizeIntent(payload = {}) {
-  const allowedIntents = new Set(["add_task", "show_today", "panic", "schedule_task", "chat"]);
+  const allowedIntents = new Set(["add_task", "add_subtask", "show_today", "panic", "schedule_task", "chat"]);
   const intent = allowedIntents.has(payload.intent) ? payload.intent : "chat";
 
   const urgency =
@@ -239,6 +268,8 @@ function normalizeIntent(payload = {}) {
   return {
     intent,
     task_text: typeof payload.task_text === "string" ? payload.task_text.trim() : "",
+    task_ref: typeof payload.task_ref === "string" ? payload.task_ref.trim() : "",
+    subtask_text: typeof payload.subtask_text === "string" ? payload.subtask_text.trim() : "",
     subtasks: Array.isArray(payload.subtasks)
       ? payload.subtasks
           .filter((item) => typeof item === "string")
@@ -268,7 +299,7 @@ function normalizeIntent(payload = {}) {
   };
 }
 
-async function parseTelegramIntent({ text, tasks = [] }) {
+async function parseTelegramIntent({ text, tasks = [], telegramContext = null }) {
   const compactTasks = tasks
     .filter((task) => task.status === "active")
     .slice(0, 8)
@@ -284,14 +315,18 @@ async function parseTelegramIntent({ text, tasks = [] }) {
     "Ты разбираешь сообщения для Telegram-бота планировщика задач для человека с СДВГ.",
     "Твоя работа — вернуть только JSON без markdown и без пояснений.",
     "Сегодня в Europe/Berlin дата " + getTodayIsoDate() + ".",
-    "Разрешённые intent: add_task, show_today, panic, schedule_task, chat.",
+    "Разрешённые intent: add_task, add_subtask, show_today, panic, schedule_task, chat.",
     "Если пользователь просит сохранить, занести, не забыть, добавить, напомнить — чаще всего это add_task.",
+    "Если пользователь просит добавить шаг или подзадачу к существующей задаче — это add_subtask.",
     "Если пользователь спрашивает, что сейчас главное, что горит, что сегодня — это show_today.",
     "Если пользователь пишет, что завис, не знает с чего начать, просит выбрать одно — это panic.",
     "Если пользователь хочет поставить задачу в календарь, забронировать время, создать событие — это schedule_task.",
     "Если это приветствие, уточнение, маленький разговор — это chat.",
     "Если фраза двусмысленная, но выглядит как дело, которое нельзя потерять, предпочти add_task.",
     "Для add_task сократи task_text до ясной короткой формулировки задачи на русском.",
+    "Для add_subtask верни subtask_text и task_ref.",
+    "Если пользователь ссылается на последнюю/эту/её задачу, ставь task_ref='last_task'.",
+    "Если он называет задачу текстом, клади её название в task_ref.",
     "Для schedule_task верни task_text как название события, deadline_at как дату события, start_time как HH:MM, duration_minutes числом.",
     "Если в сообщении после двоеточия, тире или списка перечислены шаги, верни их как subtasks массивом строк.",
     "Если в тексте есть дедлайн, верни deadline_at в формате YYYY-MM-DD. Иначе null.",
@@ -300,7 +335,13 @@ async function parseTelegramIntent({ text, tasks = [] }) {
     "Если задача звучит жизненно критично — is_vital=true.",
     "Для chat верни короткий ответ по-русски в reply_text.",
     "JSON-схема ответа:",
-    '{"intent":"add_task|show_today|panic|schedule_task|chat","task_text":"string","subtasks":["string"],"deadline_at":"YYYY-MM-DD|null","start_time":"HH:MM|null","duration_minutes":60,"urgency":"low|medium|high|null","is_today":false,"is_vital":false,"reply_text":"string|null"}',
+    '{"intent":"add_task|add_subtask|show_today|panic|schedule_task|chat","task_text":"string","task_ref":"string","subtask_text":"string","subtasks":["string"],"deadline_at":"YYYY-MM-DD|null","start_time":"HH:MM|null","duration_minutes":60,"urgency":"low|medium|high|null","is_today":false,"is_vital":false,"reply_text":"string|null"}',
+    "Текущий Telegram context:",
+    JSON.stringify({
+      lastTaskId: telegramContext?.lastTaskId || null,
+      lastTaskText: telegramContext?.lastTaskText || "",
+      lastAction: telegramContext?.lastAction || "",
+    }),
     "Вот краткий контекст активных задач пользователя:",
     JSON.stringify(compactTasks),
   ].join("\n");
