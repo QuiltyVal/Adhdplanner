@@ -178,7 +178,40 @@ async function handleSetTodayRequest(chatId, plannerData, taskQuery = "") {
 
   const currentTodayCount = plannerData.tasks.filter((item) => item.status === "active" && item.isToday).length;
   if (currentTodayCount >= 3) {
-    await sendText(chatId, "На сегодня уже закреплены 3 задачи. Сначала открепи что-то лишнее.");
+    const todayTasks = plannerData.tasks.filter((item) => item.status === "active" && item.isToday);
+    const sortedToday = sortTasksByPriority(todayTasks);
+    const recommendedToUnpin = sortedToday[sortedToday.length - 1] || todayTasks[0] || null;
+
+    await mutatePlanner(
+      getTargetUserId(),
+      (current) => ({
+        ...current,
+        telegramContext: buildTelegramContext(task, "today_limit"),
+      }),
+      {
+        source: "telegram",
+        reason: "today_limit_reached",
+      },
+    );
+
+    await sendText(
+      chatId,
+      [
+        "На сегодня уже закреплены 3 задачи.",
+        recommendedToUnpin
+          ? `Я бы сначала открепила: <b>${escapeHtml(recommendedToUnpin.text)}</b>`
+          : "Сначала открепи что-то лишнее.",
+        "Если хочешь, напиши: <b>предложи что открепить</b>.",
+      ].join("\n"),
+    );
+
+    if (recommendedToUnpin) {
+      await sendText(
+        chatId,
+        `📌 <b>${escapeHtml(recommendedToUnpin.text)}</b>`,
+        { reply_markup: plannerTaskKeyboard(recommendedToUnpin.id) },
+      );
+    }
     return;
   }
 
@@ -292,6 +325,42 @@ async function handleSetVitalRequest(chatId, plannerData, taskQuery = "") {
   });
 }
 
+async function handleSuggestUnpinRequest(chatId, plannerData) {
+  const todayTasks = plannerData.tasks.filter((task) => task.status === "active" && task.isToday);
+
+  if (todayTasks.length === 0) {
+    await sendText(chatId, "На сегодня сейчас ничего не закреплено.");
+    return;
+  }
+
+  const sortedToday = sortTasksByPriority(todayTasks);
+  const recommendedToUnpin = sortedToday[sortedToday.length - 1] || todayTasks[0];
+
+  await sendText(
+    chatId,
+    [
+      `Я бы открепила: <b>${escapeHtml(recommendedToUnpin.text)}</b>`,
+      "Ниже присылаю текущие задачи на сегодня. Нажми 📌 у той, которую хочешь снять.",
+    ].join("\n"),
+  );
+
+  for (const task of todayTasks) {
+    await sendText(
+      chatId,
+      `📌 <b>${escapeHtml(task.text)}</b>`,
+      { reply_markup: plannerTaskKeyboard(task.id) },
+    );
+  }
+
+  await safeWriteTelegramLog({
+    kind: "action",
+    action: "suggest_unpin_today",
+    chatId: String(chatId),
+    taskId: recommendedToUnpin.id,
+    taskText: recommendedToUnpin.text,
+  });
+}
+
 function looksLikeReopenRequest(text = "") {
   const lowered = String(text).toLowerCase();
   return /верни|вернуть|из рая|назад в актив/.test(lowered) && /(задач|е[её]|\bее\b|\bеё\b|\bэту\b)/.test(lowered);
@@ -300,6 +369,14 @@ function looksLikeReopenRequest(text = "") {
 function looksLikeCompleteRequest(text = "") {
   const lowered = String(text).toLowerCase();
   return /(в рай|выполненн|готов[ао]|заверши|сделай готов|отправь.*в рай)/.test(lowered);
+}
+
+function looksLikeSuggestUnpinRequest(text = "") {
+  const lowered = String(text).toLowerCase();
+  return (
+    /что открепить|какую открепить|что убрать с сегодня|какую убрать с сегодня|что снять с сегодня|какую снять с сегодня/.test(lowered) ||
+    (/(предложи|посоветуй|какую|что)/.test(lowered) && !/(задач|добав|удал|подзадач|шаг|календар|паник|горит)/.test(lowered))
+  );
 }
 
 function extractTaskNameForCompletion(text = "") {
@@ -1043,6 +1120,14 @@ async function handlePlainCapture(chatId, text) {
 
   if (looksLikeReopenRequest(cleaned)) {
     await handleReopenTaskRequest(chatId, plannerData, extractTaskNameForReopen(cleaned));
+    return;
+  }
+
+  if (
+    looksLikeSuggestUnpinRequest(cleaned) ||
+    (plannerData?.telegramContext?.lastAction === "today_limit" && /предложи|какую|что/i.test(cleaned))
+  ) {
+    await handleSuggestUnpinRequest(chatId, plannerData);
     return;
   }
 

@@ -358,3 +358,14 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - this is the first real action-router pass; if future phrasing gaps appear, prefer improving shared `task_ref` resolution over adding isolated regex branches
+
+## 2026-04-11 11:30 Europe/Berlin - Codex
+
+- Summary: Improved the `today=3` limit flow in Telegram. Instead of a dead-end refusal, the bot now stores `today_limit` context, recommends one pinned task to unpin, and understands follow-ups like “предложи что открепить”.
+- Changed:
+  - `api/telegram-webhook.js`
+- Verified:
+  - `node -e "require('./api/_lib/planner-store'); require('./api/_lib/telegram-intent'); require('./api/telegram-webhook'); console.log('server ok')"`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - the recommendation is currently a simple “lowest-priority pinned task”; if the product logic changes, keep it aligned with mission/today selection rather than inventing separate ranking rules
