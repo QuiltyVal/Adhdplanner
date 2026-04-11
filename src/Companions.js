@@ -16,7 +16,7 @@ const DEVIL_FALLBACK = [
   "Я жду. Я всегда жду 😈",
 ];
 
-export default function Companions({ tasksCount, deadCount, completedCount, tasks = [], onAddTask, onAddSubtask, onDeleteSubtask, onKillTask, onSetVital, onSetUrgency, calendarToken }) {
+export default function Companions({ tasksCount, deadCount, completedCount, tasks = [], onAddTask, onAddSubtask, onDeleteSubtask, onKillTask, onSetVital, onSetUrgency, calendarToken, companionFlash }) {
   const [angelSpeech, setAngelSpeech] = useState(null);
   const [devilSpeech, setDevilSpeech] = useState(null);
   const [angelBounce, setAngelBounce] = useState(false);
@@ -43,6 +43,19 @@ export default function Companions({ tasksCount, deadCount, completedCount, task
 
     return () => { clearInterval(angelTimer); clearInterval(devilTimer); };
   }, []);
+
+  useEffect(() => {
+    if (!companionFlash) return;
+    if (companionFlash.who === "devil") {
+      setDevilSpeech(companionFlash.msg);
+      setDevilBounce(true);
+      setTimeout(() => setDevilBounce(false), 400);
+    } else {
+      setAngelSpeech(companionFlash.msg);
+      setAngelBounce(true);
+      setTimeout(() => setAngelBounce(false), 400);
+    }
+  }, [companionFlash]);
 
   const openChat = (persona) => {
     setChatPersona(persona);

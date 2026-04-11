@@ -556,6 +556,7 @@ export default function App() {
   const [highlightTaskId, setHighlightTaskId] = useState(null);
   const [nudgeStatus, setNudgeStatus] = useState("");
   const [panicOpen, setPanicOpen] = useState(false);
+  const [companionFlash, setCompanionFlash] = useState(null);
   const [panicTaskId, setPanicTaskId] = useState(null);
   const [panicEndsAt, setPanicEndsAt] = useState(null);
   const [panicTick, setPanicTick] = useState(Date.now());
@@ -1160,6 +1161,26 @@ export default function App() {
     trackDailyAction();
   };
 
+  const DEVIL_KILL_PHRASES = [
+    "За дело, босс! 😈",
+    "Туда ей и дорога! Муахаха! 💀",
+    "Давно пора! Хоронить — так хоронить! 👿",
+    "Один взмах — и готово! 😏",
+  ];
+
+  const ANGEL_RESURRECT_PHRASES = [
+    "Принимаюсь за работу! 👼",
+    "Даю второй шанс! Верю в тебя! ✨",
+    "Ещё не всё потеряно! 😇",
+    "Возвращаю к жизни! 💫",
+  ];
+
+  const flashCompanion = (who, phrases) => {
+    const msg = phrases[Math.floor(Math.random() * phrases.length)];
+    setCompanionFlash({ who, msg });
+    setTimeout(() => setCompanionFlash(null), 4000);
+  };
+
   const handleKill = (taskId) => {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map((task) => {
@@ -1171,6 +1192,7 @@ export default function App() {
     setScore(newScore);
     if (saved) persistTask(saved);
     persistScore(newScore);
+    flashCompanion("devil", DEVIL_KILL_PHRASES);
   };
 
   const handleConnectCalendar = async () => {
@@ -1249,6 +1271,7 @@ export default function App() {
     persistScore(newScore);
     setHighlightTaskId(taskId);
     trackDailyAction();
+    flashCompanion("angel", ANGEL_RESURRECT_PHRASES);
   };
 
   const handleToggleToday = (taskId) => {
@@ -1604,7 +1627,7 @@ export default function App() {
         {activeTab === 'cemetery' && <TaskColumn type="cemetery" tasks={deadTasks} onResurrect={handleResurrect} />}
       </div>
 
-      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} onAddTask={handleAddTask} onAddSubtask={handleAddSubtask} onDeleteSubtask={handleDeleteSubtask} onKillTask={handleKill} onSetVital={handleToggleVital} onSetUrgency={handleSetUrgency} calendarToken={calendarToken} />
+      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} onAddTask={handleAddTask} onAddSubtask={handleAddSubtask} onDeleteSubtask={handleDeleteSubtask} onKillTask={handleKill} onSetVital={handleToggleVital} onSetUrgency={handleSetUrgency} calendarToken={calendarToken} companionFlash={companionFlash} />
     </div>
   );
 }
