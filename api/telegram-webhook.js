@@ -32,27 +32,80 @@ function normalizeTaskText(text = "") {
   return String(text).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function normalizeTaskLookupText(text = "") {
+  return normalizeTaskText(text)
+    .replace(/[«»"'`]/g, " ")
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function extractQuotedSegments(text = "") {
   return Array.from(String(text).matchAll(/[«"]([^«»"]+)[»"]/g)).map((match) => match[1].trim()).filter(Boolean);
+}
+
+function levenshteinDistance(left = "", right = "") {
+  if (left === right) return 0;
+  if (!left) return right.length;
+  if (!right) return left.length;
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const current = new Array(right.length + 1);
+
+  for (let i = 0; i < left.length; i += 1) {
+    current[0] = i + 1;
+    for (let j = 0; j < right.length; j += 1) {
+      const substitutionCost = left[i] === right[j] ? 0 : 1;
+      current[j + 1] = Math.min(
+        current[j] + 1,
+        previous[j + 1] + 1,
+        previous[j] + substitutionCost,
+      );
+    }
+
+    for (let j = 0; j < current.length; j += 1) {
+      previous[j] = current[j];
+    }
+  }
+
+  return previous[right.length];
 }
 
 function findTaskByText(tasks = [], query, allowedStatuses = ["active"]) {
   const normalizedQuery = normalizeTaskText(query);
   if (!normalizedQuery) return null;
 
-  return (
-    tasks.find(
-      (task) =>
-        allowedStatuses.includes(task.status) &&
-        normalizeTaskText(task.text) === normalizedQuery,
-    ) ||
-    tasks.find(
-      (task) =>
-        allowedStatuses.includes(task.status) &&
-        normalizeTaskText(task.text).includes(normalizedQuery),
-    ) ||
-    null
-  );
+  const normalizedLookupQuery = normalizeTaskLookupText(query);
+  const candidates = tasks.filter((task) => allowedStatuses.includes(task.status));
+
+  const exact =
+    candidates.find((task) => normalizeTaskText(task.text) === normalizedQuery) ||
+    candidates.find((task) => normalizeTaskLookupText(task.text) === normalizedLookupQuery);
+  if (exact) return exact;
+
+  const contains =
+    candidates.find((task) => normalizeTaskText(task.text).includes(normalizedQuery)) ||
+    candidates.find((task) => normalizeTaskLookupText(task.text).includes(normalizedLookupQuery));
+  if (contains) return contains;
+
+  if (!normalizedLookupQuery || normalizedLookupQuery.length < 5) return null;
+
+  let bestMatch = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const task of candidates) {
+    const candidateText = normalizeTaskLookupText(task.text);
+    if (!candidateText) continue;
+    const distance = levenshteinDistance(candidateText, normalizedLookupQuery);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestMatch = task;
+    }
+  }
+
+  const threshold = Math.min(3, Math.max(1, Math.floor(normalizedLookupQuery.length * 0.2)));
+  return bestDistance <= threshold ? bestMatch : null;
 }
 
 function findSubtaskByText(subtasks = [], query) {
@@ -94,6 +147,36 @@ function resolveTaskReference(plannerData, taskQuery, allowedStatuses = ["active
   }
 
   return findTaskByText(plannerData.tasks, query, allowedStatuses);
+}
+
+function resolveTodayTaskReference(plannerData, taskQuery = "") {
+  const todayTasks = Array.isArray(plannerData?.tasks)
+    ? plannerData.tasks.filter((task) => task.status === "active" && task.isToday)
+    : [];
+  const query = String(taskQuery || "").trim();
+  const lowered = normalizeTaskText(query);
+
+  if (!todayTasks.length) return null;
+
+  if (!query || query === "last_task") {
+    const contextTask = resolveContextTask(plannerData, { statuses: ["active"], fallbackLatest: false });
+    return contextTask?.isToday ? contextTask : todayTasks[todayTasks.length - 1];
+  }
+
+  if (/последн/.test(lowered)) {
+    return todayTasks[todayTasks.length - 1] || null;
+  }
+
+  if (/перв/.test(lowered)) {
+    return todayTasks[0] || null;
+  }
+
+  if (looksLikeContextTaskQuery(query)) {
+    const contextTask = resolveContextTask(plannerData, { statuses: ["active"], fallbackLatest: false });
+    if (contextTask?.isToday) return contextTask;
+  }
+
+  return findTaskByText(todayTasks, query, ["active"]);
 }
 
 async function handleReopenTaskRequest(chatId, plannerData, taskQuery = "") {
@@ -186,7 +269,7 @@ async function handleSetTodayRequest(chatId, plannerData, taskQuery = "") {
       getTargetUserId(),
       (current) => ({
         ...current,
-        telegramContext: buildTelegramContext(task, "today_limit"),
+        telegramContext: buildTelegramContext(recommendedToUnpin || task, "today_limit"),
       }),
       {
         source: "telegram",
@@ -325,6 +408,65 @@ async function handleSetVitalRequest(chatId, plannerData, taskQuery = "") {
   });
 }
 
+async function handleUnsetTodayRequest(chatId, plannerData, taskQuery = "") {
+  const task = resolveTodayTaskReference(plannerData, taskQuery);
+
+  if (!task) {
+    await sendText(chatId, "Не нашла задачу на сегодня, которую нужно открепить.");
+    return;
+  }
+
+  if (!task.isToday) {
+    await sendText(chatId, `📌 <b>${escapeHtml(task.text)}</b> уже не закреплена на сегодня.`);
+    return;
+  }
+
+  let updatedTask = null;
+  await mutatePlanner(
+    getTargetUserId(),
+    (current) => {
+      const tasks = current.tasks.map((currentTask) => {
+        if (currentTask.id !== task.id) return currentTask;
+        updatedTask = {
+          ...currentTask,
+          isToday: false,
+          lastUpdated: Date.now(),
+        };
+        return updatedTask;
+      });
+
+      return {
+        ...current,
+        tasks,
+        telegramContext: buildTelegramContext(updatedTask || task, "unset_today"),
+      };
+    },
+    {
+      source: "telegram",
+      reason: "unset_today_from_text",
+    },
+  );
+
+  if (!updatedTask) {
+    await sendText(chatId, "Не смогла открепить задачу от сегодня.");
+    return;
+  }
+
+  await sendText(
+    chatId,
+    `📌 Сняла с сегодня: <b>${escapeHtml(updatedTask.text)}</b>`,
+    { reply_markup: plannerTaskKeyboard(updatedTask.id) },
+  );
+
+  await safeWriteTelegramLog({
+    kind: "action",
+    action: "unset_today_from_text",
+    chatId: String(chatId),
+    taskId: updatedTask.id,
+    taskText: updatedTask.text,
+  });
+}
+
 async function handleSuggestUnpinRequest(chatId, plannerData) {
   const todayTasks = plannerData.tasks.filter((task) => task.status === "active" && task.isToday);
 
@@ -335,6 +477,18 @@ async function handleSuggestUnpinRequest(chatId, plannerData) {
 
   const sortedToday = sortTasksByPriority(todayTasks);
   const recommendedToUnpin = sortedToday[sortedToday.length - 1] || todayTasks[0];
+
+  await mutatePlanner(
+    getTargetUserId(),
+    (current) => ({
+      ...current,
+      telegramContext: buildTelegramContext(recommendedToUnpin, "suggest_unpin_today"),
+    }),
+    {
+      source: "telegram",
+      reason: "suggest_unpin_today",
+    },
+  );
 
   await sendText(
     chatId,
@@ -379,6 +533,11 @@ function looksLikeSuggestUnpinRequest(text = "") {
   );
 }
 
+function looksLikeUnsetTodayRequest(text = "") {
+  const lowered = String(text).toLowerCase();
+  return /(открепи|открепить|сними с сегодня|убери с сегодня|убрать с сегодня|снять с сегодня)/.test(lowered);
+}
+
 function extractTaskNameForCompletion(text = "") {
   const quoted = extractQuotedSegments(text);
   if (quoted.length > 0) return quoted[0];
@@ -391,6 +550,24 @@ function extractTaskNameForCompletion(text = "") {
     .trim();
 
   return cleaned && !/^(е[её]|эту|эту задачу)$/i.test(cleaned) ? cleaned : "";
+}
+
+function extractTaskNameForUnsetToday(text = "") {
+  const quoted = extractQuotedSegments(text);
+  if (quoted.length > 0) return quoted[0];
+
+  const cleaned = String(text)
+    .replace(/^(ну\s+)?/i, "")
+    .replace(/^(открепи|открепить|сними|снять|убери|убрать)\s+/i, "")
+    .replace(/\s+(с сегодня|на сегодня)$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (/^(е[её]|эта|эту|этой|ней|последнюю|последней|последняя|первую|первой|первую из списка)$/i.test(cleaned)) {
+    return cleaned;
+  }
+
+  return cleaned;
 }
 
 function extractTaskNameForReopen(text = "") {
@@ -1131,6 +1308,11 @@ async function handlePlainCapture(chatId, text) {
     return;
   }
 
+  if (looksLikeUnsetTodayRequest(cleaned)) {
+    await handleUnsetTodayRequest(chatId, plannerData, extractTaskNameForUnsetToday(cleaned));
+    return;
+  }
+
   if (looksLikeCompleteRequest(cleaned)) {
     await handleCompleteTaskRequest(chatId, plannerData, extractTaskNameForCompletion(cleaned));
     return;
@@ -1214,6 +1396,11 @@ async function handlePlainCapture(chatId, text) {
     return;
   }
 
+  if (intent.intent === "unset_today") {
+    await handleUnsetTodayRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
+    return;
+  }
+
   if (intent.intent === "set_vital") {
     await handleSetVitalRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
     return;
@@ -1259,6 +1446,7 @@ async function handleCallback(chatId, callbackQuery) {
   let panicTask = null;
   let reopenedTask = null;
   let completedTask = null;
+  let toggledTodayTask = null;
 
   await mutatePlanner(userId, (current) => {
     const nextTasks = current.tasks.map((task) => {
@@ -1287,7 +1475,8 @@ async function handleCallback(chatId, callbackQuery) {
       if (action === "today") {
         const nextValue = !task.isToday;
         feedback = nextValue ? "Закрепил на сегодня." : "Открепил от сегодня.";
-        return { ...task, isToday: nextValue, lastUpdated: Date.now() };
+        toggledTodayTask = { ...task, isToday: nextValue, lastUpdated: Date.now() };
+        return toggledTodayTask;
       }
 
       if (action === "vital") {
@@ -1323,7 +1512,9 @@ async function handleCallback(chatId, callbackQuery) {
             ? buildTelegramContext(reopenedTask, "reopen")
             : panicTask
               ? buildTelegramContext(panicTask, "panic")
-              : current.telegramContext,
+              : toggledTodayTask
+                ? buildTelegramContext(toggledTodayTask, toggledTodayTask.isToday ? "today" : "unset_today")
+                : current.telegramContext,
     };
   }, {
     source: "telegram",

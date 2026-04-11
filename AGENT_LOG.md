@@ -29,6 +29,19 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-11 11:55 Europe/Berlin - Codex
+
+- Summary: Added a dedicated Telegram `unset_today` path so follow-ups like `открепи последнюю` no longer reopen the wrong task, and added fuzzy task matching for small typos in task names.
+- Changed:
+  - `api/telegram-webhook.js`: added `handleUnsetTodayRequest`, today-task resolver, typo-tolerant `findTaskByText`, and better `today_limit` / `suggest_unpin_today` context handling
+  - `api/_lib/telegram-intent.js`: added `unset_today` intent so AI routing can explicitly remove tasks from today's shortlist
+- Verified:
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `node -e "require('./api/_lib/planner-store'); require('./api/_lib/telegram-intent'); require('./api/telegram-webhook'); console.log('server ok')"`
+- Risks / follow-up:
+  - fuzzy matching is intentionally conservative but can still choose the wrong task if several pinned tasks have nearly identical names
+  - if user wants ranked alternatives beyond unpinning, that should be a separate `replace_today_task` flow rather than more regex
+
 ## 2026-04-10 22:45 Europe/Berlin - Codex
 
 - Summary: Expanded Telegram subtask parsing to handle real user phrasing like `добавь в ... подзадачу ...` and common typos like `добваь`.
