@@ -1,6 +1,6 @@
 // src/App.js
-import React, { useState, useEffect } from "react";
-import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
+import React, { useState, useEffect, useCallback } from "react";
+import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, pointerWithin, closestCenter } from "@dnd-kit/core";
 import { useNavigate } from "react-router-dom";
 import TaskColumn from "./TaskColumn";
 import LogoutButton from "./LogoutButton";
@@ -564,6 +564,13 @@ export default function App() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
+
+  // Pointer-within first (precise small targets like angel/devil), fallback to closestCenter for zones
+  const dndCollision = useCallback((args) => {
+    const pw = pointerWithin(args);
+    if (pw.length > 0) return pw;
+    return closestCenter(args);
+  }, []);
   const [panicTaskId, setPanicTaskId] = useState(null);
   const [panicEndsAt, setPanicEndsAt] = useState(null);
   const [panicTick, setPanicTick] = useState(Date.now());
@@ -1441,7 +1448,7 @@ export default function App() {
   const draggedTask = dragTaskId ? tasks.find(t => t.id === dragTaskId) : null;
 
   return (
-    <DndContext sensors={dndSensors} onDragStart={({ active }) => { const r = String(active.id).replace("task-", ""); setDragTaskId(isNaN(r) ? r : Number(r)); }} onDragEnd={handleDragEnd}>
+    <DndContext sensors={dndSensors} collisionDetection={dndCollision} onDragStart={({ active }) => { const r = String(active.id).replace("task-", ""); setDragTaskId(isNaN(r) ? r : Number(r)); }} onDragEnd={handleDragEnd}>
     <div className="app-wrapper">
       <div className="score-panel animated-fade-in">
         <span className="score-icon">⚡</span>
