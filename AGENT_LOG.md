@@ -29,6 +29,19 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-11 12:15 Europe/Berlin - Codex
+
+- Summary: Extracted Telegram text routing into a dedicated `planner-agent-router` module so incoming bot messages now go through one shared decision point before hitting execution handlers.
+- Changed:
+  - `api/_lib/planner-agent-router.js`: new shared router for Telegram text input; centralizes explicit rule overrides plus AI-intent fallback into one action contract
+  - `api/telegram-webhook.js`: `handlePlainCapture` now uses `routePlannerAgentInput(...)` instead of locally chaining regex + `parseTelegramIntent`
+- Verified:
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `node -e "require('./api/_lib/planner-store'); require('./api/_lib/telegram-intent'); require('./api/_lib/planner-agent-router'); require('./api/telegram-webhook'); console.log('server ok')"`
+- Risks / follow-up:
+  - execution still lives in Telegram-specific handlers; next architectural step is a shared planner action executor so other channels can reuse the same mutation layer
+  - webhook still contains some now-duplicate parsing helpers that can be removed after a short stabilization period
+
 ## 2026-04-11 11:55 Europe/Berlin - Codex
 
 - Summary: Added a dedicated Telegram `unset_today` path so follow-ups like `открепи последнюю` no longer reopen the wrong task, and added fuzzy task matching for small typos in task names.

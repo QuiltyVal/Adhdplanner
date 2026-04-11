@@ -40,6 +40,7 @@ Companion file:
 - server-side Google Calendar flow for Telegram
 - today mission rules clarified and aligned across web + Telegram
 - Telegram logs written to Firestore `telegramLogs`
+- Telegram text input now goes through `api/_lib/planner-agent-router.js` before executing actions
 
 ## Very recent commits
 
@@ -66,6 +67,7 @@ Important:
 
 1. Telegram NLP still needs real-world testing.
    - The bot now has more context, but natural language can still misfire.
+   - As of 2026-04-11, text routing itself is centralized in `planner-agent-router`, but execution is still Telegram-specific.
 
 2. Cron nudges are still on Vercel.
    - Timing is not trustworthy to the exact minute.

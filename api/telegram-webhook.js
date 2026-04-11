@@ -1,6 +1,6 @@
 const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeTelegramLog } = require("./_lib/planner-store");
 const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
-const { parseTelegramIntent } = require("./_lib/telegram-intent");
+const { routePlannerAgentInput } = require("./_lib/planner-agent-router");
 const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
 
 const DEFAULT_USER_ID = process.env.PLANNER_DEFAULT_USER_ID;
@@ -1263,7 +1263,18 @@ async function handleCompleteTaskRequest(chatId, plannerData, taskQuery = "") {
 async function handlePlainCapture(chatId, text) {
   const cleaned = text.trim();
   if (!cleaned) return;
-  if (cleaned.startsWith("/")) {
+  const userId = getTargetUserId();
+  const plannerData = await getPlannerData(userId);
+  const route = await routePlannerAgentInput({
+    text: cleaned,
+    plannerData,
+  });
+
+  if (route.type === "noop") {
+    return;
+  }
+
+  if (route.type === "unknown_command") {
     await sendText(
       chatId,
       [
@@ -1280,68 +1291,60 @@ async function handlePlainCapture(chatId, text) {
     return;
   }
 
-  const userId = getTargetUserId();
-  const plannerData = await getPlannerData(userId);
-  const deleteSubtaskRequest = parseDeleteSubtaskRequest(cleaned);
-  const addSubtaskRequest = parseAddSubtaskRequest(cleaned);
-
-  if (deleteSubtaskRequest) {
-    await handleDeleteSubtaskRequest(chatId, plannerData, deleteSubtaskRequest);
-    return;
-  }
-
-  if (addSubtaskRequest) {
-    await handleAddSubtaskRequest(chatId, plannerData, addSubtaskRequest);
-    return;
-  }
-
-  if (looksLikeReopenRequest(cleaned)) {
-    await handleReopenTaskRequest(chatId, plannerData, extractTaskNameForReopen(cleaned));
-    return;
-  }
-
-  if (
-    looksLikeSuggestUnpinRequest(cleaned) ||
-    (plannerData?.telegramContext?.lastAction === "today_limit" && /предложи|какую|что/i.test(cleaned))
-  ) {
-    await handleSuggestUnpinRequest(chatId, plannerData);
-    return;
-  }
-
-  if (looksLikeUnsetTodayRequest(cleaned)) {
-    await handleUnsetTodayRequest(chatId, plannerData, extractTaskNameForUnsetToday(cleaned));
-    return;
-  }
-
-  if (looksLikeCompleteRequest(cleaned)) {
-    await handleCompleteTaskRequest(chatId, plannerData, extractTaskNameForCompletion(cleaned));
-    return;
-  }
-
-  const intent = await parseTelegramIntent({
-    text: cleaned,
-    tasks: plannerData.tasks,
-    telegramContext: plannerData.telegramContext,
-  });
-
   await safeWriteTelegramLog({
     kind: "intent",
     chatId: String(chatId),
     messageText: cleaned,
-    intent,
+    intent: route.rawIntent || route,
   });
 
-  if (intent.intent === "show_today") {
+  if (route.type === "delete_subtask") {
+    await handleDeleteSubtaskRequest(chatId, plannerData, {
+      taskText: route.taskText,
+      subtaskText: route.subtaskText,
+    });
+    return;
+  }
+
+  if (route.type === "add_subtask") {
+    await handleAddSubtaskRequest(chatId, plannerData, {
+      taskText: route.taskRef || route.taskText || "last_task",
+      subtaskText: route.subtaskText || route.taskText || "",
+    });
+    return;
+  }
+
+  if (route.type === "reopen_task") {
+    await handleReopenTaskRequest(chatId, plannerData, route.taskRef || route.taskText || "");
+    return;
+  }
+
+  if (route.type === "suggest_unpin") {
+    await handleSuggestUnpinRequest(chatId, plannerData);
+    return;
+  }
+
+  if (route.type === "unset_today") {
+    await handleUnsetTodayRequest(chatId, plannerData, route.taskRef || route.taskText || "");
+    return;
+  }
+
+  if (route.type === "complete_task") {
+    await handleCompleteTaskRequest(chatId, plannerData, route.taskRef || route.taskText || "");
+    return;
+  }
+
+  if (route.type === "show_today") {
     await handleToday(chatId);
     return;
   }
 
-  if (intent.intent === "panic") {
+  if (route.type === "panic") {
     await handlePanic(chatId);
     return;
   }
 
-  if (intent.intent === "schedule_task") {
+  if (route.type === "schedule_task") {
     const hasConnection = await hasGoogleCalendarConnection(userId);
     if (!hasConnection) {
       const url = buildGoogleCalendarConnectUrl(userId);
@@ -1355,7 +1358,7 @@ async function handlePlainCapture(chatId, text) {
       return;
     }
 
-    if (!intent.deadline_at || !intent.start_time) {
+    if (!route.deadlineAt || !route.startTime) {
       await sendText(
         chatId,
         "Для календаря мне нужны дата и время. Например: запланируй на завтра в 14:00 задачу про диплом.",
@@ -1363,74 +1366,51 @@ async function handlePlainCapture(chatId, text) {
       return;
     }
 
-    const referencedTask = resolveTaskReference(plannerData, intent.task_ref || "", ["active", "completed", "dead"]);
-    const eventTitle = referencedTask?.text || intent.task_text || cleaned;
+    const referencedTask = resolveTaskReference(plannerData, route.taskRef || "", ["active", "completed", "dead"]);
+    const eventTitle = referencedTask?.text || route.taskText || cleaned;
 
     const createdEvent = await createCalendarEvent(userId, {
       title: eventTitle,
-      date: intent.deadline_at,
-      startTime: intent.start_time,
-      durationMinutes: intent.duration_minutes || 60,
+      date: route.deadlineAt,
+      startTime: route.startTime,
+      durationMinutes: route.durationMinutes || 60,
       description: "Создано из ADHD Planner Telegram bot",
     });
 
     await sendText(
       chatId,
-      `📅 Поставила в календарь: <b>${escapeHtml(createdEvent.summary || eventTitle)}</b>\n${escapeHtml(intent.deadline_at)} ${escapeHtml(intent.start_time)}`,
+      `📅 Поставила в календарь: <b>${escapeHtml(createdEvent.summary || eventTitle)}</b>\n${escapeHtml(route.deadlineAt)} ${escapeHtml(route.startTime)}`,
     );
     return;
   }
 
-  if (intent.intent === "complete_task") {
-    await handleCompleteTaskRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
+  if (route.type === "set_today") {
+    await handleSetTodayRequest(chatId, plannerData, route.taskRef || route.taskText || "");
     return;
   }
 
-  if (intent.intent === "reopen_task") {
-    await handleReopenTaskRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
+  if (route.type === "set_vital") {
+    await handleSetVitalRequest(chatId, plannerData, route.taskRef || route.taskText || "");
     return;
   }
 
-  if (intent.intent === "set_today") {
-    await handleSetTodayRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
-    return;
-  }
-
-  if (intent.intent === "unset_today") {
-    await handleUnsetTodayRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
-    return;
-  }
-
-  if (intent.intent === "set_vital") {
-    await handleSetVitalRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
-    return;
-  }
-
-  if (intent.intent === "add_subtask") {
-    await handleAddSubtaskRequest(chatId, plannerData, {
-      taskText: intent.task_ref || "last_task",
-      subtaskText: intent.subtask_text || intent.task_text || "",
-    });
-    return;
-  }
-
-  if (intent.intent === "chat") {
+  if (route.type === "chat") {
     await sendText(
       chatId,
-      intent.reply_text || "Сформулируй это как задачу, или просто напиши /today или /panic.",
+      route.replyText || "Сформулируй это как задачу, или просто напиши /today или /panic.",
     );
     return;
   }
 
-  const taskText = intent.task_text || cleaned;
+  const taskText = route.taskText || cleaned;
   await upsertTask(chatId, {
     text: taskText,
     source: "telegram",
-    deadlineAt: intent.deadline_at || "",
-    urgency: intent.urgency || "medium",
-    isToday: intent.is_today,
-    isVital: intent.is_vital,
-    subtasks: intent.subtasks || [],
+    deadlineAt: route.deadlineAt || "",
+    urgency: route.urgency || "medium",
+    isToday: route.isToday,
+    isVital: route.isVital,
+    subtasks: route.subtasks || [],
   });
 }
 
