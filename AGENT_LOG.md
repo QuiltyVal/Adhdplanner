@@ -55,6 +55,19 @@ Entry template:
 - Risks / follow-up:
   - selection memory is currently tailored to the today-unpin flow; if similar list-based choices appear elsewhere, move this into a generalized `selection_context` layer
 
+## 2026-04-11 13:00 Europe/Berlin - Codex
+
+- Summary: Introduced a real `planner-action-executor` layer and switched Telegram plain-text handling to `route -> execute`, so webhook text flow no longer performs action branching inline.
+- Changed:
+  - `api/_lib/planner-action-executor.js`: new shared executor for planner actions (`add_task`, `add_subtask`, `complete_task`, `reopen_task`, `set_today`, `unset_today`, `set_vital`, `suggest_unpin`, `show_today`, `panic`, `schedule_task`, `chat`)
+  - `api/telegram-webhook.js`: `handlePlainCapture` now delegates to `executePlannerAction(...)` after routing instead of executing many Telegram-specific branches directly
+- Verified:
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `node -e "require('./api/_lib/planner-store'); require('./api/_lib/telegram-intent'); require('./api/_lib/planner-agent-router'); require('./api/_lib/planner-action-executor'); require('./api/telegram-webhook'); console.log('server ok')"`
+- Risks / follow-up:
+  - callback buttons and slash commands still use local webhook handlers; next step is to migrate them onto the same executor contract
+  - old helper functions still remain in `api/telegram-webhook.js`; remove them only after a short stabilization window
+
 ## 2026-04-11 11:55 Europe/Berlin - Codex
 
 - Summary: Added a dedicated Telegram `unset_today` path so follow-ups like `открепи последнюю` no longer reopen the wrong task, and added fuzzy task matching for small typos in task names.

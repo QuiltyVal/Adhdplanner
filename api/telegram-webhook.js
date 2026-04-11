@@ -1,4 +1,5 @@
 const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeTelegramLog } = require("./_lib/planner-store");
+const { executePlannerAction } = require("./_lib/planner-action-executor");
 const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
 const { routePlannerAgentInput } = require("./_lib/planner-agent-router");
 const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
@@ -1348,120 +1349,18 @@ async function handlePlainCapture(chatId, text) {
     messageText: cleaned,
     intent: route.rawIntent || route,
   });
-
-  if (route.type === "delete_subtask") {
-    await handleDeleteSubtaskRequest(chatId, plannerData, {
-      taskText: route.taskText,
-      subtaskText: route.subtaskText,
-    });
-    return;
-  }
-
-  if (route.type === "add_subtask") {
-    await handleAddSubtaskRequest(chatId, plannerData, {
-      taskText: route.taskRef || route.taskText || "last_task",
-      subtaskText: route.subtaskText || route.taskText || "",
-    });
-    return;
-  }
-
-  if (route.type === "reopen_task") {
-    await handleReopenTaskRequest(chatId, plannerData, route.taskRef || route.taskText || "");
-    return;
-  }
-
-  if (route.type === "suggest_unpin") {
-    await handleSuggestUnpinRequest(chatId, plannerData);
-    return;
-  }
-
-  if (route.type === "unset_today") {
-    await handleUnsetTodayRequest(chatId, plannerData, route.taskRef || route.taskText || "");
-    return;
-  }
-
-  if (route.type === "complete_task") {
-    await handleCompleteTaskRequest(chatId, plannerData, route.taskRef || route.taskText || "");
-    return;
-  }
-
-  if (route.type === "show_today") {
-    await handleToday(chatId);
-    return;
-  }
-
-  if (route.type === "panic") {
-    await handlePanic(chatId);
-    return;
-  }
-
-  if (route.type === "schedule_task") {
-    const hasConnection = await hasGoogleCalendarConnection(userId);
-    if (!hasConnection) {
-      const url = buildGoogleCalendarConnectUrl(userId);
-      await sendText(
-        chatId,
-        "Сначала подключи Google Calendar. Потом я смогу создавать там события прямо из Telegram.",
-        {
-          reply_markup: calendarConnectKeyboard(url),
-        },
-      );
-      return;
-    }
-
-    if (!route.deadlineAt || !route.startTime) {
-      await sendText(
-        chatId,
-        "Для календаря мне нужны дата и время. Например: запланируй на завтра в 14:00 задачу про диплом.",
-      );
-      return;
-    }
-
-    const referencedTask = resolveTaskReference(plannerData, route.taskRef || "", ["active", "completed", "dead"]);
-    const eventTitle = referencedTask?.text || route.taskText || cleaned;
-
-    const createdEvent = await createCalendarEvent(userId, {
-      title: eventTitle,
-      date: route.deadlineAt,
-      startTime: route.startTime,
-      durationMinutes: route.durationMinutes || 60,
-      description: "Создано из ADHD Planner Telegram bot",
-    });
-
-    await sendText(
-      chatId,
-      `📅 Поставила в календарь: <b>${escapeHtml(createdEvent.summary || eventTitle)}</b>\n${escapeHtml(route.deadlineAt)} ${escapeHtml(route.startTime)}`,
-    );
-    return;
-  }
-
-  if (route.type === "set_today") {
-    await handleSetTodayRequest(chatId, plannerData, route.taskRef || route.taskText || "");
-    return;
-  }
-
-  if (route.type === "set_vital") {
-    await handleSetVitalRequest(chatId, plannerData, route.taskRef || route.taskText || "");
-    return;
-  }
-
-  if (route.type === "chat") {
-    await sendText(
-      chatId,
-      route.replyText || "Сформулируй это как задачу, или просто напиши /today или /panic.",
-    );
-    return;
-  }
-
-  const taskText = route.taskText || cleaned;
-  await upsertTask(chatId, {
-    text: taskText,
-    source: "telegram",
-    deadlineAt: route.deadlineAt || "",
-    urgency: route.urgency || "medium",
-    isToday: route.isToday,
-    isVital: route.isVital,
-    subtasks: route.subtasks || [],
+  await executePlannerAction({
+    userId,
+    chatId,
+    plannerData,
+    route,
+    adapter: {
+      sendText: (messageText, extra = {}) => sendText(chatId, messageText, extra),
+      taskKeyboard: (taskId) => plannerTaskKeyboard(taskId),
+      completedTaskKeyboard: (taskId) => completedTaskKeyboard(taskId),
+      calendarConnectKeyboard: (url) => calendarConnectKeyboard(url),
+    },
+    log: safeWriteTelegramLog,
   });
 }
 
