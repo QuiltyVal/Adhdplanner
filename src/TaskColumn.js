@@ -1,6 +1,39 @@
 // src/TaskColumn.js
 import React, { useState, useEffect, useRef } from "react";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import "./TaskColumn.css";
+
+function DraggableTask({ id, children }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        opacity: isDragging ? 0.35 : 1,
+        touchAction: "none",
+      }}
+      {...listeners}
+      {...attributes}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DroppableZone({ id, children, className, style }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className || ""} ${isOver ? "dnd-zone-over" : ""}`.trim()}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -523,29 +556,29 @@ export default function TaskColumn({
       </div>
 
       <div className="zones-grid">
-        <div className="zone-column focus-zone">
+        <DroppableZone id="zone-hot" className="zone-column focus-zone">
           <h3 className="zone-title">🔥 В ФОКУСЕ ({hotTasks.length})</h3>
           <div className="tasks-list">
-            {hotTasks.map(t => renderTaskCard(t, false, "#10b981"))}
+            {hotTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`}>{renderTaskCard(t, false, "#10b981")}</DraggableTask>)}
             {hotTasks.length === 0 && <div className="empty-zone">Нет пламенных задач</div>}
           </div>
-        </div>
+        </DroppableZone>
 
-        <div className="zone-column passive-zone">
+        <DroppableZone id="zone-passive" className="zone-column passive-zone">
           <h3 className="zone-title">🧊 НА ФОНЕ ({passiveTasks.length})</h3>
           <div className="tasks-list">
-            {passiveTasks.map(t => renderTaskCard(t, false, "#3b82f6"))}
+            {passiveTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`}>{renderTaskCard(t, false, "#3b82f6")}</DraggableTask>)}
             {passiveTasks.length === 0 && <div className="empty-zone">Все либо горит, либо замерзает</div>}
           </div>
-        </div>
+        </DroppableZone>
 
-        <div className="zone-column purgatory-zone">
+        <DroppableZone id="zone-purgatory" className="zone-column purgatory-zone">
           <h3 className="zone-title" style={{color: '#f59e0b'}}>🥶 ЧИСТИЛИЩЕ ({purgatoryTasks.length})</h3>
           <div className="tasks-list">
-            {purgatoryTasks.map(t => renderTaskCard(t, true, "#ef4444"))}
+            {purgatoryTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`}>{renderTaskCard(t, true, "#ef4444")}</DraggableTask>)}
             {purgatoryTasks.length === 0 && <div className="empty-zone">Никто не замерзает</div>}
           </div>
-        </div>
+        </DroppableZone>
       </div>
 
       {confirmTaskId && (

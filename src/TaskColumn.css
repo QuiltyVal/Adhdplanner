@@ -585,6 +585,27 @@
   border: 1px solid #222;
   padding: 16px;
   box-shadow: 2px 2px 0 #000;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.zone-column.dnd-zone-over {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15), 2px 2px 0 #000;
+}
+
+.focus-zone.dnd-zone-over {
+  border-color: #34d399;
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.3), 2px 2px 0 #000;
+}
+
+.passive-zone.dnd-zone-over {
+  border-color: #3b82f6;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), 2px 2px 0 #000;
+}
+
+.purgatory-zone.dnd-zone-over {
+  border-color: #f59e0b;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.3), 2px 2px 0 #000;
 }
 
 .zone-title {

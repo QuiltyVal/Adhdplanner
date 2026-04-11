@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useDroppable } from '@dnd-kit/core';
 import angelImg from './angel.png';
 import devilImg from './devil.png';
 import AgentChat from './AgentChat';
@@ -69,10 +70,13 @@ export default function Companions({ tasksCount, deadCount, completedCount, task
     }
   };
 
+  const { setNodeRef: setAngelRef, isOver: isOverAngel } = useDroppable({ id: "drop-angel" });
+  const { setNodeRef: setDevilRef, isOver: isOverDevil } = useDroppable({ id: "drop-devil" });
+
   return (
     <>
       <div className="companions-container">
-        <div className="companion angel">
+        <div className="companion angel" ref={setAngelRef}>
           <div className={`speech-bubble angel-bubble ${angelSpeech ? 'show' : ''}`}>
             {angelSpeech}
           </div>
@@ -83,14 +87,18 @@ export default function Companions({ tasksCount, deadCount, completedCount, task
               padding: 0,
               overflow: 'hidden',
               background: 'radial-gradient(circle, rgba(255,255,220,0.98) 5%, rgba(180,230,255,0.85) 35%, rgba(100,180,255,0.4) 65%, transparent 85%)',
-              boxShadow: '0 0 18px rgba(160,220,255,0.7)'
+              boxShadow: isOverAngel
+                ? '0 0 40px rgba(100,220,255,1), 0 0 80px rgba(100,220,255,0.6)'
+                : '0 0 18px rgba(160,220,255,0.7)',
+              transform: isOverAngel ? 'scale(1.25)' : 'scale(1)',
+              transition: 'box-shadow 0.2s, transform 0.2s',
             }}
           >
             <img src={angelImg} alt="Angel" style={{width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9))'}} />
           </div>
         </div>
 
-        <div className="companion devil">
+        <div className="companion devil" ref={setDevilRef}>
           <div className={`speech-bubble devil-bubble ${devilSpeech ? 'show' : ''}`}>
             {devilSpeech}
           </div>
@@ -101,7 +109,11 @@ export default function Companions({ tasksCount, deadCount, completedCount, task
               padding: 0,
               overflow: 'hidden',
               background: 'radial-gradient(circle, rgba(255,220,0,0.95) 5%, rgba(255,120,0,0.8) 30%, rgba(200,0,0,0.5) 65%, transparent 85%)',
-              boxShadow: '0 0 20px rgba(255,160,0,0.7)'
+              boxShadow: isOverDevil
+                ? '0 0 40px rgba(255,60,0,1), 0 0 80px rgba(255,60,0,0.6)'
+                : '0 0 20px rgba(255,160,0,0.7)',
+              transform: isOverDevil ? 'scale(1.25)' : 'scale(1)',
+              transition: 'box-shadow 0.2s, transform 0.2s',
             }}
           >
             <img src={devilImg} alt="Devil" style={{width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.8))'}} />

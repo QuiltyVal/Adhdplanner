@@ -1,5 +1,6 @@
 // src/App.js
 import React, { useState, useEffect } from "react";
+import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { useNavigate } from "react-router-dom";
 import TaskColumn from "./TaskColumn";
 import LogoutButton from "./LogoutButton";
@@ -557,6 +558,12 @@ export default function App() {
   const [nudgeStatus, setNudgeStatus] = useState("");
   const [panicOpen, setPanicOpen] = useState(false);
   const [companionFlash, setCompanionFlash] = useState(null);
+  const [dragTaskId, setDragTaskId] = useState(null);
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
   const [panicTaskId, setPanicTaskId] = useState(null);
   const [panicEndsAt, setPanicEndsAt] = useState(null);
   const [panicTick, setPanicTick] = useState(Date.now());
@@ -1161,6 +1168,31 @@ export default function App() {
     trackDailyAction();
   };
 
+  const handleDragEnd = ({ active, over }) => {
+    setDragTaskId(null);
+    if (!active || !over) return;
+    const taskId = String(active.id).replace("task-", "");
+    if (over.id === "drop-devil") {
+      handleKill(taskId);
+      return;
+    }
+    if (over.id === "drop-angel") {
+      handleComplete(taskId);
+      return;
+    }
+    const zoneHeat = { "zone-hot": 80, "zone-passive": 40, "zone-purgatory": 10 };
+    if (zoneHeat[over.id] !== undefined) {
+      const newHeat = zoneHeat[over.id];
+      let saved = null;
+      setTasks(prev => prev.map(t => {
+        if (t.id !== taskId) return t;
+        saved = { ...t, heatBase: newHeat, heatCurrent: newHeat, lastUpdated: Date.now() };
+        return saved;
+      }));
+      if (saved) persistTask(saved);
+    }
+  };
+
   const DEVIL_KILL_PHRASES = [
     "За дело, босс! 😈",
     "Туда ей и дорога! Муахаха! 💀",
@@ -1405,7 +1437,10 @@ export default function App() {
 
   if (loading || !minLoadDone) return <LoadingScreen />;
 
+  const draggedTask = dragTaskId ? tasks.find(t => t.id === dragTaskId) : null;
+
   return (
+    <DndContext sensors={dndSensors} onDragStart={({ active }) => setDragTaskId(String(active.id).replace("task-", ""))} onDragEnd={handleDragEnd}>
     <div className="app-wrapper">
       <div className="score-panel animated-fade-in">
         <span className="score-icon">⚡</span>
@@ -1629,5 +1664,24 @@ export default function App() {
 
       <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} onAddTask={handleAddTask} onAddSubtask={handleAddSubtask} onDeleteSubtask={handleDeleteSubtask} onKillTask={handleKill} onSetVital={handleToggleVital} onSetUrgency={handleSetUrgency} calendarToken={calendarToken} companionFlash={companionFlash} />
     </div>
+    <DragOverlay>
+      {draggedTask ? (
+        <div style={{
+          background: 'rgba(30,30,60,0.95)',
+          border: '2px solid rgba(255,255,255,0.3)',
+          borderRadius: '12px',
+          padding: '10px 16px',
+          color: '#fff',
+          fontSize: '0.95rem',
+          fontFamily: "'Inter', sans-serif",
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          maxWidth: '280px',
+          pointerEvents: 'none',
+        }}>
+          {draggedTask.text}
+        </div>
+      ) : null}
+    </DragOverlay>
+    </DndContext>
   );
 }
