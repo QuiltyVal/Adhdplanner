@@ -223,6 +223,19 @@ Important:
 - `vercel.json` was changed to remove Vercel crons; once that deploy lands, duplicate nudges from Vercel should stop
 - `CRON_SECRET` is now shared between Vercel and Hetzner; rotate it later in both places
 
+## Telegram shortlist follow-up bug
+
+Resolved in local code on 2026-04-11:
+- live `telegramLogs` proved that after `suggest_unpin_today`, the follow-up `давай последнюю` was still being parsed as AI intent `set_today`
+- root cause was not Firestore context loss: `telegramContext.lastAction='suggest_unpin_today'` and `candidateTaskIds` were present in Firestore
+- root cause was a router regex bug: JavaScript `\b` did not match Cyrillic follow-up phrases like `давай последнюю`, so the selection-context override never ran
+- fix lives in `api/_lib/planner-agent-router.js` and replaces those checks with Unicode-safe `(\s|$)` boundaries
+
+If this bug appears again:
+1. inspect `telegramLogs`
+2. compare `message_in` + `intent`
+3. if the follow-up intent becomes `set_today`/`chat` instead of `unset_today`, inspect router phrase matching first before changing Firestore logic
+
 ## Drag & drop — план для следующего агента
 
 Пользователь хочет:

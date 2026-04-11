@@ -64,9 +64,9 @@ function extractTaskNameForUnsetToday(text = "") {
 function looksLikeTodaySelectionReply(text = "") {
   const lowered = String(text).toLowerCase().trim();
   return (
-    /^(давай|тогда|ок|ладно|хорошо)\b/.test(lowered) ||
-    /^(последн|перв|втор|треть|эту|эту давай|ее|её)\b/.test(lowered) ||
-    /^нет\b/.test(lowered)
+    /^(давай|тогда|ок|ладно|хорошо)(\s|$)/u.test(lowered) ||
+    /^(последн|перв|втор|треть|эту|эту давай|ее|её)(\s|$)/u.test(lowered) ||
+    /^нет(\s|$)/u.test(lowered)
   );
 }
 

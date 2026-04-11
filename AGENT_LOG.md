@@ -421,3 +421,15 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - the recommendation is currently a simple “lowest-priority pinned task”; if the product logic changes, keep it aligned with mission/today selection rather than inventing separate ranking rules
+
+## 2026-04-11 17:55 Europe/Berlin - Codex
+
+- Summary: Found the real reason why Telegram still ignored `давай последнюю`. It was not a deployment mystery: the shared router used JavaScript `\b` word-boundary checks on Cyrillic phrases, so the selection-context override never triggered and the message fell through to the AI parser as `set_today`.
+- Changed:
+  - `api/_lib/planner-agent-router.js`
+- Verified:
+  - local repro before fix: `routePlannerAgentInput({ text: 'давай последнюю', telegramContext.lastAction='suggest_unpin_today' })` fell through to AI parsing
+  - local repro after fix: same input now routes to `{ type: 'unset_today', taskRef: 'последнюю', source: 'selection_context' }`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - other Cyrillic regexes should avoid `\b`; if similar “human follow-up not understood” bugs appear, inspect for ASCII-only boundary assumptions first
