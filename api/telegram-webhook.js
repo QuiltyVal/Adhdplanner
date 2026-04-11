@@ -96,6 +96,202 @@ function resolveTaskReference(plannerData, taskQuery, allowedStatuses = ["active
   return findTaskByText(plannerData.tasks, query, allowedStatuses);
 }
 
+async function handleReopenTaskRequest(chatId, plannerData, taskQuery = "") {
+  const task = resolveTaskReference(plannerData, taskQuery, ["completed", "dead"]);
+
+  if (!task) {
+    await sendText(chatId, "Не нашла задачу, которую нужно вернуть в активные.");
+    return;
+  }
+
+  let reopenedTask = null;
+  await mutatePlanner(
+    getTargetUserId(),
+    (current) => {
+      const tasks = current.tasks.map((currentTask) => {
+        if (currentTask.id !== task.id) return currentTask;
+        reopenedTask = {
+          ...currentTask,
+          status: "active",
+          isToday: false,
+          heatBase: typeof currentTask.heatBase === "number" ? currentTask.heatBase : 35,
+          heatCurrent:
+            typeof currentTask.heatCurrent === "number"
+              ? currentTask.heatCurrent
+              : typeof currentTask.heatBase === "number"
+                ? currentTask.heatBase
+                : 35,
+          lastUpdated: Date.now(),
+          deadAt: null,
+        };
+        return reopenedTask;
+      });
+
+      return {
+        ...current,
+        tasks,
+        telegramContext: buildTelegramContext(reopenedTask || task, "reopen"),
+      };
+    },
+    {
+      source: "telegram",
+      reason: "reopen_from_text",
+    },
+  );
+
+  if (!reopenedTask) {
+    await sendText(chatId, "Не смогла вернуть задачу в активные.");
+    return;
+  }
+
+  await sendText(
+    chatId,
+    `↩️ <b>${escapeHtml(reopenedTask.text)}</b> снова в активных.`,
+    { reply_markup: plannerTaskKeyboard(reopenedTask.id) },
+  );
+
+  await safeWriteTelegramLog({
+    kind: "action",
+    action: "reopen_from_text",
+    chatId: String(chatId),
+    taskId: reopenedTask.id,
+    taskText: reopenedTask.text,
+  });
+}
+
+async function handleSetTodayRequest(chatId, plannerData, taskQuery = "") {
+  const task = resolveTaskReference(plannerData, taskQuery, ["active"]);
+
+  if (!task) {
+    await sendText(chatId, "Не нашла активную задачу, которую нужно закрепить на сегодня.");
+    return;
+  }
+
+  if (task.isToday) {
+    await sendText(
+      chatId,
+      `📌 <b>${escapeHtml(task.text)}</b> уже закреплена на сегодня.`,
+      { reply_markup: plannerTaskKeyboard(task.id) },
+    );
+    return;
+  }
+
+  const currentTodayCount = plannerData.tasks.filter((item) => item.status === "active" && item.isToday).length;
+  if (currentTodayCount >= 3) {
+    await sendText(chatId, "На сегодня уже закреплены 3 задачи. Сначала открепи что-то лишнее.");
+    return;
+  }
+
+  let updatedTask = null;
+  await mutatePlanner(
+    getTargetUserId(),
+    (current) => {
+      const tasks = current.tasks.map((currentTask) => {
+        if (currentTask.id !== task.id) return currentTask;
+        updatedTask = {
+          ...currentTask,
+          isToday: true,
+          lastUpdated: Date.now(),
+        };
+        return updatedTask;
+      });
+
+      return {
+        ...current,
+        tasks,
+        telegramContext: buildTelegramContext(updatedTask || task, "today"),
+      };
+    },
+    {
+      source: "telegram",
+      reason: "set_today_from_text",
+    },
+  );
+
+  if (!updatedTask) {
+    await sendText(chatId, "Не смогла закрепить задачу на сегодня.");
+    return;
+  }
+
+  await sendText(
+    chatId,
+    `📌 Закрепила на сегодня: <b>${escapeHtml(updatedTask.text)}</b>`,
+    { reply_markup: plannerTaskKeyboard(updatedTask.id) },
+  );
+
+  await safeWriteTelegramLog({
+    kind: "action",
+    action: "set_today_from_text",
+    chatId: String(chatId),
+    taskId: updatedTask.id,
+    taskText: updatedTask.text,
+  });
+}
+
+async function handleSetVitalRequest(chatId, plannerData, taskQuery = "") {
+  const task = resolveTaskReference(plannerData, taskQuery, ["active"]);
+
+  if (!task) {
+    await sendText(chatId, "Не нашла активную задачу, которую нужно сделать критичной.");
+    return;
+  }
+
+  if (task.isVital) {
+    await sendText(
+      chatId,
+      `🚨 <b>${escapeHtml(task.text)}</b> уже помечена как критичная.`,
+      { reply_markup: plannerTaskKeyboard(task.id) },
+    );
+    return;
+  }
+
+  let updatedTask = null;
+  await mutatePlanner(
+    getTargetUserId(),
+    (current) => {
+      const tasks = current.tasks.map((currentTask) => {
+        if (currentTask.id !== task.id) return currentTask;
+        updatedTask = {
+          ...currentTask,
+          isVital: true,
+          urgency: "high",
+          lastUpdated: Date.now(),
+        };
+        return updatedTask;
+      });
+
+      return {
+        ...current,
+        tasks,
+        telegramContext: buildTelegramContext(updatedTask || task, "vital"),
+      };
+    },
+    {
+      source: "telegram",
+      reason: "set_vital_from_text",
+    },
+  );
+
+  if (!updatedTask) {
+    await sendText(chatId, "Не смогла пометить задачу как критичную.");
+    return;
+  }
+
+  await sendText(
+    chatId,
+    `🚨 Пометила как критичную: <b>${escapeHtml(updatedTask.text)}</b>`,
+    { reply_markup: plannerTaskKeyboard(updatedTask.id) },
+  );
+
+  await safeWriteTelegramLog({
+    kind: "action",
+    action: "set_vital_from_text",
+    chatId: String(chatId),
+    taskId: updatedTask.id,
+    taskText: updatedTask.text,
+  });
+}
+
 function looksLikeReopenRequest(text = "") {
   const lowered = String(text).toLowerCase();
   return /верни|вернуть|из рая|назад в актив/.test(lowered) && /(задач|е[её]|\bее\b|\bеё\b|\bэту\b)/.test(lowered);
@@ -118,6 +314,20 @@ function extractTaskNameForCompletion(text = "") {
     .trim();
 
   return cleaned && !/^(е[её]|эту|эту задачу)$/i.test(cleaned) ? cleaned : "";
+}
+
+function extractTaskNameForReopen(text = "") {
+  const quoted = extractQuotedSegments(text);
+  if (quoted.length > 0) return quoted[0];
+
+  const cleaned = String(text)
+    .replace(/^(ну\s+)?(нет\s+)?/i, "")
+    .replace(/^(верни|вернуть|воскреси|восстанови|достань)\s+/i, "")
+    .replace(/\s+(назад\s+)?(в активные|в активную|из рая|обратно)$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned && !/^(е[её]|эту|эту задачу|последнюю|последнюю задачу)$/i.test(cleaned) ? cleaned : "";
 }
 
 function parseDeleteSubtaskRequest(text = "") {
@@ -742,9 +952,7 @@ async function handleAddSubtaskRequest(chatId, plannerData, request) {
 }
 
 async function handleCompleteTaskRequest(chatId, plannerData, taskQuery = "") {
-  const task =
-    (taskQuery && findTaskByText(plannerData.tasks, taskQuery, ["active"])) ||
-    resolveContextTask(plannerData, { statuses: ["active"] });
+  const task = resolveTaskReference(plannerData, taskQuery, ["active"]);
 
   if (!task) {
     await sendText(chatId, "Не нашла активную задачу, которую нужно отправить в рай.");
@@ -834,7 +1042,7 @@ async function handlePlainCapture(chatId, text) {
   }
 
   if (looksLikeReopenRequest(cleaned)) {
-    await handleReopenLatestCompleted(chatId, plannerData);
+    await handleReopenTaskRequest(chatId, plannerData, extractTaskNameForReopen(cleaned));
     return;
   }
 
@@ -888,8 +1096,11 @@ async function handlePlainCapture(chatId, text) {
       return;
     }
 
+    const referencedTask = resolveTaskReference(plannerData, intent.task_ref || "", ["active", "completed", "dead"]);
+    const eventTitle = referencedTask?.text || intent.task_text || cleaned;
+
     const createdEvent = await createCalendarEvent(userId, {
-      title: intent.task_text || cleaned,
+      title: eventTitle,
       date: intent.deadline_at,
       startTime: intent.start_time,
       durationMinutes: intent.duration_minutes || 60,
@@ -898,8 +1109,28 @@ async function handlePlainCapture(chatId, text) {
 
     await sendText(
       chatId,
-      `📅 Поставила в календарь: <b>${escapeHtml(createdEvent.summary || intent.task_text || cleaned)}</b>\n${escapeHtml(intent.deadline_at)} ${escapeHtml(intent.start_time)}`,
+      `📅 Поставила в календарь: <b>${escapeHtml(createdEvent.summary || eventTitle)}</b>\n${escapeHtml(intent.deadline_at)} ${escapeHtml(intent.start_time)}`,
     );
+    return;
+  }
+
+  if (intent.intent === "complete_task") {
+    await handleCompleteTaskRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
+    return;
+  }
+
+  if (intent.intent === "reopen_task") {
+    await handleReopenTaskRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
+    return;
+  }
+
+  if (intent.intent === "set_today") {
+    await handleSetTodayRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
+    return;
+  }
+
+  if (intent.intent === "set_vital") {
+    await handleSetVitalRequest(chatId, plannerData, intent.task_ref || intent.task_text || "");
     return;
   }
 

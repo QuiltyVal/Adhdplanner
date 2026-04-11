@@ -346,3 +346,15 @@ Entry template:
     - Vercel env `CRON_SECRET`
     - `/root/adhd-mcp/.telegram-nudge.env`
   - after `vercel.json` deploy, Vercel cron duplicates should stop
+
+## 2026-04-11 11:20 Europe/Berlin - Codex
+
+- Summary: Extended Telegram context routing beyond subtasks. The AI intent layer now supports `complete_task`, `reopen_task`, `set_today`, `set_vital`, and `schedule_task` with `task_ref`, and the webhook resolves these against `telegramContext.lastTaskId` or task text server-side.
+- Changed:
+  - `api/_lib/telegram-intent.js`
+  - `api/telegram-webhook.js`
+- Verified:
+  - `node -e "require('./api/_lib/planner-store'); require('./api/_lib/telegram-intent'); require('./api/telegram-webhook'); console.log('server ok')"`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - this is the first real action-router pass; if future phrasing gaps appear, prefer improving shared `task_ref` resolution over adding isolated regex branches
