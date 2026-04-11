@@ -565,10 +565,14 @@ export default function App() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
 
-  // Pointer-within first (precise small targets like angel/devil), fallback to closestCenter for zones
+  // Companions (angel/devil) always win over zone columns when pointer is inside both
   const dndCollision = useCallback((args) => {
     const pw = pointerWithin(args);
-    if (pw.length > 0) return pw;
+    if (pw.length > 0) {
+      const companion = pw.find(c => c.id === "drop-devil" || c.id === "drop-angel");
+      if (companion) return [companion];
+      return pw;
+    }
     return closestCenter(args);
   }, []);
   const [panicTaskId, setPanicTaskId] = useState(null);
