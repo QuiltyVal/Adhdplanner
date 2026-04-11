@@ -1171,7 +1171,8 @@ export default function App() {
   const handleDragEnd = ({ active, over }) => {
     setDragTaskId(null);
     if (!active || !over) return;
-    const taskId = String(active.id).replace("task-", "");
+    const rawId = String(active.id).replace("task-", "");
+    const taskId = isNaN(rawId) ? rawId : Number(rawId);
     if (over.id === "drop-devil") {
       handleKill(taskId);
       return;
@@ -1440,7 +1441,7 @@ export default function App() {
   const draggedTask = dragTaskId ? tasks.find(t => t.id === dragTaskId) : null;
 
   return (
-    <DndContext sensors={dndSensors} onDragStart={({ active }) => setDragTaskId(String(active.id).replace("task-", ""))} onDragEnd={handleDragEnd}>
+    <DndContext sensors={dndSensors} onDragStart={({ active }) => { const r = String(active.id).replace("task-", ""); setDragTaskId(isNaN(r) ? r : Number(r)); }} onDragEnd={handleDragEnd}>
     <div className="app-wrapper">
       <div className="score-panel animated-fade-in">
         <span className="score-icon">⚡</span>
