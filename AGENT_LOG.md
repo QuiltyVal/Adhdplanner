@@ -29,6 +29,20 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-11 (evening) — Claude (Sonnet 4.6, remote session)
+
+- Summary: Replaced all regex-based Telegram routing with unified LLM intent router. Bot now has 12 intents and full conversation context — "давай последнюю" after suggest_unpin now resolves correctly.
+- Changed:
+  - `api/_lib/telegram-intent.js`: full rewrite. 12 intents (add_task, complete_task, reopen_task, delete_subtask, add_subtask, set_today, unset_today, set_vital, suggest_unpin, show_today, panic, schedule_task, chat). Rich system prompt with full task list + telegramContext.suggestedTaskTexts. No regex post-processing.
+  - `api/_lib/planner-store.js`: buildTelegramContext now accepts extra={} fields; ensurePlannerDoc preserves suggestedTaskTexts.
+  - `api/telegram-webhook.js`: removed regex pre-filters. Added handlers: handleSuggestUnpin, handleSetToday, handleUnsetToday, handleSetVital, handleAddSubtask, handleReopenTask. handlePlainCapture passes full telegramContext to LLM.
+- Verified:
+  - `node server ok` passes, `npm run build` passes, pushed to main
+- Risks / follow-up:
+  - **⚠️ Hetzner still needs deploy**: `git pull origin main && pm2 restart all`
+  - After deploy, test: "предложи что открепить" → "давай последнюю"
+  - Codex's planner-agent-router.js / planner-action-executor.js were in their commits — after rebase those are replaced by this cleaner unified approach
+
 ## 2026-04-11 12:15 Europe/Berlin - Codex
 
 - Summary: Extracted Telegram text routing into a dedicated `planner-agent-router` module so incoming bot messages now go through one shared decision point before hitting execution handlers.
