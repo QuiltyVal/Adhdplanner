@@ -66,6 +66,27 @@ function findSubtaskByText(subtasks = [], query) {
   );
 }
 
+function looksLikeContextTaskQuery(query = "") {
+  const lowered = normalizeTaskText(query)
+    .replace(/[«»"]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!lowered) return true;
+
+  return (
+    /последн.*добавлен.*задач/.test(lowered) ||
+    /последн.*задач/.test(lowered) ||
+    /текущ.*задач/.test(lowered) ||
+    /это[йу]?\s+задач/.test(lowered) ||
+    /эту\s+задачу/.test(lowered) ||
+    /к ней/.test(lowered) ||
+    /к н[её]й задаче/.test(lowered) ||
+    /е[её]\s+в\s+активн/.test(lowered) ||
+    /^(е[её]|эта|эту|этой|ней|ней задаче|последняя|последнюю|последней)$/.test(lowered)
+  );
+}
+
 function looksLikeReopenRequest(text = "") {
   const lowered = String(text).toLowerCase();
   return /верни|вернуть|из рая|назад в актив/.test(lowered) && /(задач|е[её]|\bее\b|\bеё\b|\bэту\b)/.test(lowered);
@@ -639,7 +660,11 @@ async function handleDeleteSubtaskRequest(chatId, plannerData, request) {
 }
 
 async function handleAddSubtaskRequest(chatId, plannerData, request) {
-  const task = findTaskByText(plannerData.tasks, request.taskText, ["active"]);
+  const task =
+    (looksLikeContextTaskQuery(request.taskText)
+      ? resolveContextTask(plannerData, { statuses: ["active"] })
+      : null) ||
+    findTaskByText(plannerData.tasks, request.taskText, ["active"]);
   if (!task) {
     await sendText(chatId, `Не нашла активную задачу: <b>${escapeHtml(request.taskText)}</b>`);
     return;

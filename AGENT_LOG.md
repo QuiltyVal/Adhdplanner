@@ -289,3 +289,14 @@ Entry template:
   - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); console.log('server ok')"`
 - Risks / follow-up:
   - this hardens refreshed clients and auto-heals invalid protected dead tasks, but a truly old already-open browser tab can still keep trying stale writes until the tab is refreshed or closed
+
+## 2026-04-11 00:10 Europe/Berlin - Codex
+
+- Summary: Fixed Telegram subtask routing for context references like “добавь к последней добавленной задаче подзадачу …”. The bot now resolves these phrases via `telegramContext.lastTaskId` instead of searching for a literal task named “последней добавленной задаче”.
+- Changed:
+  - `api/telegram-webhook.js`
+- Verified:
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); console.log('server ok')"`
+- Risks / follow-up:
+  - this fixes relative references for add-subtask; broader natural-language task references still deserve a shared resolver instead of scattered regexes
