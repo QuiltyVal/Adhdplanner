@@ -9,10 +9,10 @@ function DraggableTask({ id, children }) {
   return (
     <div
       ref={setNodeRef}
-      className="draggable-task-wrapper"
       style={{
         transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.35 : 1,
+        position: 'relative',
       }}
       {...attributes}
     >
@@ -22,9 +22,7 @@ function DraggableTask({ id, children }) {
         style={{ touchAction: 'none' }}
         title="Перетащить"
       >⠿</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
