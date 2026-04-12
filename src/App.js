@@ -1642,13 +1642,11 @@ export default function App() {
             <p className="greeting-text">Привет, {user?.first_name || "Гость"}!</p>
           </div>
           <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
-            {rescueTask && (
-              <button
-                onClick={() => setFogMode(f => !f)}
-                className={`theme-toggle-btn${fogMode ? ' fog-btn-active' : ''}`}
-                title={fogMode ? 'Выйти из режима тумана' : 'Режим тумана — один фокус'}
-              >🌫️</button>
-            )}
+            <button
+              onClick={() => setFogMode(f => !f)}
+              className={`theme-toggle-btn${fogMode ? ' fog-btn-active' : ''}`}
+              title={fogMode ? 'Выйти из режима тумана' : 'Режим тумана — один фокус'}
+            >🌫️</button>
             <button onClick={toggleTheme} className="theme-toggle-btn" title="Сменить тему">
               {theme === 'dark' ? '🌆' : theme === 'neon' ? '☀️' : '🌙'}
             </button>
@@ -2032,41 +2030,55 @@ export default function App() {
       ) : null}
     </DragOverlay>
 
-    {fogMode && rescueTask && (
-      <div className="fog-overlay" onClick={() => setFogMode(false)}>
-        <div className="fog-card" onClick={e => e.stopPropagation()}>
-          <div className="fog-label">🌫️ ФОКУС СЕЙЧАС</div>
-          <h2 className="fog-task-title">{rescueTask.text}</h2>
+    {fogMode && (() => {
+      const fogTask = rescueTask || activeTasks[0] || null;
+      return (
+        <div className="fog-overlay" onClick={() => setFogMode(false)}>
+          <div className="fog-card" onClick={e => e.stopPropagation()}>
+            {fogTask ? (
+              <>
+                <div className="fog-label">🌫️ ФОКУС СЕЙЧАС</div>
+                <h2 className="fog-task-title">{fogTask.text}</h2>
 
-          {(rescueTask.subtasks || []).length > 0 && (
-            <div className="fog-subtasks">
-              {rescueTask.subtasks.map(sub => (
-                <div key={sub.id} className={`fog-subtask${sub.completed ? ' done' : ''}`}>
-                  <span className="fog-subtask-dot">{sub.completed ? '✓' : '○'}</span>
-                  {sub.text}
+                {(fogTask.subtasks || []).length > 0 && (
+                  <div className="fog-subtasks">
+                    {fogTask.subtasks.map(sub => (
+                      <div key={sub.id} className={`fog-subtask${sub.completed ? ' done' : ''}`}>
+                        <span className="fog-subtask-dot">{sub.completed ? '✓' : '○'}</span>
+                        {sub.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="fog-actions">
+                  <button className="fog-action primary" onClick={() => { handleComplete(fogTask.id); setFogMode(false); }}>
+                    ✅ Выполнено
+                  </button>
+                  <button className="fog-action" onClick={() => { handleTouch(fogTask.id); setNudgeStatus("Пульс задан!"); }}>
+                    ⚡ Дать импульс
+                  </button>
+                  <button className="fog-action panic" onClick={() => { setFogMode(false); openPanicMode(fogTask); }}>
+                    🆘 Паника
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
+              </>
+            ) : (
+              <>
+                <div className="fog-label">🌫️ РЕЖИМ ТУМАНА</div>
+                <p style={{color: 'rgba(240,224,255,0.6)', textAlign: 'center', margin: 0, fontSize: '1rem'}}>
+                  Нет активных задач.<br />Добавь задачу — туман откроется.
+                </p>
+              </>
+            )}
 
-          <div className="fog-actions">
-            <button className="fog-action primary" onClick={() => { handleComplete(rescueTask.id); setFogMode(false); }}>
-              ✅ Выполнено
-            </button>
-            <button className="fog-action" onClick={() => { handleTouch(rescueTask.id); setNudgeStatus("Пульс задан!"); }}>
-              ⚡ Дать импульс
-            </button>
-            <button className="fog-action panic" onClick={() => { setFogMode(false); openPanicMode(rescueTask); }}>
-              🆘 Паника
+            <button className="fog-exit" onClick={() => setFogMode(false)}>
+              Выйти из тумана
             </button>
           </div>
-
-          <button className="fog-exit" onClick={() => setFogMode(false)}>
-            Выйти из тумана
-          </button>
         </div>
-      </div>
-    )}
+      );
+    })()}
     {restoreTarget && (
       <div className="fog-overlay" onClick={() => setRestoreTarget(null)}>
         <div className="fog-card" style={{maxWidth: '440px'}} onClick={e => e.stopPropagation()}>
