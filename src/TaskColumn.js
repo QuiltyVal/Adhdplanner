@@ -405,26 +405,40 @@ export default function TaskColumn({
 
       {/* Subtasks block */}
       <div className="subtasks-container">
-        {(task.subtasks || []).map(sub => (
-          <div key={sub.id} className="subtask-item">
+        {(task.subtasks || []).map(sub => {
+          const isEditingThis = editingSubtask && editingSubtask.taskId === task.id && editingSubtask.subId === sub.id;
+          return (
+          <div key={sub.id} className={`subtask-item${isEditingThis ? ' subtask-item--editing' : ''}`}>
             <input
               type="checkbox"
               checked={sub.completed}
               onChange={() => onToggleSubtask(task.id, sub.id)}
               className="subtask-checkbox"
             />
-            {editingSubtask && editingSubtask.taskId === task.id && editingSubtask.subId === sub.id ? (
-              <input
+            {isEditingThis ? (
+              <textarea
                 autoFocus
+                rows={1}
                 className="subtask-edit-input"
                 value={editingSubtask.text}
-                onChange={e => setEditingSubtask({ ...editingSubtask, text: e.target.value })}
+                ref={el => {
+                  if (el) {
+                    el.style.height = 'auto';
+                    el.style.height = el.scrollHeight + 'px';
+                  }
+                }}
+                onChange={e => {
+                  setEditingSubtask({ ...editingSubtask, text: e.target.value });
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
                 onBlur={() => {
                   if (onEditSubtask) onEditSubtask(task.id, sub.id, editingSubtask.text);
                   setEditingSubtask(null);
                 }}
                 onKeyDown={e => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
                     if (onEditSubtask) onEditSubtask(task.id, sub.id, editingSubtask.text);
                     setEditingSubtask(null);
                   } else if (e.key === 'Escape') {
@@ -449,7 +463,8 @@ export default function TaskColumn({
               >×</button>
             )}
           </div>
-        ))}
+          );
+        })}
         
         <div className="subtask-add-row">
           <input 

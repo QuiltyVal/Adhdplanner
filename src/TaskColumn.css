@@ -662,6 +662,10 @@
   color: #c0c0c0;
 }
 
+.subtask-item--editing {
+  align-items: flex-start;
+}
+
 .subtask-checkbox {
   width: 16px;
   height: 16px;
@@ -686,15 +690,24 @@
 
 .subtask-edit-input {
   flex: 1;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid #8a1c1c;
-  color: #e0e0e0;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  color: #f0f0f0;
   font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
+  line-height: 1.4;
   outline: none;
-  padding: 2px 4px;
+  padding: 5px 8px;
+  resize: none;
+  overflow: hidden;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.subtask-edit-input:focus {
+  border-color: rgba(180, 130, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .subtask-delete-btn {

@@ -419,6 +419,15 @@ input, textarea {
 }
 [data-theme="light"] .subtask-add-btn:hover { background: #c084fc; border-color: #c084fc; color: #fff; }
 [data-theme="light"] .subtask-checkbox { accent-color: #c084fc; }
+[data-theme="light"] .subtask-edit-input {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(124, 58, 237, 0.35);
+  color: #2d1b4e;
+}
+[data-theme="light"] .subtask-edit-input:focus {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.05);
+}
 
 /* Companions */
 [data-theme="light"] .avatar {
