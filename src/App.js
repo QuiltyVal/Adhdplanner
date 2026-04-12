@@ -806,47 +806,60 @@ export default function App() {
   }, [tasks, score, dataLoaded, user?.id]);
 
   // Game tick (cooling tasks based on heatBase and lastUpdated)
+  // Uses functional setTasks so it always operates on the latest state —
+  // prevents a stale closure from reverting a just-completed task back to active.
   useEffect(() => {
-    if (loading || !dataLoaded || tasks.length === 0) return;
+    if (loading || !dataLoaded) return;
+    // Accumulate newly-dead tasks outside the updater so we can persist them.
+    const pendingDead = { current: [] };
     const interval = setInterval(() => {
       const now = Date.now();
-      let changed = false;
-      let newScore = score;
-      const newlyDead = [];
+      pendingDead.current = [];
 
-      const updatedTasks = tasks.map(task => {
-        if (task.status !== "active") return task;
-        const timeElapsed = now - task.lastUpdated;
-        const decayWindowMs = getTaskDecayWindowMs(task);
-        const currentHeatValue = Math.max(0, task.heatBase * (1 - timeElapsed / decayWindowMs));
-        const newTask = { ...task, heatCurrent: currentHeatValue };
-        const protectedFromAutoDeath = isAutoDeathProtected(task);
+      setTasks(prevTasks => {
+        if (prevTasks.length === 0) return prevTasks;
+        let changed = false;
+        const dead = [];
 
-        if (currentHeatValue <= 0 && !protectedFromAutoDeath) {
-          newTask.status = "dead";
-          newTask.deadAt = now;
-          newTask.isToday = false;
-          newScore -= 5;
-          changed = true;
-          newlyDead.push(newTask);
-        } else if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
-          changed = true;
-        }
-        return newTask;
+        const next = prevTasks.map(task => {
+          if (task.status !== "active") return task;
+          const timeElapsed = now - task.lastUpdated;
+          const decayWindowMs = getTaskDecayWindowMs(task);
+          const currentHeatValue = Math.max(0, task.heatBase * (1 - timeElapsed / decayWindowMs));
+          const newTask = { ...task, heatCurrent: currentHeatValue };
+          const protectedFromAutoDeath = isAutoDeathProtected(task);
+
+          if (currentHeatValue <= 0 && !protectedFromAutoDeath) {
+            newTask.status = "dead";
+            newTask.deadAt = now;
+            newTask.isToday = false;
+            changed = true;
+            dead.push(newTask);
+          } else if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
+            changed = true;
+          }
+          return newTask;
+        });
+
+        pendingDead.current = dead;
+        return changed ? next : prevTasks;
       });
 
-      if (changed) {
-        setTasks(updatedTasks);
-        if (newScore !== score) {
-          setScore(newScore);
-          persistScore(newScore);
-        }
-        // Only persist tasks whose status changed (died) — not heat-only updates
-        newlyDead.forEach(t => persistTask(t));
+      // Handle score + Firestore persist for tasks that just died.
+      // Runs synchronously after setTasks is enqueued; pendingDead is already populated.
+      const dead = pendingDead.current;
+      if (dead.length > 0) {
+        const penalty = dead.length * 5;
+        setScore(s => {
+          const newS = s - penalty;
+          persistScore(newS);
+          return newS;
+        });
+        dead.forEach(t => persistTask(t));
       }
     }, 10000);
     return () => clearInterval(interval);
-  }, [tasks, score, loading]);
+  }, [loading, dataLoaded]);
 
   const activeTasks = tasks.filter((task) => task.status === "active");
   const completedTasks = tasks.filter((task) => task.status === "completed");
@@ -1172,7 +1185,18 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map((task) => {
       if (task.id !== taskId) return task;
-      saved = { ...task, status: "completed", isToday: false, lastUpdated: Date.now() };
+      // Auto-complete all subtasks and set heat to 100 so the task
+      // is unambiguously done regardless of prior subtask state.
+      const completedSubtasks = (task.subtasks || []).map(s => ({ ...s, completed: true }));
+      saved = {
+        ...task,
+        status: "completed",
+        isToday: false,
+        lastUpdated: Date.now(),
+        subtasks: completedSubtasks,
+        heatBase: 100,
+        heatCurrent: 100,
+      };
       return saved;
     }));
     const newScore = score + 10;
