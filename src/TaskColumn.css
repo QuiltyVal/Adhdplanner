@@ -653,6 +653,46 @@
   gap: 8px;
 }
 
+.draggable-task-wrapper {
+  display: flex;
+  align-items: stretch;
+}
+
+.drag-handle {
+  width: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: rgba(255, 255, 255, 0.1);
+  font-size: 1rem;
+  line-height: 1;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  border-radius: 4px 0 0 4px;
+}
+.drag-handle:active { cursor: grabbing; }
+
+.draggable-task-wrapper:hover .drag-handle { opacity: 1; color: rgba(255, 255, 255, 0.3); }
+
+/* Always visible on touch devices */
+@media (hover: none) {
+  .drag-handle {
+    opacity: 1;
+    color: rgba(255, 255, 255, 0.25);
+  }
+}
+
+/* Light theme handle */
+[data-theme="light"] .drag-handle { color: rgba(100, 50, 150, 0.15); }
+[data-theme="light"] .draggable-task-wrapper:hover .drag-handle { color: rgba(100, 50, 150, 0.45); }
+
+/* Neon theme handle */
+[data-theme="neon"] .drag-handle { color: rgba(255, 45, 120, 0.15); }
+[data-theme="neon"] .draggable-task-wrapper:hover .drag-handle { color: rgba(255, 45, 120, 0.5); }
+
 .subtask-item {
   display: flex;
   align-items: center;
