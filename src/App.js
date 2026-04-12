@@ -40,6 +40,16 @@ const CLOUD_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
 const DEVIL_AUTO_CLEAN_THRESHOLD = 5;   // purgatory tasks before devil intervenes
 const DEVIL_AUTO_CLEAN_COOLDOWN_MS = 30 * 60 * 1000; // 30 min between auto-cleans
 
+function formatTimeSpent(ms) {
+  if (!ms || ms <= 0) return "—";
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return "< 1 мин";
+  if (minutes < 60) return `${minutes} мин`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours} ч ${mins} мин` : `${hours} ч`;
+}
+
 function getDayNumberFromIsoDate(isoDate) {
   if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
   const [year, month, day] = isoDate.split("-").map(Number);
@@ -1769,6 +1779,9 @@ export default function App() {
         <button className={`tab-btn ${activeTab === 'cemetery' ? 'active tab-cemetery' : ''}`} onClick={() => setActiveTab('cemetery')}>
           🪦 {deadTasks.length} Кладбище
         </button>
+        <button className={`tab-btn ${activeTab === 'stats' ? 'active tab-stats' : ''}`} onClick={() => setActiveTab('stats')}>
+          📊 Прогресс
+        </button>
       </div>
 
       {activeTab === 'active' && (
@@ -1814,6 +1827,62 @@ export default function App() {
         )}
         {activeTab === 'heaven' && <TaskColumn type="heaven" tasks={completedTasks} onReopenCompleted={handleReopenCompleted} />}
         {activeTab === 'cemetery' && <TaskColumn type="cemetery" tasks={deadTasks} onResurrect={handleResurrect} />}
+        {activeTab === 'stats' && (() => {
+          const totalMs = tasks.reduce((sum, t) => sum + (t.timeSpent || 0), 0);
+          const topByTime = [...tasks]
+            .filter(t => (t.timeSpent || 0) > 0)
+            .sort((a, b) => (b.timeSpent || 0) - (a.timeSpent || 0))
+            .slice(0, 7);
+          const statusEmoji = t => t.status === 'completed' ? '☁️' : t.status === 'dead' ? '🪦' : '🔥';
+          const streakLabel = pulseState.streak === 1 ? 'день подряд' : pulseState.streak >= 2 && pulseState.streak <= 4 ? 'дня подряд' : 'дней подряд';
+          return (
+            <div className="stats-panel animated-fade-in">
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-icon">⏱️</div>
+                  <div className="stat-value">{formatTimeSpent(totalMs)}</div>
+                  <div className="stat-label">вложено времени</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon">☁️</div>
+                  <div className="stat-value">{completedTasks.length}</div>
+                  <div className="stat-label">завершено задач</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon">⚡</div>
+                  <div className="stat-value">{score}</div>
+                  <div className="stat-label">очков набрано</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon">🔥</div>
+                  <div className="stat-value">{pulseState.streak || 0}</div>
+                  <div className="stat-label">{streakLabel}</div>
+                </div>
+              </div>
+
+              {topByTime.length > 0 ? (
+                <div className="stats-top-section">
+                  <h3 className="stats-section-title">Больше всего времени вложено</h3>
+                  <div className="stats-top-list">
+                    {topByTime.map((t, i) => (
+                      <div key={t.id} className="stats-top-item">
+                        <span className="stats-rank">#{i + 1}</span>
+                        <span className="stats-status-icon">{statusEmoji(t)}</span>
+                        <span className="stats-task-name">{t.text}</span>
+                        <span className="stats-time-badge">{formatTimeSpent(t.timeSpent)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="stats-empty">
+                  Пока нет данных о времени.<br />
+                  Запусти спринт через 🆘 Панику — и время начнёт считаться!
+                </p>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} onAddTask={handleAddTask} onAddSubtask={handleAddSubtask} onDeleteSubtask={handleDeleteSubtask} onKillTask={handleKill} onSetVital={handleToggleVital} onSetUrgency={handleSetUrgency} calendarToken={calendarToken} companionFlash={companionFlash} />
