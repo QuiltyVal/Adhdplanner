@@ -668,22 +668,13 @@
   font-size: 1rem;
   line-height: 1;
   user-select: none;
-  opacity: 0;
+  opacity: 0.35;
   transition: opacity 0.15s, color 0.15s;
   border-radius: 4px;
 }
 .drag-handle:active { cursor: grabbing; }
 
-/* Show on card hover (desktop) */
-div:has(> .drag-handle):hover .drag-handle { opacity: 1; color: rgba(255, 255, 255, 0.4); }
-
-/* Always visible on touch devices */
-@media (hover: none) {
-  .drag-handle {
-    opacity: 1;
-    color: rgba(255, 255, 255, 0.3);
-  }
-}
+div:has(> .drag-handle):hover .drag-handle { opacity: 1; color: rgba(255, 255, 255, 0.55); }
 
 /* Mobile: bigger tap target */
 @media (max-width: 768px) {
