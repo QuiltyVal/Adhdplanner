@@ -550,9 +550,11 @@ export default function App() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [minLoadDone, setMinLoadDone] = useState(false);
-  const [isDark, setIsDark] = useState(
-    () => (localStorage.getItem('theme') || 'light') === 'dark'
-  );
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    return saved;
+  });
   const [pulseState, setPulseState] = useState(() => getDefaultPulseState());
   const [highlightTaskId, setHighlightTaskId] = useState(null);
   const [nudgeStatus, setNudgeStatus] = useState("");
@@ -581,11 +583,11 @@ export default function App() {
   const [panicDraftStep, setPanicDraftStep] = useState("");
 
   const toggleTheme = () => {
-    setIsDark(prev => {
-      const next = !prev;
-      const themeName = next ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-theme', themeName);
-      localStorage.setItem('theme', themeName);
+    setTheme(prev => {
+      const order = ['dark', 'neon', 'light'];
+      const next = order[(order.indexOf(prev) + 1) % order.length];
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
       return next;
     });
   };
@@ -1466,7 +1468,7 @@ export default function App() {
           </div>
           <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
             <button onClick={toggleTheme} className="theme-toggle-btn" title="Сменить тему">
-              {isDark ? '☀️' : '🌙'}
+              {theme === 'dark' ? '🌆' : theme === 'neon' ? '☀️' : '🌙'}
             </button>
             <button
               onClick={handleConnectCalendar}
