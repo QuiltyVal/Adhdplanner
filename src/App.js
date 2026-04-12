@@ -564,6 +564,7 @@ export default function App() {
   const [companionFlash, setCompanionFlash] = useState(null);
   const [dragTaskId, setDragTaskId] = useState(null);
   const [fogMode, setFogMode] = useState(false);
+  const [cemeteryDigest, setCemeteryDigest] = useState(null); // { tasks: [...] }
   const devilAutoCleanLastRef = useRef(0);
 
   const dndSensors = useSensors(
@@ -1306,6 +1307,33 @@ export default function App() {
     flashCompanion("devil", DEVIL_AUTO_CLEAN_PHRASES);
   }, [tasks, dataLoaded]); // eslint-disable-line
 
+  // Weekly cemetery digest — angel reminds about dead tasks once per week
+  useEffect(() => {
+    if (!dataLoaded || !user?.id) return;
+    const dead = tasks.filter(t => t.status === "dead");
+    if (dead.length < 3) return;
+
+    const storageKey = `adhd_cemetery_digest_${user.id}`;
+    const lastShown = Number(localStorage.getItem(storageKey) || 0);
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    if (Date.now() - lastShown < WEEK_MS) return;
+
+    // Sort oldest first, show up to 5
+    const sorted = [...dead].sort((a, b) => {
+      const aAt = a.deadAt || (a.id.length >= 10 ? Number(a.id) : 0);
+      const bAt = b.deadAt || (b.id.length >= 10 ? Number(b.id) : 0);
+      return aAt - bAt;
+    });
+
+    localStorage.setItem(storageKey, String(Date.now()));
+    setCemeteryDigest({ tasks: sorted.slice(0, 5) });
+    flashCompanion("angel", [
+      `На кладбище ${dead.length} задач. Может, кому-то дать второй шанс?`,
+      `${dead.length} задач ждут на кладбище. Посмотрим — вдруг что-то стоит воскресить?`,
+      `Я заглянула на кладбище... там ${dead.length} задач. Может, пора освежить список?`,
+    ]);
+  }, [dataLoaded, user?.id]); // eslint-disable-line
+
   const handleConnectCalendar = async () => {
     const calProvider = new GoogleAuthProvider();
     calProvider.addScope("https://www.googleapis.com/auth/calendar");
@@ -1697,6 +1725,40 @@ export default function App() {
         </div>
       )}
       
+      {cemeteryDigest && (
+        <div className="cemetery-digest animated-fade-in">
+          <div className="cemetery-digest-header">
+            <span>👼 Ангел заглянул на кладбище</span>
+            <button className="cemetery-digest-close" onClick={() => setCemeteryDigest(null)}>✕</button>
+          </div>
+          <p className="cemetery-digest-subtitle">
+            {tasks.filter(t => t.status === "dead").length} задач отдыхают. Может, кому-то дать второй шанс?
+          </p>
+          <div className="cemetery-digest-list">
+            {cemeteryDigest.tasks.map(t => (
+              <div key={t.id} className="cemetery-digest-item">
+                <span className="cemetery-digest-name">{t.text}</span>
+                <button className="cemetery-digest-resurrect" onClick={() => {
+                  handleResurrect(t.id);
+                  setCemeteryDigest(prev => prev
+                    ? { ...prev, tasks: prev.tasks.filter(x => x.id !== t.id) }
+                    : null
+                  );
+                }}>↩️ Воскресить</button>
+              </div>
+            ))}
+          </div>
+          <div className="cemetery-digest-footer">
+            <button className="cemetery-digest-goto" onClick={() => { setActiveTab('cemetery'); setCemeteryDigest(null); }}>
+              Открыть кладбище
+            </button>
+            <button className="cemetery-digest-dismiss" onClick={() => setCemeteryDigest(null)}>
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="tabs-navigation animated-fade-in" style={{maxWidth: '1200px'}}>
         <button className={`tab-btn ${activeTab === 'active' ? 'active tab-active' : ''}`} onClick={() => setActiveTab('active')}>
           🔥 {activeTasks.length} В процессе
