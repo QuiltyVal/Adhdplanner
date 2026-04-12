@@ -37,6 +37,8 @@ const NUDGE_INTERVAL_MS = 20 * 60 * 1000;
 const PULSE_STORAGE_PREFIX = "adhd_planner_pulse";
 const CLOUD_CACHE_PREFIX = "adhd_planner_cloud_cache";
 const CLOUD_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
+const DEVIL_AUTO_CLEAN_THRESHOLD = 5;   // purgatory tasks before devil intervenes
+const DEVIL_AUTO_CLEAN_COOLDOWN_MS = 30 * 60 * 1000; // 30 min between auto-cleans
 
 function getDayNumberFromIsoDate(isoDate) {
   if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
@@ -562,6 +564,7 @@ export default function App() {
   const [companionFlash, setCompanionFlash] = useState(null);
   const [dragTaskId, setDragTaskId] = useState(null);
   const [fogMode, setFogMode] = useState(false);
+  const devilAutoCleanLastRef = useRef(0);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -1238,6 +1241,13 @@ export default function App() {
     "Один взмах — и готово! 😏",
   ];
 
+  const DEVIL_AUTO_CLEAN_PHRASES = [
+    "Чистилище переполнено — берусь за уборку! 😈",
+    "Тут слишком тесно. Освобождаю место... 💀",
+    "Старьё само себя не похоронит! 👿",
+    "Пора навести порядок в этом болоте! 😈",
+  ];
+
   const ANGEL_RESURRECT_PHRASES = [
     "Принимаюсь за работу! 👼",
     "Даю второй шанс! Верю в тебя! ✨",
@@ -1264,6 +1274,37 @@ export default function App() {
     persistScore(newScore);
     flashCompanion("devil", DEVIL_KILL_PHRASES);
   };
+
+  // Devil auto-cleans purgatory when too many cold tasks pile up
+  useEffect(() => {
+    if (!dataLoaded || tasks.length === 0) return;
+    const now = Date.now();
+    if (now - devilAutoCleanLastRef.current < DEVIL_AUTO_CLEAN_COOLDOWN_MS) return;
+
+    const coldUnprotected = tasks.filter(
+      t => t.status === "active" && getTaskHeat(t) <= 25 && !isAutoDeathProtected(t)
+    );
+    if (coldUnprotected.length < DEVIL_AUTO_CLEAN_THRESHOLD) return;
+
+    // Kill the 2 coldest non-protected tasks
+    const sorted = [...coldUnprotected].sort((a, b) => getTaskHeat(a) - getTaskHeat(b));
+    const toKill = sorted.slice(0, 2);
+    const killedTasks = toKill.map(t => ({
+      ...t, status: "dead", isToday: false, lastUpdated: now, deadAt: now,
+    }));
+    const killedById = new Map(killedTasks.map(t => [t.id, t]));
+
+    devilAutoCleanLastRef.current = now;
+
+    setTasks(prev => prev.map(t => killedById.get(t.id) || t));
+    killedTasks.forEach(t => persistTask(t));
+    setScore(s => {
+      const newS = s - 5 * killedTasks.length;
+      persistScore(newS);
+      return newS;
+    });
+    flashCompanion("devil", DEVIL_AUTO_CLEAN_PHRASES);
+  }, [tasks, dataLoaded]); // eslint-disable-line
 
   const handleConnectCalendar = async () => {
     const calProvider = new GoogleAuthProvider();
