@@ -204,25 +204,27 @@ export default function TaskColumn({
       <div className="task-column-container">
         <div className="tasks-grid">
           {tasks.map(task => (
-            <div key={task.id} className="heaven-cloud animated-fade-in">
-              <div className="cloud-icon">🕊️</div>
-              <div className="heaven-task-name">{task.text}</div>
-              {task.subtasks && task.subtasks.length > 0 && (
-                <div className="heaven-subtasks" style={{marginTop: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'left', width: '100%'}}>
-                  {task.subtasks.map(sub => (
-                    <div key={sub.id} style={{textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.6 : 1, marginBottom: '4px'}}>
-                      {sub.completed ? '✓' : '○'} {sub.text}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="points-badge">+10 points</div>
-              {onReopenCompleted && (
-                <button className="reopen-btn" onClick={() => onReopenCompleted(task.id)}>
-                  ↩️ Вернуть в активные
-                </button>
-              )}
-            </div>
+            <DraggableTask key={task.id} id={`task-${task.id}`}>
+              <div className="heaven-cloud animated-fade-in">
+                <div className="cloud-icon">🕊️</div>
+                <div className="heaven-task-name">{task.text}</div>
+                {task.subtasks && task.subtasks.length > 0 && (
+                  <div className="heaven-subtasks" style={{marginTop: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'left', width: '100%'}}>
+                    {task.subtasks.map(sub => (
+                      <div key={sub.id} style={{textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.6 : 1, marginBottom: '4px'}}>
+                        {sub.completed ? '✓' : '○'} {sub.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="points-badge">+10 points</div>
+                {onReopenCompleted && (
+                  <button className="reopen-btn" onClick={() => onReopenCompleted(task.id)}>
+                    ↩️ Вернуть в активные
+                  </button>
+                )}
+              </div>
+            </DraggableTask>
           ))}
           {tasks.length === 0 && <p style={{color: '#3aedff', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6}}>Рай пуст. Завершите задачу!</p>}
         </div>
@@ -246,20 +248,22 @@ export default function TaskColumn({
             const isOld = deadAt && (Date.now() - deadAt) > MONTH_MS;
             const phrase = exhumationPhrases[i % exhumationPhrases.length];
             return (
-              <div key={task.id} className="tombstone animated-fade-in">
-                <div className="tombstone-rip">R.I.P.</div>
-                <div className="tombstone-task-name">{task.text}</div>
-                <div style={{color: '#ef4444', fontSize: '0.85rem', marginBottom: '10px'}}>-5 points</div>
-                {isOld && (
-                  <div className="exhumation-prompt">
-                    <span className="exhumation-angel">👼</span>
-                    <p className="exhumation-text">{phrase}</p>
-                  </div>
-                )}
-                <button className="resurrect-btn" onClick={() => onResurrect(task.id)}>
-                  🔄 Воскресить
-                </button>
-              </div>
+              <DraggableTask key={task.id} id={`task-${task.id}`}>
+                <div className="tombstone animated-fade-in">
+                  <div className="tombstone-rip">R.I.P.</div>
+                  <div className="tombstone-task-name">{task.text}</div>
+                  <div style={{color: '#ef4444', fontSize: '0.85rem', marginBottom: '10px'}}>-5 points</div>
+                  {isOld && (
+                    <div className="exhumation-prompt">
+                      <span className="exhumation-angel">👼</span>
+                      <p className="exhumation-text">{phrase}</p>
+                    </div>
+                  )}
+                  <button className="resurrect-btn" onClick={() => onResurrect(task.id)}>
+                    🔄 Воскресить
+                  </button>
+                </div>
+              </DraggableTask>
             );
           })}
           {tasks.length === 0 && <p style={{color: '#8a1c1c', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8}}>Кладбище пустует. Так держать!</p>}

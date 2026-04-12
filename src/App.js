@@ -1242,12 +1242,28 @@ export default function App() {
     if (zoneHeat[over.id] !== undefined) {
       const newHeat = zoneHeat[over.id];
       let saved = null;
+      let prevStatus = null;
       setTasks(prev => prev.map(t => {
         if (t.id !== taskId) return t;
-        saved = { ...t, heatBase: newHeat, heatCurrent: newHeat, lastUpdated: Date.now() };
+        prevStatus = t.status;
+        const wasInactive = t.status === "completed" || t.status === "dead";
+        saved = {
+          ...t,
+          heatBase: newHeat,
+          heatCurrent: newHeat,
+          lastUpdated: Date.now(),
+          ...(wasInactive ? { status: "active", isToday: false, deadAt: null } : {}),
+        };
         return saved;
       }));
       if (saved) persistTask(saved);
+      if (prevStatus === "completed") {
+        setScore(s => { const n = s - 10; persistScore(n); return n; });
+        flashCompanion("angel", ANGEL_RESURRECT_PHRASES);
+      } else if (prevStatus === "dead") {
+        setScore(s => { const n = s - 2; persistScore(n); return n; });
+        flashCompanion("angel", ANGEL_RESURRECT_PHRASES);
+      }
     }
   };
 
