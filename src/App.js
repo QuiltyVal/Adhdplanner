@@ -12,6 +12,9 @@ import {
   saveScore,
   getUserScore,
   migrateTasksToSubcollection,
+  loadTaskSnapshots,
+  saveTaskSnapshot,
+  restoreFromSnapshot,
 } from "./firestoreUtils";
 import { auth, googleProvider } from "./firebase";
 import {
@@ -575,6 +578,9 @@ export default function App() {
   const [dragTaskId, setDragTaskId] = useState(null);
   const [fogMode, setFogMode] = useState(false);
   const [cemeteryDigest, setCemeteryDigest] = useState(null); // { tasks: [...] }
+  const [snapshots, setSnapshots] = useState(null); // null = not loaded yet
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState(null); // snapshot pending confirm
   const devilAutoCleanLastRef = useRef(0);
 
   const dndSensors = useSensors(
@@ -1423,6 +1429,49 @@ export default function App() {
     flashCompanion("angel", ANGEL_RESURRECT_PHRASES);
   };
 
+  const handleLoadSnapshots = async () => {
+    if (!user?.id || snapshotLoading) return;
+    setSnapshotLoading(true);
+    const list = await loadTaskSnapshots(user.id);
+    setSnapshots(list);
+    setSnapshotLoading(false);
+  };
+
+  const handleCreateSnapshot = async () => {
+    if (!user?.id) return;
+    setSnapshotLoading(true);
+    try {
+      await saveTaskSnapshot(user.id, tasks, score, "manual_web");
+      await handleLoadSnapshots();
+    } catch (e) {
+      console.error("Snapshot save failed:", e);
+      setSnapshotLoading(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restoreTarget || !user?.id) return;
+    const snapshotTasks = restoreTarget.tasks || [];
+    const currentIds = tasks.map(t => t.id);
+    setSnapshotLoading(true);
+    try {
+      // Save current state before restoring
+      await saveTaskSnapshot(user.id, tasks, score, "pre_restore_backup");
+      await restoreFromSnapshot(user.id, currentIds, snapshotTasks);
+      const restored = snapshotTasks.map(t => ({ ...t, lastUpdated: Date.now() }));
+      setTasks(restored);
+      if (typeof restoreTarget.score === "number") {
+        setScore(restoreTarget.score);
+        persistScore(restoreTarget.score);
+      }
+    } catch (e) {
+      console.error("Restore failed:", e);
+    }
+    setRestoreTarget(null);
+    setSnapshots(null); // will reload next open
+    setSnapshotLoading(false);
+  };
+
   const handleToggleToday = (taskId) => {
     let message = "";
     let saved = null;
@@ -1880,6 +1929,67 @@ export default function App() {
                   Запусти спринт через 🆘 Панику — и время начнёт считаться!
                 </p>
               )}
+
+              {/* Snapshot restore section */}
+              <div className="stats-top-section">
+                <div className="stats-snapshots-header">
+                  <h3 className="stats-section-title">Снапшоты (резервные копии)</h3>
+                  <div className="stats-snapshots-actions">
+                    <button
+                      className="snapshot-btn"
+                      onClick={handleCreateSnapshot}
+                      disabled={snapshotLoading}
+                    >
+                      {snapshotLoading ? "..." : "💾 Создать снапшот"}
+                    </button>
+                    {snapshots === null && (
+                      <button
+                        className="snapshot-btn secondary"
+                        onClick={handleLoadSnapshots}
+                        disabled={snapshotLoading}
+                      >
+                        📂 Загрузить список
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {snapshots === null && !snapshotLoading && (
+                  <p className="stats-empty" style={{padding: '10px 0'}}>
+                    Нажми «Загрузить список», чтобы увидеть снапшоты
+                  </p>
+                )}
+
+                {snapshotLoading && (
+                  <p className="stats-empty" style={{padding: '10px 0'}}>Загружается...</p>
+                )}
+
+                {snapshots !== null && snapshots.length === 0 && (
+                  <p className="stats-empty" style={{padding: '10px 0'}}>Снапшотов пока нет. Нажми «Создать снапшот»!</p>
+                )}
+
+                {snapshots !== null && snapshots.length > 0 && (
+                  <div className="stats-top-list">
+                    {snapshots.map(snap => {
+                      const date = snap.capturedAt
+                        ? new Date(snap.capturedAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+                        : "—";
+                      const sourceLabel = snap.source === "pre_restore_backup" ? "авто-бэкап" : snap.source === "migration_pre_subcollection" ? "миграция" : snap.source || "ручной";
+                      return (
+                        <div key={snap.id} className="stats-top-item snapshot-item">
+                          <span className="snapshot-date">{date}</span>
+                          <span className="snapshot-count">{snap.taskCount ?? (snap.tasks?.length ?? "?")} задач</span>
+                          <span className="snapshot-source">{sourceLabel}</span>
+                          <button
+                            className="snapshot-restore-btn"
+                            onClick={() => setRestoreTarget(snap)}
+                          >↩️ Восстановить</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           );
         })()}
@@ -1938,6 +2048,33 @@ export default function App() {
           <button className="fog-exit" onClick={() => setFogMode(false)}>
             Выйти из тумана
           </button>
+        </div>
+      </div>
+    )}
+    {restoreTarget && (
+      <div className="fog-overlay" onClick={() => setRestoreTarget(null)}>
+        <div className="fog-card" style={{maxWidth: '440px'}} onClick={e => e.stopPropagation()}>
+          <div className="fog-label">⚠️ ВОССТАНОВЛЕНИЕ ИЗ СНАПШОТА</div>
+          <p style={{color: '#f0e0ff', fontSize: '0.95rem', lineHeight: 1.5, margin: 0}}>
+            Текущие задачи будут заменены задачами из снапшота{' '}
+            <strong style={{color: '#fbbf24'}}>
+              {restoreTarget.capturedAt
+                ? new Date(restoreTarget.capturedAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : ""}
+            </strong>
+            {' '}({restoreTarget.taskCount ?? restoreTarget.tasks?.length ?? "?"} задач).
+          </p>
+          <p style={{color: 'rgba(240,224,255,0.5)', fontSize: '0.82rem', margin: 0}}>
+            Перед восстановлением автоматически сохранится резервная копия текущего состояния.
+          </p>
+          <div className="fog-actions">
+            <button className="fog-action primary" onClick={handleConfirmRestore} disabled={snapshotLoading}>
+              {snapshotLoading ? "Восстанавливаю..." : "✅ Да, восстановить"}
+            </button>
+            <button className="fog-action" onClick={() => setRestoreTarget(null)}>
+              Отмена
+            </button>
+          </div>
         </div>
       </div>
     )}

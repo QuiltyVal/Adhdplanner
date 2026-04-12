@@ -2,10 +2,14 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
+  orderBy,
+  query,
   runTransaction,
   serverTimestamp,
   setDoc,
@@ -151,4 +155,59 @@ export async function updateUserData() {
 export function subscribeUserData() {
   // Deprecated: use subscribeToTasks() instead
   return () => {};
+}
+
+// ── Task Snapshots ─────────────────────────────────────────────────────────────
+export async function loadTaskSnapshots(userId) {
+  try {
+    const q = query(
+      collection(db, "Users", userId, "taskSnapshots"),
+      orderBy("capturedAt", "desc"),
+      limit(8),
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.warn("[Firestore] loadTaskSnapshots failed:", e);
+    return [];
+  }
+}
+
+export async function saveTaskSnapshot(userId, tasks, score, source = "manual_web") {
+  await addDoc(collection(db, "Users", userId, "taskSnapshots"), {
+    source,
+    kind: "manual",
+    taskCount: tasks.length,
+    score: score || 0,
+    capturedAt: Date.now(),
+    createdAt: serverTimestamp(),
+    tasks,
+  });
+}
+
+// Restores tasks from a snapshot: writes all snapshot tasks (bypassing stale-check),
+// and deletes any current tasks not present in the snapshot.
+export async function restoreFromSnapshot(userId, currentTaskIds, snapshotTasks) {
+  const snapshotIds = new Set(snapshotTasks.map(t => String(t.id)));
+
+  // Delete tasks that exist now but are absent from the snapshot
+  for (const id of currentTaskIds) {
+    if (!snapshotIds.has(String(id))) {
+      try {
+        await deleteDoc(doc(db, "Users", userId, "tasks", String(id)));
+      } catch (e) {
+        console.warn("[Firestore] restoreFromSnapshot delete failed:", id, e);
+      }
+    }
+  }
+
+  // Write all snapshot tasks (direct setDoc, no stale-write guard)
+  const now = Date.now();
+  for (const task of snapshotTasks) {
+    if (!task.id) continue;
+    await setDoc(doc(db, "Users", userId, "tasks", String(task.id)), {
+      ...task,
+      lastUpdated: now,
+    });
+  }
 }
