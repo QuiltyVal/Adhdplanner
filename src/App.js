@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, pointerWithin, closestCenter } from "@dnd-kit/core";
 import { useNavigate } from "react-router-dom";
 import TaskColumn from "./TaskColumn";
