@@ -40,6 +40,10 @@ function check() {
     run(`git pull origin ${BRANCH}`);
     console.log(`[${timestamp()}] [auto-pull] pulled ok`);
 
+    console.log(`[${timestamp()}] [auto-pull] building React app...`);
+    run("npm run build");
+    console.log(`[${timestamp()}] [auto-pull] build complete`);
+
     run("pm2 restart all");
     console.log(`[${timestamp()}] [auto-pull] pm2 restarted`);
   } catch (err) {
