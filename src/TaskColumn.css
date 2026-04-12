@@ -1055,3 +1055,24 @@ div:has(> .drag-handle):hover .drag-handle { opacity: 1; color: rgba(255, 255, 2
 }
 .cal-save-btn:hover:not(:disabled) { background: #1f4a1f; }
 .cal-save-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Light/Neon overrides for subtask edit input */
+[data-theme="light"] .subtask-item { color: #1a1a2e; }
+[data-theme="light"] .subtask-edit-input {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(124, 58, 237, 0.4);
+  color: #1a1a2e;
+}
+[data-theme="light"] .subtask-edit-input:focus {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.05);
+}
+[data-theme="neon"] .subtask-edit-input {
+  background: rgba(255, 45, 120, 0.07);
+  border-color: rgba(255, 45, 120, 0.35);
+  color: #f0e6ff;
+}
+[data-theme="neon"] .subtask-edit-input:focus {
+  border-color: rgba(255, 45, 120, 0.7);
+  background: rgba(255, 45, 120, 0.12);
+}

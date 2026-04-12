@@ -653,6 +653,13 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
+  // Safety net: if loading never resolves (Firestore unreachable, corrupt localStorage, etc.)
+  // force-dismiss the loading screen after 10 seconds so the app becomes usable.
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 10000);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     firestoreReadyRef.current = false;
   }, [user?.id]);
@@ -688,13 +695,22 @@ export default function App() {
       return;
     }
 
-    const parsedUser = JSON.parse(storedUser);
+    let parsedUser;
+    try {
+      parsedUser = JSON.parse(storedUser);
+    } catch (e) {
+      console.error("[Planner] Corrupt adhdUser in localStorage, clearing:", e);
+      localStorage.removeItem("adhdUser");
+      setLoading(false);
+      navigate("/login");
+      return;
+    }
     setUser(parsedUser);
 
     const loadCloudData = () => {
       // If guest mode (offline)
       if (parsedUser.id.startsWith("guest_")) {
-        const localTasks = JSON.parse(localStorage.getItem("adhd_planner_tasks")) || [];
+        const localTasks = JSON.parse(localStorage.getItem("adhd_planner_tasks") || "[]") || [];
         const localScore = parseInt(localStorage.getItem("adhd_planner_score"), 10) || 0;
         setTasks(localTasks);
         setScore(localScore);
