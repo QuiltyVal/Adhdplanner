@@ -174,6 +174,20 @@ function mergeTaskLists(localTasks = [], remoteTasks = []) {
     const localTask = localById.get(String(remoteTask.id));
     if (!localTask) return remoteTask;
 
+    // User intent: a locally-completed task must never be reverted to active/dead
+    // by a stale Firestore snapshot that arrived before the completion write committed.
+    // This handles both the race condition (reload before write) and the auto-death
+    // race (game tick kills task the same millisecond user drags to heaven).
+    if (localTask.status === "completed" && remoteTask.status !== "completed") {
+      const mergedTask = { ...remoteTask, ...localTask };
+      mergedTask.subtasks = mergeSubtasks(
+        localTask.subtasks || [],
+        remoteTask.subtasks || [],
+        false, // prefer local
+      );
+      return mergedTask;
+    }
+
     const remoteUpdatedAt = remoteTask.lastUpdated || 0;
     const localUpdatedAt = localTask.lastUpdated || 0;
     const preferRemote = remoteUpdatedAt >= localUpdatedAt;
@@ -759,7 +773,6 @@ export default function App() {
               }
 
               // Load score from root doc on first real snapshot
-              const isFirstSnapshot = !firestoreReadyRef.current;
               if (!firestoreReadyRef.current) {
                 const serverScore = await getUserScore(parsedUser.id);
                 setScore(serverScore);
@@ -786,15 +799,12 @@ export default function App() {
                 });
               }
 
-              if (isFirstSnapshot) {
-                // Initial load: take Firestore as authoritative source
-                setTasks(healedTasks);
-              } else {
-                // Subsequent snapshots: merge so local optimistic updates
-                // (complete, kill, drag) aren't overwritten by a snapshot
-                // that arrived before the write committed in Firestore.
-                setTasks(prevTasks => mergeTaskLists(prevTasks, healedTasks));
-              }
+              // Always merge — on first snapshot prevTasks is [] or from
+              // cloud cache. If the cache has a task marked "completed" with a
+              // fresh lastUpdated (user completed it then reloaded before the
+              // Firestore write committed), mergeTaskLists keeps the completed
+              // state instead of overwriting it with the stale Firestore data.
+              setTasks(prevTasks => mergeTaskLists(prevTasks, healedTasks));
               setLoading(false);
               setDataLoaded(true);
             },
@@ -1243,8 +1253,9 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map((task) => {
       if (task.id !== taskId) return task;
-      // Auto-complete all subtasks and set heat to 100 so the task
-      // is unambiguously done regardless of prior subtask state.
+      // Auto-complete all subtasks, set heat to 100%, and clear any dead state.
+      // User intent (drag to heaven) has absolute priority over pulse level,
+      // auto-death timer, and any pending Firestore snapshots.
       const completedSubtasks = (task.subtasks || []).map(s => ({ ...s, completed: true }));
       saved = {
         ...task,
@@ -1252,8 +1263,9 @@ export default function App() {
         isToday: false,
         lastUpdated: Date.now(),
         completedAt: Date.now(),
+        deadAt: null,       // clear if task was previously killed
         subtasks: completedSubtasks,
-        heatBase: 100,
+        heatBase: 100,      // pulse always 100% when user manually sends to heaven
         heatCurrent: 100,
       };
       return saved;
