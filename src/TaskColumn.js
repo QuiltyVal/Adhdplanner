@@ -528,9 +528,7 @@ export default function TaskColumn({
         {task.heatCurrent <= 60 && (
           <button className="action-btn touch" onClick={() => onTouch(task.id)}>👀 Вспомнил</button>
         )}
-        {task.heatCurrent > 60 && (
-          <button className="action-btn complete" onClick={() => setConfirmTaskId(task.id)}>🚀 Завершить!</button>
-        )}
+        <button className="action-btn complete" onClick={() => setConfirmTaskId(task.id)}>🚀 Завершить!</button>
         {calendarToken && (
           <button
             className="action-btn cal-btn"
