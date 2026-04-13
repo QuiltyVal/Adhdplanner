@@ -339,11 +339,23 @@ function createTask(text, options = {}) {
 async function getPlannerData(userId) {
   const [rootSnap, tasksSnap] = await Promise.all([
     userDoc(userId).get(),
-    tasksCol(userId).get(),
+    // Only fetch active tasks — completed/dead tasks must never be overwritten
+    // by the bot's batch writes, which lack per-document stale-write protection.
+    tasksCol(userId).where("status", "==", "active").get(),
   ]);
   const rootData = rootSnap.exists ? (rootSnap.data() || {}) : {};
   const tasks = tasksSnap.docs.map((d) => d.data());
   return ensurePlannerDoc({ ...rootData, tasks }, userId);
+}
+
+async function getNonActiveTasks(userId) {
+  const snap = await tasksCol(userId).where("status", "in", ["completed", "dead"]).get();
+  return snap.docs.map((d) => d.data());
+}
+
+async function getTaskById(userId, taskId) {
+  const snap = await tasksCol(userId).doc(String(taskId)).get();
+  return snap.exists ? snap.data() : null;
 }
 
 function buildTelegramContext(task, action = "focus", extra = {}) {
@@ -438,6 +450,8 @@ module.exports = {
   escapeHtml,
   getDeadlineInfo,
   getFirstOpenSubtask,
+  getNonActiveTasks,
+  getTaskById,
   getPlannerData,
   getPriorityScore,
   getTaskHeat,

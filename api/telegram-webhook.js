@@ -1,4 +1,4 @@
-const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeTelegramLog } = require("./_lib/planner-store");
+const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getNonActiveTasks, getTaskById, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeTelegramLog } = require("./_lib/planner-store");
 const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
 const { parseTelegramIntent } = require("./_lib/telegram-intent");
 const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
@@ -327,8 +327,8 @@ async function handleToday(chatId) {
 
 async function handleCompleted(chatId) {
   const userId = getTargetUserId();
-  const plannerData = await getPlannerData(userId);
-  const completedTasks = plannerData.tasks
+  const allNonActive = await getNonActiveTasks(userId);
+  const completedTasks = allNonActive
     .filter((task) => task.status === "completed")
     .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))
     .slice(0, 5);
@@ -681,9 +681,14 @@ async function handleAddSubtask(chatId, plannerData, taskRef, subtaskText) {
 }
 
 async function handleReopenTask(chatId, plannerData, taskRef) {
+  const userId = getTargetUserId();
+  // getPlannerData only fetches active tasks; completed/dead must be fetched separately
+  const nonActiveTasks = await getNonActiveTasks(userId);
   const task =
-    (taskRef && findTaskByText(plannerData.tasks, taskRef, ["completed", "dead"])) ||
-    resolveContextTask(plannerData, { statuses: ["completed"] });
+    (taskRef && findTaskByText(nonActiveTasks, taskRef, ["completed", "dead"])) ||
+    nonActiveTasks
+      .filter((t) => t.status === "completed")
+      .sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0))[0] || null;
 
   if (!task) {
     await sendText(chatId, taskRef
@@ -693,20 +698,18 @@ async function handleReopenTask(chatId, plannerData, taskRef) {
   }
 
   let reopenedTask = null;
-  await mutatePlanner(getTargetUserId(), (current) => {
-    const tasks = current.tasks.map((t) => {
-      if (t.id !== task.id) return t;
-      reopenedTask = {
-        ...t,
-        status: "active",
-        isToday: false,
-        heatBase: typeof t.heatBase === "number" ? t.heatBase : 35,
-        heatCurrent: typeof t.heatCurrent === "number" ? t.heatCurrent : (typeof t.heatBase === "number" ? t.heatBase : 35),
-        lastUpdated: Date.now(),
-      };
-      return reopenedTask;
-    });
-    return { ...current, tasks, telegramContext: buildTelegramContext(reopenedTask || task, "reopen") };
+  await mutatePlanner(userId, (current) => {
+    // Task is not in current.tasks (completed), so add it as active
+    reopenedTask = {
+      ...task,
+      status: "active",
+      isToday: false,
+      deadAt: null,
+      heatBase: typeof task.heatBase === "number" ? task.heatBase : 35,
+      heatCurrent: typeof task.heatCurrent === "number" ? task.heatCurrent : (typeof task.heatBase === "number" ? task.heatBase : 35),
+      lastUpdated: Date.now(),
+    };
+    return { ...current, tasks: [reopenedTask, ...current.tasks], telegramContext: buildTelegramContext(reopenedTask, "reopen") };
   }, { source: "telegram", reason: "reopen_task" });
 
   if (!reopenedTask) {
@@ -873,9 +876,43 @@ async function handleCallback(chatId, callbackQuery) {
     return;
   }
 
+  // "reopen" must fetch from Firestore by ID because completed/dead tasks are
+  // not included in the active-only list returned by getPlannerData.
+  if (action === "reopen") {
+    const source = await getTaskById(userId, taskId);
+    if (!source) {
+      await answerCallback(callbackQuery.id, "Задача не найдена.");
+      return;
+    }
+    let reopenedTask = null;
+    await mutatePlanner(userId, (current) => {
+      reopenedTask = {
+        ...source,
+        status: "active",
+        isToday: false,
+        deadAt: null,
+        heatBase: typeof source.heatBase === "number" ? source.heatBase : 35,
+        heatCurrent: typeof source.heatCurrent === "number" ? source.heatCurrent : (typeof source.heatBase === "number" ? source.heatBase : 35),
+        lastUpdated: Date.now(),
+      };
+      // Add to active list (source was completed, not in current.tasks)
+      const exists = current.tasks.some((t) => t.id === reopenedTask.id);
+      const tasks = exists
+        ? current.tasks.map((t) => (t.id === reopenedTask.id ? reopenedTask : t))
+        : [reopenedTask, ...current.tasks];
+      return { ...current, tasks, telegramContext: buildTelegramContext(reopenedTask, "reopen") };
+    }, { source: "telegram", reason: "callback_reopen" });
+    await answerCallback(callbackQuery.id, "Вернул задачу в активные.");
+    if (reopenedTask) {
+      await sendText(chatId, `↩️ <b>${escapeHtml(reopenedTask.text)}</b> снова в активных.`, {
+        reply_markup: plannerTaskKeyboard(reopenedTask.id),
+      });
+    }
+    return;
+  }
+
   let feedback = "Сделано.";
   let panicTask = null;
-  let reopenedTask = null;
   let completedTask = null;
 
   await mutatePlanner(userId, (current) => {
@@ -884,21 +921,16 @@ async function handleCallback(chatId, callbackQuery) {
 
       if (action === "done") {
         feedback = "Задача отправлена в выполненные.";
-        completedTask = { ...task, status: "completed", isToday: false, lastUpdated: Date.now() };
-        return completedTask;
-      }
-
-      if (action === "reopen") {
-        feedback = "Вернул задачу в активные.";
-        reopenedTask = {
+        completedTask = {
           ...task,
-          status: "active",
+          status: "completed",
           isToday: false,
-          heatBase: typeof task.heatBase === "number" ? task.heatBase : 35,
-          heatCurrent: typeof task.heatCurrent === "number" ? task.heatCurrent : (typeof task.heatBase === "number" ? task.heatBase : 35),
+          deadAt: null,
+          heatBase: 100,
+          heatCurrent: 100,
           lastUpdated: Date.now(),
         };
-        return reopenedTask;
+        return completedTask;
       }
 
       if (action === "today") {
@@ -936,11 +968,9 @@ async function handleCallback(chatId, callbackQuery) {
       telegramContext:
         completedTask
           ? buildTelegramContext(completedTask, "done")
-          : reopenedTask
-            ? buildTelegramContext(reopenedTask, "reopen")
-            : panicTask
-              ? buildTelegramContext(panicTask, "panic")
-              : current.telegramContext,
+          : panicTask
+            ? buildTelegramContext(panicTask, "panic")
+            : current.telegramContext,
     };
   }, {
     source: "telegram",
@@ -963,13 +993,6 @@ async function handleCallback(chatId, callbackQuery) {
     );
   }
 
-  if (action === "reopen" && reopenedTask) {
-    await sendText(
-      chatId,
-      `↩️ <b>${escapeHtml(reopenedTask.text)}</b> снова в активных.`,
-      { reply_markup: plannerTaskKeyboard(reopenedTask.id) },
-    );
-  }
 }
 
 module.exports = async function handler(req, res) {
