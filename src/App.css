@@ -1324,6 +1324,33 @@
   font-style: italic;
   margin: 0;
 }
+.stats-activity-badge {
+  font-size: 0.72rem;
+  color: rgba(200, 180, 255, 0.7);
+  flex-shrink: 0;
+  font-family: 'Inter', monospace;
+}
+.stats-cal-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.stats-cal-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+.stats-cal-dot--active {
+  background: #8a1c1c;
+  box-shadow: 0 0 4px rgba(138, 28, 28, 0.6);
+}
+.stats-day-log-title {
+  font-size: 0.72rem;
+  color: rgba(200, 180, 255, 0.45);
+  margin-bottom: 4px;
+}
 
 /* Light theme */
 [data-theme="light"] .stats-top-item--clickable:hover { background: rgba(124, 58, 237, 0.05); }
@@ -1338,6 +1365,10 @@
 [data-theme="light"] .stats-day-bar { background: linear-gradient(90deg, #7c3aed, #a855f7); }
 [data-theme="light"] .stats-day-time { color: #4c1d95; }
 [data-theme="light"] .stats-day-empty { color: rgba(60, 40, 100, 0.35); }
+[data-theme="light"] .stats-activity-badge { color: rgba(60, 40, 100, 0.6); }
+[data-theme="light"] .stats-cal-dot { background: rgba(124, 58, 237, 0.1); }
+[data-theme="light"] .stats-cal-dot--active { background: #7c3aed; box-shadow: 0 0 4px rgba(124, 58, 237, 0.4); }
+[data-theme="light"] .stats-day-log-title { color: rgba(60, 40, 100, 0.45); }
 
 /* Neon theme */
 [data-theme="neon"] .stats-top-item--clickable:hover { background: rgba(255, 45, 120, 0.07); }
@@ -1352,3 +1383,7 @@
 [data-theme="neon"] .stats-day-bar { background: linear-gradient(90deg, #ff2d78, #ff77ab); }
 [data-theme="neon"] .stats-day-time { color: #f0e0ff; }
 [data-theme="neon"] .stats-day-empty { color: rgba(255, 160, 200, 0.35); }
+[data-theme="neon"] .stats-activity-badge { color: rgba(255, 160, 200, 0.65); }
+[data-theme="neon"] .stats-cal-dot { background: rgba(255, 45, 120, 0.1); }
+[data-theme="neon"] .stats-cal-dot--active { background: #ff2d78; box-shadow: 0 0 4px rgba(255, 45, 120, 0.5); }
+[data-theme="neon"] .stats-day-log-title { color: rgba(255, 160, 200, 0.45); }

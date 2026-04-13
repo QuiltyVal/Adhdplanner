@@ -1080,12 +1080,21 @@ export default function App() {
     trackDailyAction();
   };
 
+  // Adds today's date to task.activeDays (a set stored as sorted array).
+  // Call this inside any setTasks updater that already has the task object.
+  const withActiveDay = (task) => {
+    const today = getDayKey();
+    const prev = task.activeDays || [];
+    if (prev.includes(today)) return task;
+    return { ...task, activeDays: [...prev, today].sort() };
+  };
+
   const handleTouch = (taskId) => {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id !== taskId) return t;
       const newHeatBase = Math.min(100, t.heatCurrent + TOUCH_HEAT_BONUS);
-      saved = { ...t, lastUpdated: Date.now(), heatBase: newHeatBase, heatCurrent: newHeatBase };
+      saved = withActiveDay({ ...t, lastUpdated: Date.now(), heatBase: newHeatBase, heatCurrent: newHeatBase });
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1111,7 +1120,7 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id !== taskId) return t;
-      saved = { ...t, text: newText.trim(), lastUpdated: Date.now() };
+      saved = withActiveDay({ ...t, text: newText.trim(), lastUpdated: Date.now() });
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1125,7 +1134,7 @@ export default function App() {
       if (t.id !== taskId) return t;
       const timeByDay = { ...(t.timeByDay || {}) };
       timeByDay[today] = (timeByDay[today] || 0) + elapsedMs;
-      saved = { ...t, timeSpent: (t.timeSpent || 0) + elapsedMs, timeByDay, lastUpdated: Date.now() };
+      saved = withActiveDay({ ...t, timeSpent: (t.timeSpent || 0) + elapsedMs, timeByDay, lastUpdated: Date.now() });
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1146,11 +1155,11 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id !== taskId) return t;
-      saved = {
+      saved = withActiveDay({
         ...t,
         subtasks: (t.subtasks || []).map(s => s.id === subtaskId ? { ...s, text: newText.trim() } : s),
         lastUpdated: Date.now(),
-      };
+      });
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1169,7 +1178,7 @@ export default function App() {
       const completionDelta = completedAfter - completedBefore;
       const subtaskWeight = subtasksCount > 0 ? (SUBTASK_COMPLETION_CAP / subtasksCount) : 0;
       let newHeatBase = Math.min(100, Math.max(0, t.heatCurrent + completionDelta * subtaskWeight));
-      saved = { ...t, subtasks: newSubtasks, heatBase: newHeatBase, heatCurrent: newHeatBase, lastUpdated: Date.now() };
+      saved = withActiveDay({ ...t, subtasks: newSubtasks, heatBase: newHeatBase, heatCurrent: newHeatBase, lastUpdated: Date.now() });
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1913,10 +1922,16 @@ export default function App() {
         {activeTab === 'cemetery' && <TaskColumn type="cemetery" tasks={deadTasks} onResurrect={handleResurrect} />}
         {activeTab === 'stats' && (() => {
           const totalMs = tasks.reduce((sum, t) => sum + (t.timeSpent || 0), 0);
-          const topByTime = [...tasks]
-            .filter(t => (t.timeSpent || 0) > 0)
-            .sort((a, b) => (b.timeSpent || 0) - (a.timeSpent || 0))
-            .slice(0, 7);
+          // Tasks with any tracked activity (auto activeDays OR manual timer)
+          const topByActivity = [...tasks]
+            .filter(t => (t.activeDays || []).length > 0 || (t.timeSpent || 0) > 0)
+            .sort((a, b) => {
+              const aDays = (a.activeDays || []).length;
+              const bDays = (b.activeDays || []).length;
+              if (bDays !== aDays) return bDays - aDays;
+              return (b.timeSpent || 0) - (a.timeSpent || 0);
+            })
+            .slice(0, 10);
           const statusEmoji = t => t.status === 'completed' ? '☁️' : t.status === 'dead' ? '🪦' : '🔥';
           const streakLabel = pulseState.streak === 1 ? 'день подряд' : pulseState.streak >= 2 && pulseState.streak <= 4 ? 'дня подряд' : 'дней подряд';
           return (
@@ -1944,11 +1959,11 @@ export default function App() {
                 </div>
               </div>
 
-              {topByTime.length > 0 ? (
+              {topByActivity.length > 0 ? (
                 <div className="stats-top-section">
-                  <h3 className="stats-section-title">Больше всего времени вложено</h3>
+                  <h3 className="stats-section-title">История задач по дням</h3>
                   <div className="stats-top-list">
-                    {topByTime.map((t, i) => {
+                    {topByActivity.map((t, i) => {
                       const isExpanded = expandedTimeTaskId === t.id;
                       const createdAt = typeof t.id === 'number' ? t.id : null;
                       const endAt = t.completedAt || t.deadAt || null;
@@ -1957,55 +1972,91 @@ export default function App() {
                         : createdAt
                           ? Math.ceil((Date.now() - createdAt) / DAY_MS)
                           : null;
-                      const dayEntries = t.timeByDay
-                        ? Object.entries(t.timeByDay)
-                            .sort(([a], [b]) => a.localeCompare(b))
-                        : [];
+
+                      // Build calendar: every day from creation to end (max 60 days)
+                      const activeDaySet = new Set(t.activeDays || []);
+                      const calStart = createdAt ? getDayKey(createdAt) : null;
+                      const calEnd = endAt ? getDayKey(endAt) : getDayKey();
+                      const calDays = [];
+                      if (calStart) {
+                        const startNum = Math.floor(new Date(calStart).getTime() / DAY_MS);
+                        const endNum = Math.floor(new Date(calEnd).getTime() / DAY_MS);
+                        const totalCal = Math.min(60, endNum - startNum + 1);
+                        for (let d = 0; d < totalCal; d++) {
+                          const dayKey = getDayKey(new Date((startNum + d) * DAY_MS).getTime());
+                          calDays.push({ key: dayKey, active: activeDaySet.has(dayKey) });
+                        }
+                      }
+
+                      const activeDaysCount = (t.activeDays || []).length;
+
                       return (
                         <div key={t.id} className="stats-top-item-wrap">
                           <div
                             className={`stats-top-item stats-top-item--clickable${isExpanded ? ' stats-top-item--open' : ''}`}
                             onClick={() => setExpandedTimeTaskId(isExpanded ? null : t.id)}
                           >
-                            <span className="stats-rank">#{i + 1}</span>
                             <span className="stats-status-icon">{statusEmoji(t)}</span>
                             <span className="stats-task-name">{t.text}</span>
-                            <span className="stats-time-badge">{formatTimeSpent(t.timeSpent)}</span>
+                            <span className="stats-activity-badge">
+                              {activeDaysCount > 0 && `${activeDaysCount}д`}
+                              {activeDaysCount > 0 && (t.timeSpent || 0) > 0 && ' · '}
+                              {(t.timeSpent || 0) > 0 && formatTimeSpent(t.timeSpent)}
+                            </span>
                             <span className="stats-expand-arrow">{isExpanded ? '▲' : '▼'}</span>
                           </div>
                           {isExpanded && (
                             <div className="stats-time-detail">
                               <div className="stats-time-meta">
                                 {createdAt && (
-                                  <span>📅 Создана: {new Date(createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                  <span>📅 {new Date(createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>
                                 )}
                                 {t.completedAt && (
-                                  <span>☁️ В рай: {new Date(t.completedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                  <span>→ ☁️ {new Date(t.completedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>
                                 )}
                                 {t.deadAt && !t.completedAt && (
-                                  <span>🪦 Умерла: {new Date(t.deadAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                  <span>→ 🪦 {new Date(t.deadAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>
                                 )}
                                 {lifespanDays !== null && (
-                                  <span>⏳ {lifespanDays} {lifespanDays === 1 ? 'день' : lifespanDays >= 2 && lifespanDays <= 4 ? 'дня' : 'дней'} жизни</span>
+                                  <span>· {lifespanDays} {lifespanDays === 1 ? 'день' : lifespanDays >= 2 && lifespanDays <= 4 ? 'дня' : 'дней'}</span>
+                                )}
+                                {activeDaysCount > 0 && (
+                                  <span>· активна {activeDaysCount} {activeDaysCount === 1 ? 'день' : activeDaysCount >= 2 && activeDaysCount <= 4 ? 'дня' : 'дней'}</span>
                                 )}
                               </div>
-                              {dayEntries.length > 0 ? (
-                                <div className="stats-day-log">
-                                  {dayEntries.map(([date, ms]) => {
-                                    const pct = Math.min(100, Math.round(ms / (60 * 60 * 1000) * 100 / 3));
-                                    return (
-                                      <div key={date} className="stats-day-row">
-                                        <span className="stats-day-label">{date.slice(5)}</span>
-                                        <div className="stats-day-bar-wrap">
-                                          <div className="stats-day-bar" style={{ width: `${pct}%` }} />
-                                        </div>
-                                        <span className="stats-day-time">{formatTimeSpent(ms)}</span>
-                                      </div>
-                                    );
-                                  })}
+
+                              {/* Day-dot calendar */}
+                              {calDays.length > 0 && (
+                                <div className="stats-cal-wrap">
+                                  {calDays.map(({ key, active }) => (
+                                    <div
+                                      key={key}
+                                      className={`stats-cal-dot${active ? ' stats-cal-dot--active' : ''}`}
+                                      title={key}
+                                    />
+                                  ))}
                                 </div>
-                              ) : (
-                                <p className="stats-day-empty">Данных по дням пока нет — они накапливаются при следующих сессиях таймера</p>
+                              )}
+
+                              {/* Timer log per day (optional, if user used manual timer) */}
+                              {t.timeByDay && Object.keys(t.timeByDay).length > 0 && (
+                                <div className="stats-day-log">
+                                  <div className="stats-day-log-title">⏱ Точное время (таймер)</div>
+                                  {Object.entries(t.timeByDay)
+                                    .sort(([a], [b]) => a.localeCompare(b))
+                                    .map(([date, ms]) => {
+                                      const pct = Math.min(100, Math.round(ms / (60 * 60 * 1000) * 100 / 3));
+                                      return (
+                                        <div key={date} className="stats-day-row">
+                                          <span className="stats-day-label">{date.slice(5)}</span>
+                                          <div className="stats-day-bar-wrap">
+                                            <div className="stats-day-bar" style={{ width: `${pct}%` }} />
+                                          </div>
+                                          <span className="stats-day-time">{formatTimeSpent(ms)}</span>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
                               )}
                             </div>
                           )}
@@ -2016,8 +2067,8 @@ export default function App() {
                 </div>
               ) : (
                 <p className="stats-empty">
-                  Пока нет данных о времени.<br />
-                  Нажми ▶ Старт на карточке задачи — и время начнёт считаться!
+                  Пока нет истории.<br />
+                  Работай с задачами — и здесь появится хроника.
                 </p>
               )}
 
