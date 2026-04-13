@@ -581,6 +581,7 @@ export default function App() {
   const [snapshots, setSnapshots] = useState(null); // null = not loaded yet
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState(null); // snapshot pending confirm
+  const [expandedTimeTaskId, setExpandedTimeTaskId] = useState(null);
   const devilAutoCleanLastRef = useRef(0);
 
   const dndSensors = useSensors(
@@ -1118,10 +1119,13 @@ export default function App() {
 
   const handleAddTime = (taskId, elapsedMs) => {
     if (!elapsedMs || elapsedMs <= 0) return;
+    const today = getDayKey();
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id !== taskId) return t;
-      saved = { ...t, timeSpent: (t.timeSpent || 0) + elapsedMs, lastUpdated: Date.now() };
+      const timeByDay = { ...(t.timeByDay || {}) };
+      timeByDay[today] = (timeByDay[today] || 0) + elapsedMs;
+      saved = { ...t, timeSpent: (t.timeSpent || 0) + elapsedMs, timeByDay, lastUpdated: Date.now() };
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1229,6 +1233,7 @@ export default function App() {
         status: "completed",
         isToday: false,
         lastUpdated: Date.now(),
+        completedAt: Date.now(),
         subtasks: completedSubtasks,
         heatBase: 100,
         heatCurrent: 100,
@@ -1943,20 +1948,76 @@ export default function App() {
                 <div className="stats-top-section">
                   <h3 className="stats-section-title">Больше всего времени вложено</h3>
                   <div className="stats-top-list">
-                    {topByTime.map((t, i) => (
-                      <div key={t.id} className="stats-top-item">
-                        <span className="stats-rank">#{i + 1}</span>
-                        <span className="stats-status-icon">{statusEmoji(t)}</span>
-                        <span className="stats-task-name">{t.text}</span>
-                        <span className="stats-time-badge">{formatTimeSpent(t.timeSpent)}</span>
-                      </div>
-                    ))}
+                    {topByTime.map((t, i) => {
+                      const isExpanded = expandedTimeTaskId === t.id;
+                      const createdAt = typeof t.id === 'number' ? t.id : null;
+                      const endAt = t.completedAt || t.deadAt || null;
+                      const lifespanDays = createdAt && endAt
+                        ? Math.ceil((endAt - createdAt) / DAY_MS)
+                        : createdAt
+                          ? Math.ceil((Date.now() - createdAt) / DAY_MS)
+                          : null;
+                      const dayEntries = t.timeByDay
+                        ? Object.entries(t.timeByDay)
+                            .sort(([a], [b]) => a.localeCompare(b))
+                        : [];
+                      return (
+                        <div key={t.id} className="stats-top-item-wrap">
+                          <div
+                            className={`stats-top-item stats-top-item--clickable${isExpanded ? ' stats-top-item--open' : ''}`}
+                            onClick={() => setExpandedTimeTaskId(isExpanded ? null : t.id)}
+                          >
+                            <span className="stats-rank">#{i + 1}</span>
+                            <span className="stats-status-icon">{statusEmoji(t)}</span>
+                            <span className="stats-task-name">{t.text}</span>
+                            <span className="stats-time-badge">{formatTimeSpent(t.timeSpent)}</span>
+                            <span className="stats-expand-arrow">{isExpanded ? '▲' : '▼'}</span>
+                          </div>
+                          {isExpanded && (
+                            <div className="stats-time-detail">
+                              <div className="stats-time-meta">
+                                {createdAt && (
+                                  <span>📅 Создана: {new Date(createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                )}
+                                {t.completedAt && (
+                                  <span>☁️ В рай: {new Date(t.completedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                )}
+                                {t.deadAt && !t.completedAt && (
+                                  <span>🪦 Умерла: {new Date(t.deadAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                )}
+                                {lifespanDays !== null && (
+                                  <span>⏳ {lifespanDays} {lifespanDays === 1 ? 'день' : lifespanDays >= 2 && lifespanDays <= 4 ? 'дня' : 'дней'} жизни</span>
+                                )}
+                              </div>
+                              {dayEntries.length > 0 ? (
+                                <div className="stats-day-log">
+                                  {dayEntries.map(([date, ms]) => {
+                                    const pct = Math.min(100, Math.round(ms / (60 * 60 * 1000) * 100 / 3));
+                                    return (
+                                      <div key={date} className="stats-day-row">
+                                        <span className="stats-day-label">{date.slice(5)}</span>
+                                        <div className="stats-day-bar-wrap">
+                                          <div className="stats-day-bar" style={{ width: `${pct}%` }} />
+                                        </div>
+                                        <span className="stats-day-time">{formatTimeSpent(ms)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="stats-day-empty">Данных по дням пока нет — они накапливаются при следующих сессиях таймера</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
                 <p className="stats-empty">
                   Пока нет данных о времени.<br />
-                  Запусти спринт через 🆘 Панику — и время начнёт считаться!
+                  Нажми ▶ Старт на карточке задачи — и время начнёт считаться!
                 </p>
               )}
 

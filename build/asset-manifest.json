@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "/static/css/main.99d83843.css",
-    "main.js": "/static/js/main.baac7582.js",
+    "main.css": "/static/css/main.00131709.css",
+    "main.js": "/static/js/main.72cc2861.js",
     "static/media/angel.png": "/static/media/angel.704e2e69bf07a6af7bb8.png",
     "static/media/devil.png": "/static/media/devil.84b5a76013e7ec34f4b1.png",
     "static/media/GuildensternNbp.ttf": "/static/media/GuildensternNbp.950bf017d5f18b06b93f.ttf",
     "index.html": "/index.html"
   },
   "entrypoints": [
-    "static/css/main.99d83843.css",
-    "static/js/main.baac7582.js"
+    "static/css/main.00131709.css",
+    "static/js/main.72cc2861.js"
   ]
 }
