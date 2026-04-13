@@ -759,6 +759,7 @@ export default function App() {
               }
 
               // Load score from root doc on first real snapshot
+              const isFirstSnapshot = !firestoreReadyRef.current;
               if (!firestoreReadyRef.current) {
                 const serverScore = await getUserScore(parsedUser.id);
                 setScore(serverScore);
@@ -785,7 +786,15 @@ export default function App() {
                 });
               }
 
-              setTasks(healedTasks);
+              if (isFirstSnapshot) {
+                // Initial load: take Firestore as authoritative source
+                setTasks(healedTasks);
+              } else {
+                // Subsequent snapshots: merge so local optimistic updates
+                // (complete, kill, drag) aren't overwritten by a snapshot
+                // that arrived before the write committed in Firestore.
+                setTasks(prevTasks => mergeTaskLists(prevTasks, healedTasks));
+              }
               setLoading(false);
               setDataLoaded(true);
             },
