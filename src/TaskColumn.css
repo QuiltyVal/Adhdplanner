@@ -259,13 +259,39 @@
 }
 
 .tombstone-task-name {
-  font-family: 'GuildensternNbp', 'VT323', monospace;
-  font-size: 1.4rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
   color: #c0c0c0;
   margin-bottom: 8px;
   text-decoration: line-through;
-  text-transform: uppercase;
   word-break: break-word;
+}
+
+/* === EXHUMATION PROMPT === */
+.exhumation-prompt {
+  background: rgba(58, 237, 255, 0.05);
+  border: 1px solid rgba(58, 237, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.exhumation-angel {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.exhumation-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  color: #a0d6ff;
+  margin: 0;
+  line-height: 1.4;
+  text-align: left;
 }
 
 /* === RESURRECT BUTTON === */
@@ -310,12 +336,12 @@
 }
 
 .heaven-task-name {
-  font-family: 'GuildensternNbp', 'VT323', monospace;
-  font-size: 1.4rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
   color: #e0faff;
-  text-transform: uppercase;
   word-break: break-word;
-  text-shadow: 0 0 10px rgba(58, 237, 255, 0.4);
+  text-shadow: 0 0 10px rgba(58, 237, 255, 0.3);
 }
 
 .points-badge {
@@ -326,6 +352,29 @@
   text-transform: uppercase;
   letter-spacing: 1px;
   text-shadow: 0 0 8px rgba(58, 237, 255, 0.5);
+}
+
+.reopen-btn {
+  background: rgba(10, 34, 48, 0.95);
+  border: 2px solid #7dd3fc;
+  color: #dff7ff;
+  font-family: 'GuildensternNbp', 'VT323', monospace;
+  font-size: 1.1rem;
+  padding: 8px 12px;
+  cursor: pointer;
+  margin-top: 12px;
+  width: 100%;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.reopen-btn:hover,
+.reopen-btn:active {
+  background: #07293a;
+  border-color: #c7f0ff;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(125, 211, 252, 0.28);
 }
 
 @keyframes cloud-float {
@@ -478,8 +527,8 @@
   background: transparent;
   border: none;
   color: #e0e0e0;
-  font-family: 'GuildensternNbp', 'VT323', monospace;
-  font-size: 1.3rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
   padding: 8px;
   outline: none;
 }
@@ -536,6 +585,27 @@
   border: 1px solid #222;
   padding: 16px;
   box-shadow: 2px 2px 0 #000;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.zone-column.dnd-zone-over {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15), 2px 2px 0 #000;
+}
+
+.focus-zone.dnd-zone-over {
+  border-color: #34d399;
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.3), 2px 2px 0 #000;
+}
+
+.passive-zone.dnd-zone-over {
+  border-color: #3b82f6;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), 2px 2px 0 #000;
+}
+
+.purgatory-zone.dnd-zone-over {
+  border-color: #f59e0b;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.3), 2px 2px 0 #000;
 }
 
 .zone-title {
@@ -583,13 +653,53 @@
   gap: 8px;
 }
 
+.drag-handle {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 28px;
+  height: 28px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: rgba(255, 255, 255, 0.18);
+  font-size: 1rem;
+  line-height: 1;
+  user-select: none;
+  opacity: 0.35;
+  transition: opacity 0.15s, color 0.15s;
+  border-radius: 4px;
+}
+.drag-handle:active { cursor: grabbing; }
+
+div:has(> .drag-handle):hover .drag-handle { opacity: 1; color: rgba(255, 255, 255, 0.55); }
+
+/* Mobile: bigger tap target */
+@media (max-width: 768px) {
+  .drag-handle { width: 36px; height: 36px; }
+}
+
+/* Light theme */
+[data-theme="light"] .drag-handle { color: rgba(100, 50, 150, 0.2); }
+[data-theme="light"] div:has(> .drag-handle):hover .drag-handle { color: rgba(100, 50, 150, 0.5); }
+
+/* Neon theme */
+[data-theme="neon"] .drag-handle { color: rgba(255, 45, 120, 0.2); }
+[data-theme="neon"] div:has(> .drag-handle):hover .drag-handle { color: rgba(255, 45, 120, 0.55); }
+
 .subtask-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: 'GuildensternNbp', 'VT323', monospace;
-  font-size: 1.2rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
   color: #c0c0c0;
+}
+
+.subtask-item--editing {
+  align-items: flex-start;
 }
 
 .subtask-checkbox {
@@ -597,7 +707,61 @@
   height: 16px;
   accent-color: #8a1c1c;
   cursor: pointer;
+  flex-shrink: 0;
 }
+
+.task-text-edit-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #555;
+  color: #e0e0e0;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  outline: none;
+  padding: 0;
+  width: 100%;
+  line-height: 1.4;
+}
+
+.subtask-edit-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  color: #f0f0f0;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  outline: none;
+  padding: 5px 8px;
+  resize: none;
+  overflow: hidden;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.subtask-edit-input:focus {
+  border-color: rgba(180, 130, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.subtask-delete-btn {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.subtask-item:hover .subtask-delete-btn {
+  opacity: 1;
+}
+.subtask-delete-btn:hover { color: #c05050; }
 
 .subtask-add-row {
   display: flex;
@@ -611,8 +775,8 @@
   border: none;
   border-bottom: 1px solid #333;
   color: #c0c0c0;
-  font-family: 'GuildensternNbp', 'VT323', monospace;
-  font-size: 1.2rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
   outline: none;
   padding: 4px;
 }
@@ -766,6 +930,12 @@
     font-size: 1.2rem;
   }
 
+  .reopen-btn {
+    min-height: 48px;
+    touch-action: manipulation;
+    font-size: 1.15rem;
+  }
+
   .heaven-cloud {
     padding: 14px;
   }
@@ -783,4 +953,126 @@
     font-size: 0.55rem;
     margin-bottom: 8px;
   }
+}
+
+/* === SUBTASK PROGRESS === */
+.subtask-progress {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid #333;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* === DAYS ALIVE === */
+.days-alive {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  color: #4b5563;
+  letter-spacing: 0.3px;
+}
+
+/* === TIMER === */
+.timer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.timer-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid #444;
+  color: #9ca3af;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s;
+}
+
+.timer-btn:hover { border-color: #666; color: #e0e0e0; }
+
+.timer-btn.timer-running {
+  border-color: #10b981;
+  color: #10b981;
+  animation: timer-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.timer-total {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+
+/* === CALENDAR PICKER === */
+.cal-btn { background: #111; border: 1px solid #333; color: #aaa; padding: 5px 8px; }
+.cal-btn:hover { color: #fff; border-color: #555; }
+
+.cal-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  background: #0d0d0d;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.cal-input {
+  background: #111;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  padding: 5px 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  outline: none;
+}
+.cal-input:focus { border-color: #555; }
+
+.cal-save-btn {
+  background: #1a3a1a;
+  border: 1px solid #2a5a2a;
+  color: #7fbd7f;
+  padding: 5px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.cal-save-btn:hover:not(:disabled) { background: #1f4a1f; }
+.cal-save-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Light/Neon overrides for subtask edit input */
+[data-theme="light"] .subtask-item { color: #1a1a2e; }
+[data-theme="light"] .subtask-edit-input {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(124, 58, 237, 0.4);
+  color: #1a1a2e;
+}
+[data-theme="light"] .subtask-edit-input:focus {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.05);
+}
+[data-theme="neon"] .subtask-edit-input {
+  background: rgba(255, 45, 120, 0.07);
+  border-color: rgba(255, 45, 120, 0.35);
+  color: #f0e6ff;
+}
+[data-theme="neon"] .subtask-edit-input:focus {
+  border-color: rgba(255, 45, 120, 0.7);
+  background: rgba(255, 45, 120, 0.12);
 }

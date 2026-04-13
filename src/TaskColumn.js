@@ -1,14 +1,72 @@
 // src/TaskColumn.js
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import "./TaskColumn.css";
+
+function DraggableTask({ id, children }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        opacity: isDragging ? 0.35 : 1,
+        position: 'relative',
+      }}
+      {...attributes}
+    >
+      <div
+        className="drag-handle"
+        {...listeners}
+        style={{ touchAction: 'none' }}
+        title="Перетащить"
+      >⠿</div>
+      {children}
+    </div>
+  );
+}
+
+function DroppableZone({ id, children, className, style }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className || ""} ${isOver ? "dnd-zone-over" : ""}`.trim()}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function getDayNumberFromIsoDate(isoDate) {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / DAY_MS);
+}
+
+function getTodayIsoDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 function getDeadlineBadge(deadlineAt) {
   if (!deadlineAt) return null;
 
-  const deadline = new Date(`${deadlineAt}T23:59:59`);
+  const [year, month, day] = deadlineAt.split("-").map(Number);
+  const deadline = new Date(year, month - 1, day);
   if (Number.isNaN(deadline.getTime())) return null;
 
-  const daysLeft = Math.ceil((deadline.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+  const deadlineDayNumber = getDayNumberFromIsoDate(deadlineAt);
+  const todayDayNumber = getDayNumberFromIsoDate(getTodayIsoDate());
+  if (deadlineDayNumber === null || todayDayNumber === null) return null;
+  const daysLeft = deadlineDayNumber - todayDayNumber;
   const shortDate = deadline.toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "short",
@@ -33,26 +91,99 @@ function getDeadlineBadge(deadlineAt) {
   return { tone: "calm", label: `До ${shortDate}` };
 }
 
-export default function TaskColumn({ 
-  type, 
-  tasks, 
-  onTouch, 
-  onComplete, 
-  onKill, 
-  onResurrect, 
+function getDaysAlive(task) {
+  // task.id is Date.now() string for web-created tasks
+  const createdAt = /^\d{10,}$/.test(task.id) ? Number(task.id) : null;
+  if (!createdAt) return null;
+  return Math.max(0, Math.floor((Date.now() - createdAt) / (24 * 60 * 60 * 1000)));
+}
+
+function formatMs(ms) {
+  if (!ms || ms <= 0) return null;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}ч ${m}м`;
+  if (m > 0) return `${m}м ${s}с`;
+  return `${s}с`;
+}
+
+export default function TaskColumn({
+  type,
+  tasks,
+  onTouch,
+  onComplete,
+  onKill,
+  onResurrect,
+  onReopenCompleted,
   onAddTask,
+  onEditTask,
+  onAddTime,
   onAddSubtask,
+  onDeleteSubtask,
+  onEditSubtask,
   onToggleSubtask,
   onToggleToday,
   onToggleVital,
   onSetUrgency,
   onSetResistance,
   onSetDeadline,
-  highlightTaskId
+  highlightTaskId,
+  calendarToken,
 }) {
   const [newTaskText, setNewTaskText] = useState("");
   const [newSubtaskText, setNewSubtaskText] = useState({}); // {taskId: text}
   const [confirmTaskId, setConfirmTaskId] = useState(null);
+  const [editingSubtask, setEditingSubtask] = useState(null); // { taskId, subId, text }
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingTaskText, setEditingTaskText] = useState("");
+  const [activeTimerTaskId, setActiveTimerTaskId] = useState(null);
+  const [timerTick, setTimerTick] = useState(0);
+  const timerStartRef = useRef(null);
+
+  useEffect(() => {
+    if (!activeTimerTaskId) return;
+    const interval = setInterval(() => setTimerTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [activeTimerTaskId]);
+  const [calPickerTaskId, setCalPickerTaskId] = useState(null);
+  const [calDate, setCalDate] = useState("");
+  const [calTime, setCalTime] = useState("10:00");
+  const [calDuration, setCalDuration] = useState(60);
+  const [calSaving, setCalSaving] = useState(false);
+
+  const scheduleToCalendar = async (task) => {
+    if (!calendarToken || !calDate) return;
+    setCalSaving(true);
+    try {
+      const start = new Date(`${calDate}T${calTime}:00`);
+      const end = new Date(start.getTime() + calDuration * 60000);
+      const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${calendarToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          summary: task.text,
+          start: { dateTime: start.toISOString() },
+          end: { dateTime: end.toISOString() },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Google Calendar ${response.status}: ${errorText}`);
+      }
+
+      setCalPickerTaskId(null);
+    } catch (e) {
+      console.error("Calendar error:", e);
+    } finally {
+      setCalSaving(false);
+    }
+  };
 
   const addTask = () => {
     if (!newTaskText.trim()) return;
@@ -73,20 +204,27 @@ export default function TaskColumn({
       <div className="task-column-container">
         <div className="tasks-grid">
           {tasks.map(task => (
-            <div key={task.id} className="heaven-cloud animated-fade-in">
-              <div className="cloud-icon">🕊️</div>
-              <div className="heaven-task-name">{task.text}</div>
-              {task.subtasks && task.subtasks.length > 0 && (
-                <div className="heaven-subtasks" style={{marginTop: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'left', width: '100%'}}>
-                  {task.subtasks.map(sub => (
-                    <div key={sub.id} style={{textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.6 : 1, marginBottom: '4px'}}>
-                      {sub.completed ? '✓' : '○'} {sub.text}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="points-badge">+10 points</div>
-            </div>
+            <DraggableTask key={task.id} id={`task-${task.id}`}>
+              <div className="heaven-cloud animated-fade-in">
+                <div className="cloud-icon">🕊️</div>
+                <div className="heaven-task-name">{task.text}</div>
+                {task.subtasks && task.subtasks.length > 0 && (
+                  <div className="heaven-subtasks" style={{marginTop: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'left', width: '100%'}}>
+                    {task.subtasks.map(sub => (
+                      <div key={sub.id} style={{textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.6 : 1, marginBottom: '4px'}}>
+                        {sub.completed ? '✓' : '○'} {sub.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="points-badge">+10 points</div>
+                {onReopenCompleted && (
+                  <button className="reopen-btn" onClick={() => onReopenCompleted(task.id)}>
+                    ↩️ Вернуть в активные
+                  </button>
+                )}
+              </div>
+            </DraggableTask>
           ))}
           {tasks.length === 0 && <p style={{color: '#3aedff', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6}}>Рай пуст. Завершите задачу!</p>}
         </div>
@@ -95,20 +233,39 @@ export default function TaskColumn({
   }
 
   if (type === "cemetery") {
-    // ... cemetery render ...
+    const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+    const exhumationPhrases = [
+      "Слушай, она тут уже давно лежит. Может, попробуем ещё раз — с минимальным пульсом?",
+      "Месяц прошёл. Иногда задачи возвращаются сами. Дать ей шанс?",
+      "Она не забыта — просто ждёт. Воскресить с нуля?",
+      "Прошло больше месяца. Может, теперь это проще, чем казалось?",
+    ];
     return (
       <div className="task-column-container">
         <div className="tasks-grid">
-          {tasks.map(task => (
-            <div key={task.id} className="tombstone animated-fade-in">
-              <div className="tombstone-rip">R.I.P.</div>
-              <div className="tombstone-task-name">{task.text}</div>
-              <div style={{color: '#ef4444', fontSize: '0.85rem', marginBottom: '10px'}}>-5 points</div>
-              <button className="resurrect-btn" onClick={() => onResurrect(task.id)}>
-                🔄 Воскресить
-              </button>
-            </div>
-          ))}
+          {tasks.map((task, i) => {
+            const deadAt = task.deadAt || ((/^\d{10,}$/.test(task.id)) ? Number(task.id) : null);
+            const isOld = deadAt && (Date.now() - deadAt) > MONTH_MS;
+            const phrase = exhumationPhrases[i % exhumationPhrases.length];
+            return (
+              <DraggableTask key={task.id} id={`task-${task.id}`}>
+                <div className="tombstone animated-fade-in">
+                  <div className="tombstone-rip">R.I.P.</div>
+                  <div className="tombstone-task-name">{task.text}</div>
+                  <div style={{color: '#ef4444', fontSize: '0.85rem', marginBottom: '10px'}}>-5 points</div>
+                  {isOld && (
+                    <div className="exhumation-prompt">
+                      <span className="exhumation-angel">👼</span>
+                      <p className="exhumation-text">{phrase}</p>
+                    </div>
+                  )}
+                  <button className="resurrect-btn" onClick={() => onResurrect(task.id)}>
+                    🔄 Воскресить
+                  </button>
+                </div>
+              </DraggableTask>
+            );
+          })}
           {tasks.length === 0 && <p style={{color: '#8a1c1c', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8}}>Кладбище пустует. Так держать!</p>}
         </div>
       </div>
@@ -164,11 +321,49 @@ export default function TaskColumn({
       {deadlineBadge && (
         <div className={`deadline-badge ${deadlineBadge.tone}`}>{deadlineBadge.label}</div>
       )}
-      <div className="task-text" style={{ fontSize: '1.4rem', marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'GuildensternNbp', 'VT323', monospace", textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-       {task.isVital ? '🚨 ' : isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
-       {task.text}
+      <div className="task-text" style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'Inter', sans-serif", lineHeight: '1.4' }}>
+        {task.isVital ? '🚨 ' : isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
+        {(() => {
+          const total = (task.subtasks || []).length;
+          const done = (task.subtasks || []).filter(s => s.completed).length;
+          return total > 0 ? (
+            <span className="subtask-progress">{done}/{total}</span>
+          ) : null;
+        })()}
+        {editingTaskId === task.id ? (
+          <input
+            autoFocus
+            className="task-text-edit-input"
+            value={editingTaskText}
+            onChange={e => setEditingTaskText(e.target.value)}
+            onBlur={() => {
+              if (onEditTask) onEditTask(task.id, editingTaskText);
+              setEditingTaskId(null);
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                if (onEditTask) onEditTask(task.id, editingTaskText);
+                setEditingTaskId(null);
+              } else if (e.key === 'Escape') {
+                setEditingTaskId(null);
+              }
+            }}
+          />
+        ) : (
+          <span
+            onDoubleClick={() => { setEditingTaskId(task.id); setEditingTaskText(task.text); }}
+            title="Двойной клик — редактировать"
+            style={{ cursor: 'text' }}
+          >{task.text}</span>
+        )}
       </div>
       
+      {getDaysAlive(task) !== null && (
+        <div className="days-alive">
+          🗓 {getDaysAlive(task) === 0 ? 'сегодня' : `${getDaysAlive(task)} дн.`}
+        </div>
+      )}
+
       <div className="heat-slider-container">
         <div className="heat-label">Пульс</div>
         <div style={{
@@ -219,19 +414,66 @@ export default function TaskColumn({
 
       {/* Subtasks block */}
       <div className="subtasks-container">
-        {(task.subtasks || []).map(sub => (
-          <div key={sub.id} className="subtask-item">
-            <input 
-              type="checkbox" 
-              checked={sub.completed} 
+        {(task.subtasks || []).map(sub => {
+          const isEditingThis = editingSubtask && editingSubtask.taskId === task.id && editingSubtask.subId === sub.id;
+          return (
+          <div key={sub.id} className={`subtask-item${isEditingThis ? ' subtask-item--editing' : ''}`}>
+            <input
+              type="checkbox"
+              checked={sub.completed}
               onChange={() => onToggleSubtask(task.id, sub.id)}
               className="subtask-checkbox"
             />
-            <span style={{textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.5 : 1}}>
-              {sub.text}
-            </span>
+            {isEditingThis ? (
+              <textarea
+                autoFocus
+                rows={1}
+                className="subtask-edit-input"
+                value={editingSubtask.text}
+                ref={el => {
+                  if (el) {
+                    el.style.height = 'auto';
+                    el.style.height = el.scrollHeight + 'px';
+                  }
+                }}
+                onChange={e => {
+                  setEditingSubtask({ ...editingSubtask, text: e.target.value });
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
+                onBlur={() => {
+                  if (onEditSubtask) onEditSubtask(task.id, sub.id, editingSubtask.text);
+                  setEditingSubtask(null);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (onEditSubtask) onEditSubtask(task.id, sub.id, editingSubtask.text);
+                    setEditingSubtask(null);
+                  } else if (e.key === 'Escape') {
+                    setEditingSubtask(null);
+                  }
+                }}
+              />
+            ) : (
+              <span
+                style={{ textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.5 : 1, flex: 1 }}
+                onDoubleClick={() => setEditingSubtask({ taskId: task.id, subId: sub.id, text: sub.text })}
+                title="Двойной клик — редактировать"
+              >
+                {sub.text}
+              </span>
+            )}
+            {onDeleteSubtask && (
+              <button
+                className="subtask-delete-btn"
+                onClick={() => onDeleteSubtask(task.id, sub.id)}
+                title="Удалить шаг"
+              >×</button>
+            )}
           </div>
-        ))}
+          );
+        })}
         
         <div className="subtask-add-row">
           <input 
@@ -246,14 +488,73 @@ export default function TaskColumn({
         </div>
       </div>
 
+      <div className="timer-row">
+        {(() => {
+          const isRunning = activeTimerTaskId === task.id;
+          const elapsed = isRunning && timerStartRef.current
+            ? Date.now() - timerStartRef.current
+            : 0;
+          const totalMs = (task.timeSpent || 0) + elapsed;
+          return (
+            <>
+              <button
+                className={`timer-btn ${isRunning ? 'timer-running' : ''}`}
+                onClick={() => {
+                  if (isRunning) {
+                    const spent = Date.now() - timerStartRef.current;
+                    if (onAddTime) onAddTime(task.id, spent);
+                    timerStartRef.current = null;
+                    setActiveTimerTaskId(null);
+                  } else {
+                    timerStartRef.current = Date.now();
+                    setActiveTimerTaskId(task.id);
+                  }
+                }}
+                title={isRunning ? 'Остановить таймер' : 'Запустить таймер'}
+              >
+                {isRunning ? '⏹ Стоп' : '▶ Старт'}
+              </button>
+              {totalMs > 0 && (
+                <span className="timer-total">
+                  ⏱ {formatMs(totalMs)}
+                </span>
+              )}
+            </>
+          );
+        })()}
+      </div>
+
       <div className="task-actions">
         {task.heatCurrent <= 60 && (
           <button className="action-btn touch" onClick={() => onTouch(task.id)}>👀 Вспомнил</button>
         )}
-        {task.heatCurrent > 60 && (
-          <button className="action-btn complete" onClick={() => setConfirmTaskId(task.id)}>🚀 Завершить!</button>
+        <button className="action-btn complete" onClick={() => setConfirmTaskId(task.id)}>🚀 Завершить!</button>
+        {calendarToken && (
+          <button
+            className="action-btn cal-btn"
+            onClick={() => setCalPickerTaskId(calPickerTaskId === task.id ? null : task.id)}
+            title="Запланировать в Google Calendar"
+          >📅</button>
         )}
       </div>
+
+      {calPickerTaskId === task.id && calendarToken && (
+        <div className="cal-picker">
+          <input type="date" value={calDate} onChange={e => setCalDate(e.target.value)} className="cal-input" />
+          <input type="time" value={calTime} onChange={e => setCalTime(e.target.value)} className="cal-input" />
+          <select value={calDuration} onChange={e => setCalDuration(Number(e.target.value))} className="cal-input">
+            <option value={30}>30 мин</option>
+            <option value={60}>1 час</option>
+            <option value={90}>1.5 ч</option>
+            <option value={120}>2 часа</option>
+          </select>
+          <button
+            className="cal-save-btn"
+            onClick={() => scheduleToCalendar(task)}
+            disabled={calSaving || !calDate}
+          >{calSaving ? "..." : "Добавить"}</button>
+        </div>
+      )}
     </div>
       );
     })()
@@ -277,29 +578,29 @@ export default function TaskColumn({
       </div>
 
       <div className="zones-grid">
-        <div className="zone-column focus-zone">
-          <h3 className="zone-title">🔥 В ФОКУСЕ (&gt;60%)</h3>
+        <DroppableZone id="zone-hot" className="zone-column focus-zone">
+          <h3 className="zone-title">🔥 В ФОКУСЕ ({hotTasks.length})</h3>
           <div className="tasks-list">
-            {hotTasks.map(t => renderTaskCard(t, false, "#10b981"))}
+            {hotTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`}>{renderTaskCard(t, false, "#10b981")}</DraggableTask>)}
             {hotTasks.length === 0 && <div className="empty-zone">Нет пламенных задач</div>}
           </div>
-        </div>
+        </DroppableZone>
 
-        <div className="zone-column passive-zone">
-          <h3 className="zone-title">🧊 НА ФОНЕ (25-60%)</h3>
+        <DroppableZone id="zone-passive" className="zone-column passive-zone">
+          <h3 className="zone-title">🧊 НА ФОНЕ ({passiveTasks.length})</h3>
           <div className="tasks-list">
-            {passiveTasks.map(t => renderTaskCard(t, false, "#3b82f6"))}
+            {passiveTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`}>{renderTaskCard(t, false, "#3b82f6")}</DraggableTask>)}
             {passiveTasks.length === 0 && <div className="empty-zone">Все либо горит, либо замерзает</div>}
           </div>
-        </div>
+        </DroppableZone>
 
-        <div className="zone-column purgatory-zone">
-          <h3 className="zone-title" style={{color: '#f59e0b'}}>🥶 ЧИСТИЛИЩЕ (&lt;25%)</h3>
+        <DroppableZone id="zone-purgatory" className="zone-column purgatory-zone">
+          <h3 className="zone-title" style={{color: '#f59e0b'}}>🥶 ЧИСТИЛИЩЕ ({purgatoryTasks.length})</h3>
           <div className="tasks-list">
-            {purgatoryTasks.map(t => renderTaskCard(t, true, "#ef4444"))}
+            {purgatoryTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`}>{renderTaskCard(t, true, "#ef4444")}</DraggableTask>)}
             {purgatoryTasks.length === 0 && <div className="empty-zone">Никто не замерзает</div>}
           </div>
-        </div>
+        </DroppableZone>
       </div>
 
       {confirmTaskId && (

@@ -1,13 +1,29 @@
 // src/App.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, pointerWithin, closestCenter } from "@dnd-kit/core";
 import { useNavigate } from "react-router-dom";
 import TaskColumn from "./TaskColumn";
 import LogoutButton from "./LogoutButton";
 import Companions from "./Companions";
 import LoadingScreen from "./LoadingScreen";
-import { getUserData, updateUserData } from "./firestoreUtils";
-import { auth } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import {
+  subscribeToTasks,
+  saveTask,
+  saveScore,
+  getUserScore,
+  migrateTasksToSubcollection,
+  loadTaskSnapshots,
+  saveTaskSnapshot,
+  restoreFromSnapshot,
+} from "./firestoreUtils";
+import { auth, googleProvider } from "./firebase";
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  GoogleAuthProvider,
+} from "firebase/auth";
 import "./App.css";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -15,14 +31,33 @@ const DEFAULT_TASK_HEAT = 35;
 const TOUCH_HEAT_BONUS = 12;
 const SUBTASK_COMPLETION_CAP = 18;
 const URGENCY_DECAY_WINDOWS_MS = {
-  low: 7 * DAY_MS,
-  medium: 5 * DAY_MS,
-  high: 3 * DAY_MS,
+  low: 21 * DAY_MS,
+  medium: 14 * DAY_MS,
+  high: 10 * DAY_MS,
 };
 const MIN_LOADING_MS = 350;
 const NUDGE_INTERVAL_MS = 20 * 60 * 1000;
 const PULSE_STORAGE_PREFIX = "adhd_planner_pulse";
 const CLOUD_CACHE_PREFIX = "adhd_planner_cloud_cache";
+const CLOUD_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
+const DEVIL_AUTO_CLEAN_THRESHOLD = 5;   // purgatory tasks before devil intervenes
+const DEVIL_AUTO_CLEAN_COOLDOWN_MS = 30 * 60 * 1000; // 30 min between auto-cleans
+
+function formatTimeSpent(ms) {
+  if (!ms || ms <= 0) return "—";
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return "< 1 мин";
+  if (minutes < 60) return `${minutes} мин`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours} ч ${mins} мин` : `${hours} ч`;
+}
+
+function getDayNumberFromIsoDate(isoDate) {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / DAY_MS);
+}
 
 function getDayKey(input = Date.now()) {
   const date = new Date(input);
@@ -76,13 +111,21 @@ function loadCloudCache(userId) {
   if (!userId) return null;
 
   try {
-    const rawState = localStorage.getItem(getCloudCacheKey(userId));
+    const cacheKey = getCloudCacheKey(userId);
+    const rawState = localStorage.getItem(cacheKey);
     if (!rawState) return null;
     const parsedState = JSON.parse(rawState);
+    const savedAt = typeof parsedState.savedAt === "number" ? parsedState.savedAt : 0;
+
+    if (!savedAt || Date.now() - savedAt > CLOUD_CACHE_MAX_AGE_MS) {
+      localStorage.removeItem(cacheKey);
+      return null;
+    }
+
     return {
       tasks: parsedState.tasks || [],
       score: typeof parsedState.score === "number" ? parsedState.score : 0,
-      savedAt: parsedState.savedAt || 0,
+      savedAt,
     };
   } catch (error) {
     console.warn("Не удалось прочитать cloud cache:", error);
@@ -107,6 +150,51 @@ function saveCloudCache(userId, tasks, score) {
   }
 }
 
+function mergeSubtasks(localSubtasks = [], remoteSubtasks = [], preferRemote = true) {
+  const localById = new Map(localSubtasks.map((subtask) => [String(subtask.id), subtask]));
+  const remoteIds = new Set(remoteSubtasks.map((subtask) => String(subtask.id)));
+
+  const mergedRemote = remoteSubtasks.map((remoteSubtask) => {
+    const localSubtask = localById.get(String(remoteSubtask.id));
+    if (!localSubtask) return remoteSubtask;
+    return preferRemote
+      ? { ...localSubtask, ...remoteSubtask }
+      : { ...remoteSubtask, ...localSubtask };
+  });
+
+  const localOnly = localSubtasks.filter((subtask) => !remoteIds.has(String(subtask.id)));
+  return [...mergedRemote, ...localOnly];
+}
+
+function mergeTaskLists(localTasks = [], remoteTasks = []) {
+  const localById = new Map(localTasks.map((task) => [String(task.id), task]));
+  const remoteIds = new Set(remoteTasks.map((task) => String(task.id)));
+
+  const mergedRemote = remoteTasks.map((remoteTask) => {
+    const localTask = localById.get(String(remoteTask.id));
+    if (!localTask) return remoteTask;
+
+    const remoteUpdatedAt = remoteTask.lastUpdated || 0;
+    const localUpdatedAt = localTask.lastUpdated || 0;
+    const preferRemote = remoteUpdatedAt >= localUpdatedAt;
+
+    const mergedTask = preferRemote
+      ? { ...localTask, ...remoteTask }
+      : { ...remoteTask, ...localTask };
+
+    mergedTask.subtasks = mergeSubtasks(
+      localTask.subtasks || [],
+      remoteTask.subtasks || [],
+      preferRemote,
+    );
+
+    return mergedTask;
+  });
+
+  const localOnly = localTasks.filter((task) => !remoteIds.has(String(task.id)));
+  return [...localOnly, ...mergedRemote];
+}
+
 function getTaskHeat(task) {
   return typeof task.heatCurrent === "number" ? task.heatCurrent : task.heatBase || 0;
 }
@@ -115,19 +203,45 @@ function getTaskDecayWindowMs(task) {
   return URGENCY_DECAY_WINDOWS_MS[task?.urgency || "medium"] || URGENCY_DECAY_WINDOWS_MS.medium;
 }
 
+function isAutoDeathProtected(task) {
+  return Boolean(task?.isToday || task?.isVital || task?.deadlineAt);
+}
+
+function shouldAutoReviveProtectedDeadTask(task) {
+  return task?.status === "dead" && !task?.deadAt && isAutoDeathProtected(task);
+}
+
+function reviveProtectedDeadTask(task) {
+  return {
+    ...task,
+    status: "active",
+    heatBase: typeof task?.heatBase === "number" ? task.heatBase : DEFAULT_TASK_HEAT,
+    heatCurrent: DEFAULT_TASK_HEAT,
+    lastUpdated: Date.now(),
+    deadAt: null,
+  };
+}
+
 function parseDeadline(deadlineAt) {
-  if (!deadlineAt) return null;
-  const deadline = new Date(`${deadlineAt}T23:59:59`);
+  if (!deadlineAt || !/^\d{4}-\d{2}-\d{2}$/.test(deadlineAt)) return null;
+  const [year, month, day] = deadlineAt.split("-").map(Number);
+  const deadline = new Date(year, month - 1, day);
   return Number.isNaN(deadline.getTime()) ? null : deadline;
+}
+
+function getDaysUntilDeadline(deadlineAt, now = Date.now()) {
+  const deadlineDayNumber = getDayNumberFromIsoDate(deadlineAt);
+  if (deadlineDayNumber === null) return null;
+  const todayDayNumber = getDayNumberFromIsoDate(getDayKey(now));
+  if (todayDayNumber === null) return null;
+  return deadlineDayNumber - todayDayNumber;
 }
 
 function getDeadlineInfo(task) {
   const deadline = parseDeadline(task?.deadlineAt);
   if (!deadline) return null;
 
-  const now = Date.now();
-  const msLeft = deadline.getTime() - now;
-  const daysLeft = Math.ceil(msLeft / DAY_MS);
+  const daysLeft = getDaysUntilDeadline(task?.deadlineAt);
   const shortDate = deadline.toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "short",
@@ -227,11 +341,8 @@ function getPriorityScore(task, now = Date.now()) {
   return vitalScore + deadlineScore + urgencyScore + resistanceScore + todayScore + heatScore + staleScore;
 }
 
-function pickRescueTask(tasks) {
-  const activeTasks = tasks.filter((task) => task.status === "active");
-  if (activeTasks.length === 0) return null;
-
-  return [...activeTasks].sort((left, right) => {
+function sortTasksForMission(tasks) {
+  return [...tasks].sort((left, right) => {
     const priorityDelta = getPriorityScore(right) - getPriorityScore(left);
     if (priorityDelta !== 0) return priorityDelta;
 
@@ -247,10 +358,66 @@ function pickRescueTask(tasks) {
     const heatDelta = getTaskHeat(left) - getTaskHeat(right);
     if (heatDelta !== 0) return heatDelta;
     return (left.lastUpdated || 0) - (right.lastUpdated || 0);
-  })[0];
+  });
 }
 
-function buildMissionCopy(task) {
+function getMissionSelection(tasks) {
+  const activeTasks = tasks.filter((task) => task.status === "active");
+  if (activeTasks.length === 0) {
+    return { task: null, reason: "empty", candidates: [] };
+  }
+
+  const hardDeadlineTasks = activeTasks.filter((task) => {
+    const deadlineInfo = getDeadlineInfo(task);
+    return deadlineInfo?.tone === "overdue" || deadlineInfo?.tone === "today";
+  });
+
+  if (hardDeadlineTasks.length > 0) {
+    const candidates = sortTasksForMission(hardDeadlineTasks);
+    return {
+      task: candidates[0] || null,
+      reason: "hard_deadline",
+      candidates,
+    };
+  }
+
+  const todayPinnedTasks = activeTasks.filter((task) => task.isToday);
+  if (todayPinnedTasks.length > 0) {
+    const candidates = sortTasksForMission(todayPinnedTasks);
+    return {
+      task: candidates[0] || null,
+      reason: "today_shortlist",
+      candidates,
+    };
+  }
+
+  const criticalTasks = activeTasks.filter((task) => task.isVital);
+  if (criticalTasks.length > 0) {
+    const candidates = sortTasksForMission(criticalTasks);
+    return {
+      task: candidates[0] || null,
+      reason: "critical_priority",
+      candidates,
+    };
+  }
+
+  const candidates = sortTasksForMission(activeTasks);
+  return {
+    task: candidates[0] || null,
+    reason: "auto_priority",
+    candidates,
+  };
+}
+
+function getMissionReasonLabel(reason) {
+  if (reason === "hard_deadline") return "жёсткий дедлайн";
+  if (reason === "today_shortlist") return "из шортлиста на сегодня";
+  if (reason === "critical_priority") return "критичный приоритет";
+  if (reason === "auto_priority") return "автовыбор по приоритету";
+  return "без цели";
+}
+
+function buildMissionCopy(task, missionReason) {
   if (!task) {
     return "Сегодня можно не тушить пожары. Закрой хвосты или добавь новую цель.";
   }
@@ -265,6 +432,14 @@ function buildMissionCopy(task) {
 
   if (deadlineInfo?.tone === "today") {
     return `Это надо закрыть сегодня.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
+  }
+
+  if (missionReason === "today_shortlist") {
+    return `Эта задача выбрана из вашего ручного списка на сегодня.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
+  }
+
+  if (missionReason === "critical_priority") {
+    return `Вы пометили это как критичное. Поэтому она сейчас сверху.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
   }
 
   if (deadlineInfo?.tone === "soon") {
@@ -283,7 +458,7 @@ function buildMissionCopy(task) {
     return `Она ещё жива, но уже пытается сбежать из фокуса.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
   }
 
-  return `Это сейчас ваш самый живой проект. Добейте его, пока пламя не погасло.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
+  return `Это сейчас самый приоритетный кандидат по состоянию задач.${openSubtasks ? ` Осталось шагов: ${openSubtasks}.` : ""}`;
 }
 
 function buildNudgeMessage(task) {
@@ -390,33 +565,61 @@ export default function App() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [minLoadDone, setMinLoadDone] = useState(false);
-  const [isDark, setIsDark] = useState(
-    () => (localStorage.getItem('theme') || 'light') === 'dark'
-  );
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    return saved;
+  });
   const [pulseState, setPulseState] = useState(() => getDefaultPulseState());
   const [highlightTaskId, setHighlightTaskId] = useState(null);
   const [nudgeStatus, setNudgeStatus] = useState("");
   const [panicOpen, setPanicOpen] = useState(false);
+  const [companionFlash, setCompanionFlash] = useState(null);
+  const [dragTaskId, setDragTaskId] = useState(null);
+  const [fogMode, setFogMode] = useState(false);
+  const [cemeteryDigest, setCemeteryDigest] = useState(null); // { tasks: [...] }
+  const [snapshots, setSnapshots] = useState(null); // null = not loaded yet
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState(null); // snapshot pending confirm
+  const [expandedTimeTaskId, setExpandedTimeTaskId] = useState(null);
+  const devilAutoCleanLastRef = useRef(0);
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
+
+  // Companions (angel/devil) always win over zone columns when pointer is inside both
+  const dndCollision = useCallback((args) => {
+    const pw = pointerWithin(args);
+    if (pw.length > 0) {
+      const companion = pw.find(c => c.id === "drop-devil" || c.id === "drop-angel");
+      if (companion) return [companion];
+      return pw;
+    }
+    return closestCenter(args);
+  }, []);
   const [panicTaskId, setPanicTaskId] = useState(null);
   const [panicEndsAt, setPanicEndsAt] = useState(null);
   const [panicTick, setPanicTick] = useState(Date.now());
   const [panicDraftStep, setPanicDraftStep] = useState("");
 
   const toggleTheme = () => {
-    setIsDark(prev => {
-      const next = !prev;
-      const themeName = next ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-theme', themeName);
-      localStorage.setItem('theme', themeName);
+    setTheme(prev => {
+      const order = ['dark', 'neon', 'light'];
+      const next = order[(order.indexOf(prev) + 1) % order.length];
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
       return next;
     });
   };
 
   // Flag to distinguish first load from component updates
   const [dataLoaded, setDataLoaded] = useState(false);
-  // Prevents the sync effect from firing immediately when data is first loaded
-  // (no need to write back what we just read from Firestore)
-  const syncReadyRef = React.useRef(false);
+  const [calendarToken, setCalendarToken] = useState(null);
+  // True once Firestore subcollection has delivered at least one snapshot (or migration finished).
+  // Blocks per-task saveTask calls until server state is confirmed.
+  const firestoreReadyRef = React.useRef(false);
   const navigate = useNavigate();
   const notificationPermission =
     typeof window === "undefined" || !("Notification" in window)
@@ -451,9 +654,39 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
+  // Safety net: if loading never resolves (Firestore unreachable, corrupt localStorage, etc.)
+  // force-dismiss the loading screen after 10 seconds so the app becomes usable.
   useEffect(() => {
-    syncReadyRef.current = false;
+    const t = setTimeout(() => setLoading(false), 10000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    firestoreReadyRef.current = false;
   }, [user?.id]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const resolveRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (!mounted || !result) return;
+
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) {
+          setCalendarToken(credential.accessToken);
+        }
+      } catch (error) {
+        console.error("Calendar redirect error:", error);
+      }
+    };
+
+    resolveRedirectResult();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Load User & Data from Cloud
   useEffect(() => {
@@ -463,13 +696,22 @@ export default function App() {
       return;
     }
 
-    const parsedUser = JSON.parse(storedUser);
+    let parsedUser;
+    try {
+      parsedUser = JSON.parse(storedUser);
+    } catch (e) {
+      console.error("[Planner] Corrupt adhdUser in localStorage, clearing:", e);
+      localStorage.removeItem("adhdUser");
+      setLoading(false);
+      navigate("/login");
+      return;
+    }
     setUser(parsedUser);
 
     const loadCloudData = () => {
       // If guest mode (offline)
       if (parsedUser.id.startsWith("guest_")) {
-        const localTasks = JSON.parse(localStorage.getItem("adhd_planner_tasks")) || [];
+        const localTasks = JSON.parse(localStorage.getItem("adhd_planner_tasks") || "[]") || [];
         const localScore = parseInt(localStorage.getItem("adhd_planner_score"), 10) || 0;
         setTasks(localTasks);
         setScore(localScore);
@@ -486,8 +728,9 @@ export default function App() {
         }
 
         let isCancelled = false;
+        let migrationAttempted = false;
 
-        const applyCloudData = async (firebaseUser) => {
+        const applyCloudData = (firebaseUser) => {
           if (!firebaseUser) {
             console.warn("Пользователь не авторизован в Firebase. Перенаправляем на логин.");
             setLoading(false);
@@ -496,36 +739,79 @@ export default function App() {
             return;
           }
 
-          const data = await getUserData(parsedUser.id, parsedUser.email, parsedUser.first_name);
-          if (isCancelled) return;
+          return subscribeToTasks(
+            parsedUser.id,
+            async (tasks, metadata) => {
+              if (isCancelled) return;
 
-          if (data) {
-            setTasks(data.tasks || []);
-            setScore(data.score || 0);
-            setLoading(false);
-            setDataLoaded(true);
-          } else if (!cachedCloudData) {
-            setLoading(false);
-          }
+              // First snapshot with empty subcollection → try to migrate from old array
+              if (!firestoreReadyRef.current && tasks.length === 0 && !migrationAttempted) {
+                migrationAttempted = true;
+                const result = await migrateTasksToSubcollection(parsedUser.id);
+                if (result.migrated > 0) {
+                  if (typeof result.score === "number") setScore(result.score);
+                  // Next onSnapshot will deliver the migrated tasks — do nothing here
+                  return;
+                }
+                // No old tasks found — brand new account
+                const initialScore = await getUserScore(parsedUser.id);
+                setScore(initialScore);
+              }
+
+              // Load score from root doc on first real snapshot
+              if (!firestoreReadyRef.current) {
+                const serverScore = await getUserScore(parsedUser.id);
+                setScore(serverScore);
+                firestoreReadyRef.current = true;
+              }
+
+              const healedTasks = tasks.map((task) =>
+                shouldAutoReviveProtectedDeadTask(task) ? reviveProtectedDeadTask(task) : task,
+              );
+
+              const repairedTasks = healedTasks.filter(
+                (task, index) => task !== tasks[index],
+              );
+
+              if (repairedTasks.length > 0) {
+                console.warn(
+                  "[Planner] Auto-revived protected dead tasks from stale state:",
+                  repairedTasks.map((task) => task.text),
+                );
+                repairedTasks.forEach((task) => {
+                  saveTask(parsedUser.id, task).catch((error) => {
+                    console.error("[Planner] auto-revive save failed:", error);
+                  });
+                });
+              }
+
+              setTasks(healedTasks);
+              setLoading(false);
+              setDataLoaded(true);
+            },
+            () => {
+              if (!cachedCloudData) setLoading(false);
+            },
+          );
         };
 
         if (auth.currentUser && auth.currentUser.uid === parsedUser.id) {
-          void applyCloudData(auth.currentUser);
+          const unsubscribeCloud = applyCloudData(auth.currentUser);
           return () => {
             isCancelled = true;
+            if (typeof unsubscribeCloud === "function") unsubscribeCloud();
           };
         }
 
-        let alreadyLoaded = false;
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-          if (alreadyLoaded) return;
-          alreadyLoaded = true;
-          unsubscribe();
-          await applyCloudData(firebaseUser);
+        let unsubscribeCloud = null;
+        const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+          unsubscribeAuth();
+          unsubscribeCloud = applyCloudData(firebaseUser);
         });
         return () => {
           isCancelled = true;
-          unsubscribe();
+          unsubscribeAuth();
+          if (typeof unsubscribeCloud === "function") unsubscribeCloud();
         };
       }
     };
@@ -549,67 +835,77 @@ export default function App() {
     saveCloudCache(user.id, tasks, score);
   }, [tasks, score, user?.id]);
 
-  // Sync to Cloud / Local Storage whenever tasks or score change
+  // Guest mode: sync to localStorage whenever tasks or score change
   useEffect(() => {
-    if (!dataLoaded || !user) return;
-
-    // The first time this effect fires with dataLoaded=true, tasks/score were
-    // just SET from Firestore — no need to write them back. Mark ready and skip.
-    if (!syncReadyRef.current) {
-      syncReadyRef.current = true;
-      return;
-    }
-
-    if (user.id.startsWith("guest_")) {
-      localStorage.setItem("adhd_planner_tasks", JSON.stringify(tasks));
-      localStorage.setItem("adhd_planner_score", score.toString());
-    } else {
-      updateUserData(user.id, tasks, score);
-    }
-  }, [tasks, score, dataLoaded, user]);
+    if (!dataLoaded || !user?.id.startsWith("guest_")) return;
+    localStorage.setItem("adhd_planner_tasks", JSON.stringify(tasks));
+    localStorage.setItem("adhd_planner_score", score.toString());
+  }, [tasks, score, dataLoaded, user?.id]);
 
   // Game tick (cooling tasks based on heatBase and lastUpdated)
+  // Uses functional setTasks so it always operates on the latest state —
+  // prevents a stale closure from reverting a just-completed task back to active.
   useEffect(() => {
-    if (loading || !dataLoaded || tasks.length === 0) return;
+    if (loading || !dataLoaded) return;
+    // Accumulate newly-dead tasks outside the updater so we can persist them.
+    const pendingDead = { current: [] };
     const interval = setInterval(() => {
       const now = Date.now();
-      let changed = false;
-      let newScore = score;
-      
-      const updatedTasks = tasks.map(task => {
-        if (task.status === "active") {
+      pendingDead.current = [];
+
+      setTasks(prevTasks => {
+        if (prevTasks.length === 0) return prevTasks;
+        let changed = false;
+        const dead = [];
+
+        const next = prevTasks.map(task => {
+          if (task.status !== "active") return task;
           const timeElapsed = now - task.lastUpdated;
           const decayWindowMs = getTaskDecayWindowMs(task);
           const currentHeatValue = Math.max(0, task.heatBase * (1 - timeElapsed / decayWindowMs));
-          
-          let newTask = { ...task, heatCurrent: currentHeatValue };
-          
-          if (currentHeatValue <= 0) {
+          const newTask = { ...task, heatCurrent: currentHeatValue };
+          const protectedFromAutoDeath = isAutoDeathProtected(task);
+
+          if (currentHeatValue <= 0 && !protectedFromAutoDeath) {
             newTask.status = "dead";
-            newScore -= 5;
+            newTask.deadAt = now;
+            newTask.isToday = false;
             changed = true;
+            dead.push(newTask);
           } else if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
             changed = true;
           }
           return newTask;
-        }
-        return task;
+        });
+
+        pendingDead.current = dead;
+        return changed ? next : prevTasks;
       });
 
-      if (changed) {
-        setTasks(updatedTasks);
-        if (newScore !== score) setScore(newScore);
+      // Handle score + Firestore persist for tasks that just died.
+      // Runs synchronously after setTasks is enqueued; pendingDead is already populated.
+      const dead = pendingDead.current;
+      if (dead.length > 0) {
+        const penalty = dead.length * 5;
+        setScore(s => {
+          const newS = s - penalty;
+          persistScore(newS);
+          return newS;
+        });
+        dead.forEach(t => persistTask(t));
       }
-    }, 10000); 
+    }, 10000);
     return () => clearInterval(interval);
-  }, [tasks, score, loading]);
+  }, [loading, dataLoaded]);
 
   const activeTasks = tasks.filter((task) => task.status === "active");
   const completedTasks = tasks.filter((task) => task.status === "completed");
   const deadTasks = tasks.filter((task) => task.status === "dead");
   const todayPinnedTasks = activeTasks.filter((task) => task.isToday);
   const visibleActiveTasks = activeFilter === "today" ? todayPinnedTasks : activeTasks;
-  const rescueTask = pickRescueTask(activeTasks);
+  const missionSelection = getMissionSelection(activeTasks);
+  const rescueTask = missionSelection.task;
+  const missionReason = missionSelection.reason;
   const panicTask = tasks.find((task) => task.id === panicTaskId) || rescueTask;
   const panicPlan = buildPanicPlan(panicTask);
   const rescueDeadline = getDeadlineInfo(rescueTask);
@@ -617,9 +913,17 @@ export default function App() {
   const todayActions = pulseState.lastActionDay === getDayKey() ? pulseState.actionsToday || 0 : 0;
   const panicSecondsLeft = panicEndsAt ? Math.max(0, Math.ceil((panicEndsAt - panicTick) / 1000)) : 0;
 
+  const scrollTaskIntoView = (taskId) => {
+    const element = document.querySelector(`[data-task-id="${taskId}"]`);
+    element?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   const focusTaskInList = (taskId) => {
     setActiveTab("active");
     setHighlightTaskId(taskId);
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => scrollTaskIntoView(taskId), 90);
+    });
   };
 
   const sendBrowserNudge = (task, { isTest = false } = {}) => {
@@ -660,8 +964,7 @@ export default function App() {
     if (activeTab !== "active" || !highlightTaskId) return;
 
     const timer = setTimeout(() => {
-      const element = document.querySelector(`[data-task-id="${highlightTaskId}"]`);
-      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrollTaskIntoView(highlightTaskId);
     }, 80);
 
     return () => clearTimeout(timer);
@@ -689,6 +992,42 @@ export default function App() {
     return () => clearInterval(interval);
   }, [notificationPermission, pulseState.lastNudgeAt, pulseState.notificationsEnabled, rescueDeadline?.reminderIntervalMs, rescueTask]);
 
+  // Exhumation nudge — Angel checks on dead tasks older than 30 days, once per day
+  useEffect(() => {
+    if (notificationPermission !== "granted") return;
+    if (!pulseState.notificationsEnabled) return;
+    if (!dataLoaded) return;
+
+    const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+    const EXHUMATION_INTERVAL_MS = 24 * 60 * 60 * 1000;
+    const storageKey = `adhd_exhumation_nudge_${user?.id}`;
+
+    const check = () => {
+      if (document.visibilityState !== "hidden") return;
+      const lastSent = Number(localStorage.getItem(storageKey) || 0);
+      if (Date.now() - lastSent < EXHUMATION_INTERVAL_MS) return;
+
+      const candidate = deadTasks.find(t => {
+        const deadAt = t.deadAt || (/^\d{10,}$/.test(t.id) ? Number(t.id) : null);
+        return deadAt && (Date.now() - deadAt) > MONTH_MS;
+      });
+      if (!candidate) return;
+
+      const phrases = [
+        `«${candidate.text}» лежит на кладбище уже больше месяца. Может, попробуем ещё раз?`,
+        `Помнишь «${candidate.text}»? Прошёл месяц. Иногда второй шанс — самый важный.`,
+        `«${candidate.text}» всё ещё здесь. Может, теперь это проще, чем казалось?`,
+      ];
+      const body = phrases[Math.floor(Math.random() * phrases.length)];
+
+      new Notification("👼 Ангел стучится", { body, tag: `exhumation-${candidate.id}` });
+      localStorage.setItem(storageKey, String(Date.now()));
+    };
+
+    const interval = setInterval(check, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [notificationPermission, pulseState.notificationsEnabled, dataLoaded, deadTasks, user?.id]);
+
   useEffect(() => {
     if (!panicEndsAt) return;
 
@@ -707,143 +1046,514 @@ export default function App() {
     setNudgeStatus("2 минуты прошли. Даже микро-сдвиг уже считается.");
   }, [panicEndsAt, panicSecondsLeft]);
 
-  const handleAddTask = (text) => {
+  // ── Cloud persistence helpers ──────────────────────────────────────────────
+  const isCloudUser = user?.id && !user.id.startsWith("guest_");
+
+  const persistTask = (task) => {
+    if (!isCloudUser || !firestoreReadyRef.current) return;
+    saveTask(user.id, task).catch((e) => console.error("[saveTask]", e));
+  };
+
+  const persistScore = (newScore) => {
+    if (!isCloudUser) return;
+    saveScore(user.id, newScore).catch((e) => console.error("[saveScore]", e));
+  };
+
+  const handleAddTask = (text, options = {}) => {
+    const now = Date.now();
     const newTask = {
-      id: Date.now().toString(),
+      id: now.toString(),
       text,
-      lastUpdated: Date.now(),
+      lastUpdated: now,
       heatBase: DEFAULT_TASK_HEAT,
       heatCurrent: DEFAULT_TASK_HEAT,
       status: "active",
       subtasks: [],
-      urgency: "medium",
+      urgency: options.urgency || "medium",
       resistance: "medium",
       isToday: false,
       isVital: false,
     };
-    setTasks([newTask, ...tasks]);
+    setTasks((currentTasks) => [newTask, ...currentTasks]);
+    persistTask(newTask);
     setHighlightTaskId(newTask.id);
     trackDailyAction();
   };
 
+  // Adds today's date to task.activeDays (a set stored as sorted array).
+  // Call this inside any setTasks updater that already has the task object.
+  const withActiveDay = (task) => {
+    const today = getDayKey();
+    const prev = task.activeDays || [];
+    if (prev.includes(today)) return task;
+    return { ...task, activeDays: [...prev, today].sort() };
+  };
+
   const handleTouch = (taskId) => {
-    setTasks(tasks.map(t => {
-      if (t.id === taskId) {
-        const newHeatBase = Math.min(100, t.heatCurrent + TOUCH_HEAT_BONUS);
-        return { ...t, lastUpdated: Date.now(), heatBase: newHeatBase, heatCurrent: newHeatBase };
-      }
-      return t;
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(t => {
+      if (t.id !== taskId) return t;
+      const newHeatBase = Math.min(100, t.heatCurrent + TOUCH_HEAT_BONUS);
+      saved = withActiveDay({ ...t, lastUpdated: Date.now(), heatBase: newHeatBase, heatCurrent: newHeatBase });
+      return saved;
     }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
     trackDailyAction();
   };
 
   const handleAddSubtask = (taskId, text) => {
-    setTasks(tasks.map(t => {
-      if (t.id === taskId) {
-        const newSubtasks = [...(t.subtasks || []), { id: Date.now().toString(), text, completed: false }];
-        return { ...t, subtasks: newSubtasks };
-      }
-      return t;
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(t => {
+      if (t.id !== taskId) return t;
+      const newSubtasks = [...(t.subtasks || []), { id: Date.now().toString(), text, completed: false }];
+      saved = { ...t, subtasks: newSubtasks, lastUpdated: Date.now() };
+      return saved;
     }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
     trackDailyAction();
   };
 
-  const handleToggleSubtask = (taskId, subtaskId) => {
-    setTasks(tasks.map(t => {
-      if (t.id === taskId) {
-        const completedBefore = (t.subtasks || []).filter((subtask) => subtask.completed).length;
-        const newSubtasks = (t.subtasks || []).map(s => {
-          if (s.id === subtaskId) {
-            return { ...s, completed: !s.completed };
-          }
-          return s;
-        });
-        
-        const subtasksCount = newSubtasks.length;
-        const completedAfter = newSubtasks.filter((subtask) => subtask.completed).length;
-        const completionDelta = completedAfter - completedBefore;
-        const subtaskWeight = subtasksCount > 0 ? (SUBTASK_COMPLETION_CAP / subtasksCount) : 0;
-        
-        let newHeatBase = t.heatCurrent;
-        newHeatBase = Math.min(100, Math.max(0, newHeatBase + completionDelta * subtaskWeight));
-        
-        return { 
-          ...t, 
-          subtasks: newSubtasks, 
-          heatBase: newHeatBase, 
-          heatCurrent: newHeatBase,
-          lastUpdated: Date.now() 
-        };
-      }
-      return t;
+  const handleEditTask = (taskId, newText) => {
+    if (!newText.trim()) return;
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(t => {
+      if (t.id !== taskId) return t;
+      saved = withActiveDay({ ...t, text: newText.trim(), lastUpdated: Date.now() });
+      return saved;
     }));
+    if (saved) persistTask(saved);
+  };
+
+  const handleAddTime = (taskId, elapsedMs) => {
+    if (!elapsedMs || elapsedMs <= 0) return;
+    const today = getDayKey();
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(t => {
+      if (t.id !== taskId) return t;
+      const timeByDay = { ...(t.timeByDay || {}) };
+      timeByDay[today] = (timeByDay[today] || 0) + elapsedMs;
+      saved = withActiveDay({ ...t, timeSpent: (t.timeSpent || 0) + elapsedMs, timeByDay, lastUpdated: Date.now() });
+      return saved;
+    }));
+    if (saved) persistTask(saved);
+  };
+
+  const handleDeleteSubtask = (taskId, subtaskId) => {
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(t => {
+      if (t.id !== taskId) return t;
+      saved = { ...t, subtasks: (t.subtasks || []).filter(s => s.id !== subtaskId), lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
+  };
+
+  const handleEditSubtask = (taskId, subtaskId, newText) => {
+    if (!newText.trim()) return;
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(t => {
+      if (t.id !== taskId) return t;
+      saved = withActiveDay({
+        ...t,
+        subtasks: (t.subtasks || []).map(s => s.id === subtaskId ? { ...s, text: newText.trim() } : s),
+        lastUpdated: Date.now(),
+      });
+      return saved;
+    }));
+    if (saved) persistTask(saved);
+  };
+
+  const handleToggleSubtask = (taskId, subtaskId) => {
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(t => {
+      if (t.id !== taskId) return t;
+      const completedBefore = (t.subtasks || []).filter((subtask) => subtask.completed).length;
+      const newSubtasks = (t.subtasks || []).map(s =>
+        s.id === subtaskId ? { ...s, completed: !s.completed } : s
+      );
+      const subtasksCount = newSubtasks.length;
+      const completedAfter = newSubtasks.filter((subtask) => subtask.completed).length;
+      const completionDelta = completedAfter - completedBefore;
+      const subtaskWeight = subtasksCount > 0 ? (SUBTASK_COMPLETION_CAP / subtasksCount) : 0;
+      let newHeatBase = Math.min(100, Math.max(0, t.heatCurrent + completionDelta * subtaskWeight));
+      saved = withActiveDay({ ...t, subtasks: newSubtasks, heatBase: newHeatBase, heatCurrent: newHeatBase, lastUpdated: Date.now() });
+      return saved;
+    }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
     trackDailyAction();
   };
 
   const handleSetUrgency = (taskId, urgency) => {
-    setTasks(tasks.map(task => (
-      task.id === taskId
-        ? { ...task, urgency, lastUpdated: Date.now() }
-        : task
-    )));
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(task => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, urgency, lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
   };
 
   const handleSetResistance = (taskId, resistance) => {
-    setTasks(tasks.map(task => (
-      task.id === taskId
-        ? { ...task, resistance, lastUpdated: Date.now() }
-        : task
-    )));
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(task => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, resistance, lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
   };
 
   const handleSetDeadline = (taskId, deadlineAt) => {
-    setTasks(tasks.map(task => (
-      task.id === taskId
-        ? { ...task, deadlineAt, lastUpdated: Date.now() }
-        : task
-    )));
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(task => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, deadlineAt, lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
   };
 
   const handleToggleVital = (taskId) => {
-    setTasks(tasks.map(task => (
-      task.id === taskId
-        ? { ...task, isVital: !task.isVital, lastUpdated: Date.now() }
-        : task
-    )));
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map(task => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, isVital: !task.isVital, lastUpdated: Date.now() };
+      return saved;
+    }));
+    if (saved) persistTask(saved);
     setHighlightTaskId(taskId);
   };
 
   const handleComplete = (taskId) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: "completed", isToday: false } : t));
-    setScore(s => s + 10);
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map((task) => {
+      if (task.id !== taskId) return task;
+      // Auto-complete all subtasks and set heat to 100 so the task
+      // is unambiguously done regardless of prior subtask state.
+      const completedSubtasks = (task.subtasks || []).map(s => ({ ...s, completed: true }));
+      saved = {
+        ...task,
+        status: "completed",
+        isToday: false,
+        lastUpdated: Date.now(),
+        completedAt: Date.now(),
+        subtasks: completedSubtasks,
+        heatBase: 100,
+        heatCurrent: 100,
+      };
+      return saved;
+    }));
+    const newScore = score + 10;
+    setScore(newScore);
+    if (saved) persistTask(saved);
+    persistScore(newScore);
     trackDailyAction();
+  };
+
+  const handleDragEnd = ({ active, over }) => {
+    setDragTaskId(null);
+    if (!active || !over) return;
+    const taskId = String(active.id).replace("task-", "");
+    if (over.id === "drop-devil") {
+      handleKill(taskId);
+      return;
+    }
+    if (over.id === "drop-angel") {
+      handleComplete(taskId);
+      return;
+    }
+    const zoneHeat = { "zone-hot": 80, "zone-passive": 40, "zone-purgatory": 10 };
+    if (zoneHeat[over.id] !== undefined) {
+      const newHeat = zoneHeat[over.id];
+      let saved = null;
+      let prevStatus = null;
+      setTasks(prev => prev.map(t => {
+        if (t.id !== taskId) return t;
+        prevStatus = t.status;
+        const wasInactive = t.status === "completed" || t.status === "dead";
+        saved = {
+          ...t,
+          heatBase: newHeat,
+          heatCurrent: newHeat,
+          lastUpdated: Date.now(),
+          ...(wasInactive ? { status: "active", isToday: false, deadAt: null } : {}),
+        };
+        return saved;
+      }));
+      if (saved) persistTask(saved);
+      if (prevStatus === "completed") {
+        setScore(s => { const n = s - 10; persistScore(n); return n; });
+        flashCompanion("angel", ANGEL_RESURRECT_PHRASES);
+      } else if (prevStatus === "dead") {
+        setScore(s => { const n = s - 2; persistScore(n); return n; });
+        flashCompanion("angel", ANGEL_RESURRECT_PHRASES);
+      }
+    }
+  };
+
+  const DEVIL_KILL_PHRASES = [
+    "За дело, босс! 😈",
+    "Туда ей и дорога! Муахаха! 💀",
+    "Давно пора! Хоронить — так хоронить! 👿",
+    "Один взмах — и готово! 😏",
+  ];
+
+  const DEVIL_AUTO_CLEAN_PHRASES = [
+    "Чистилище переполнено — берусь за уборку! 😈",
+    "Тут слишком тесно. Освобождаю место... 💀",
+    "Старьё само себя не похоронит! 👿",
+    "Пора навести порядок в этом болоте! 😈",
+  ];
+
+  const ANGEL_RESURRECT_PHRASES = [
+    "Принимаюсь за работу! 👼",
+    "Даю второй шанс! Верю в тебя! ✨",
+    "Ещё не всё потеряно! 😇",
+    "Возвращаю к жизни! 💫",
+  ];
+
+  const flashCompanion = (who, phrases) => {
+    const msg = phrases[Math.floor(Math.random() * phrases.length)];
+    setCompanionFlash({ who, msg });
+    setTimeout(() => setCompanionFlash(null), 4000);
   };
 
   const handleKill = (taskId) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: "dead", isToday: false } : t));
-    setScore(s => s - 5);
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map((task) => {
+      if (task.id !== taskId) return task;
+      saved = { ...task, status: "dead", isToday: false, lastUpdated: Date.now(), deadAt: Date.now() };
+      return saved;
+    }));
+    const newScore = score - 5;
+    setScore(newScore);
+    if (saved) persistTask(saved);
+    persistScore(newScore);
+    flashCompanion("devil", DEVIL_KILL_PHRASES);
+  };
+
+  // Devil auto-cleans purgatory when too many cold tasks pile up
+  useEffect(() => {
+    if (!dataLoaded || tasks.length === 0) return;
+    const now = Date.now();
+    if (now - devilAutoCleanLastRef.current < DEVIL_AUTO_CLEAN_COOLDOWN_MS) return;
+
+    const coldUnprotected = tasks.filter(
+      t => t.status === "active" && getTaskHeat(t) <= 25 && !isAutoDeathProtected(t)
+    );
+    if (coldUnprotected.length < DEVIL_AUTO_CLEAN_THRESHOLD) return;
+
+    // Kill the 2 coldest non-protected tasks
+    const sorted = [...coldUnprotected].sort((a, b) => getTaskHeat(a) - getTaskHeat(b));
+    const toKill = sorted.slice(0, 2);
+    const killedTasks = toKill.map(t => ({
+      ...t, status: "dead", isToday: false, lastUpdated: now, deadAt: now,
+    }));
+    const killedById = new Map(killedTasks.map(t => [t.id, t]));
+
+    devilAutoCleanLastRef.current = now;
+
+    setTasks(prev => prev.map(t => killedById.get(t.id) || t));
+    killedTasks.forEach(t => persistTask(t));
+    setScore(s => {
+      const newS = s - 5 * killedTasks.length;
+      persistScore(newS);
+      return newS;
+    });
+    flashCompanion("devil", DEVIL_AUTO_CLEAN_PHRASES);
+  }, [tasks, dataLoaded]); // eslint-disable-line
+
+  // Weekly cemetery digest — angel reminds about dead tasks once per week
+  useEffect(() => {
+    if (!dataLoaded || !user?.id) return;
+    const dead = tasks.filter(t => t.status === "dead");
+    if (dead.length < 3) return;
+
+    const storageKey = `adhd_cemetery_digest_${user.id}`;
+    const lastShown = Number(localStorage.getItem(storageKey) || 0);
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    if (Date.now() - lastShown < WEEK_MS) return;
+
+    // Sort oldest first, show up to 5
+    const sorted = [...dead].sort((a, b) => {
+      const aAt = a.deadAt || (a.id.length >= 10 ? Number(a.id) : 0);
+      const bAt = b.deadAt || (b.id.length >= 10 ? Number(b.id) : 0);
+      return aAt - bAt;
+    });
+
+    localStorage.setItem(storageKey, String(Date.now()));
+    setCemeteryDigest({ tasks: sorted.slice(0, 5) });
+    flashCompanion("angel", [
+      `На кладбище ${dead.length} задач. Может, кому-то дать второй шанс?`,
+      `${dead.length} задач ждут на кладбище. Посмотрим — вдруг что-то стоит воскресить?`,
+      `Я заглянула на кладбище... там ${dead.length} задач. Может, пора освежить список?`,
+    ]);
+  }, [dataLoaded, user?.id]); // eslint-disable-line
+
+  const handleConnectCalendar = async () => {
+    const calProvider = new GoogleAuthProvider();
+    calProvider.addScope("https://www.googleapis.com/auth/calendar");
+    calProvider.setCustomParameters({
+      prompt: "consent select_account",
+      include_granted_scopes: "true",
+    });
+
+    try {
+      const result = await signInWithPopup(auth, calProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setCalendarToken(credential.accessToken);
+      }
+    } catch (e) {
+      const popupFlowFailed =
+        e?.code === "auth/popup-blocked" ||
+        e?.code === "auth/cancelled-popup-request" ||
+        e?.code === "auth/popup-closed-by-user";
+
+      if (popupFlowFailed) {
+        try {
+          await signInWithRedirect(auth, calProvider);
+          return;
+        } catch (redirectError) {
+          console.error("Calendar redirect start error:", redirectError);
+        }
+      }
+      console.error("Calendar connect error:", e);
+    }
   };
 
   const handleResurrect = (taskId) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, status: "active", heatBase: DEFAULT_TASK_HEAT, heatCurrent: DEFAULT_TASK_HEAT, lastUpdated: Date.now(), isToday: false } : t));
-    setScore(s => s - 2);
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map((task) => {
+      if (task.id !== taskId) return task;
+      saved = {
+        ...task,
+        status: "active",
+        heatBase: DEFAULT_TASK_HEAT,
+        heatCurrent: DEFAULT_TASK_HEAT,
+        lastUpdated: Date.now(),
+        isToday: false,
+        deadAt: null,
+      };
+      return saved;
+    }));
+    const newScore = score - 2;
+    setScore(newScore);
+    if (saved) persistTask(saved);
+    persistScore(newScore);
     setHighlightTaskId(taskId);
     trackDailyAction();
   };
 
-  const handleToggleToday = (taskId) => {
-    setTasks(tasks.map((task) => (
-      task.id === taskId
-        ? { ...task, isToday: !task.isToday, lastUpdated: Date.now() }
-        : task
-    )));
+  const handleReopenCompleted = (taskId) => {
+    let saved = null;
+    setTasks((currentTasks) => currentTasks.map((task) => {
+      if (task.id !== taskId) return task;
+      saved = {
+        ...task,
+        status: "active",
+        heatBase: DEFAULT_TASK_HEAT,
+        heatCurrent: DEFAULT_TASK_HEAT,
+        lastUpdated: Date.now(),
+        isToday: false,
+        deadAt: null,
+      };
+      return saved;
+    }));
+    const newScore = score - 10;
+    setScore(newScore);
+    if (saved) persistTask(saved);
+    persistScore(newScore);
     setHighlightTaskId(taskId);
+    trackDailyAction();
+    flashCompanion("angel", ANGEL_RESURRECT_PHRASES);
+  };
+
+  const handleLoadSnapshots = async () => {
+    if (!user?.id || snapshotLoading) return;
+    setSnapshotLoading(true);
+    const list = await loadTaskSnapshots(user.id);
+    setSnapshots(list);
+    setSnapshotLoading(false);
+  };
+
+  const handleCreateSnapshot = async () => {
+    if (!user?.id) return;
+    setSnapshotLoading(true);
+    try {
+      await saveTaskSnapshot(user.id, tasks, score, "manual_web");
+      await handleLoadSnapshots();
+    } catch (e) {
+      console.error("Snapshot save failed:", e);
+      setSnapshotLoading(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restoreTarget || !user?.id) return;
+    const snapshotTasks = restoreTarget.tasks || [];
+    const currentIds = tasks.map(t => t.id);
+    setSnapshotLoading(true);
+    try {
+      // Save current state before restoring
+      await saveTaskSnapshot(user.id, tasks, score, "pre_restore_backup");
+      await restoreFromSnapshot(user.id, currentIds, snapshotTasks);
+      const restored = snapshotTasks.map(t => ({ ...t, lastUpdated: Date.now() }));
+      setTasks(restored);
+      if (typeof restoreTarget.score === "number") {
+        setScore(restoreTarget.score);
+        persistScore(restoreTarget.score);
+      }
+    } catch (e) {
+      console.error("Restore failed:", e);
+    }
+    setRestoreTarget(null);
+    setSnapshots(null); // will reload next open
+    setSnapshotLoading(false);
+  };
+
+  const handleToggleToday = (taskId) => {
+    let message = "";
+    let saved = null;
+
+    setTasks((currentTasks) => {
+      const currentTodayCount = currentTasks.filter((task) => task.status === "active" && task.isToday).length;
+
+      return currentTasks.map((task) => {
+        if (task.id !== taskId) return task;
+
+        const nextValue = !task.isToday;
+        if (nextValue && currentTodayCount >= 3) {
+          message = "На сегодня можно закрепить максимум 3 задачи. Иначе список снова расползётся.";
+          return task;
+        }
+
+        message = nextValue
+          ? "Задача попала в шортлист на сегодня."
+          : "Задача снята с ручного списка на сегодня.";
+
+        saved = { ...task, isToday: nextValue, lastUpdated: Date.now() };
+        return saved;
+      });
+    });
+
+    if (saved) persistTask(saved);
+    if (message) setNudgeStatus(message);
+    if (message !== "На сегодня можно закрепить максимум 3 задачи. Иначе список снова расползётся.") {
+      setHighlightTaskId(taskId);
+    } else {
+      flashCompanion("angel", [
+        "Стоп-стоп-стоп! Три — это уже подвиг. Открепи что-то, чтобы добавить новое 😇",
+        "Больше трёх — и всё снова расползётся. Я верю в тебя, но не в этот список! 🙏",
+        "Три задачи на сегодня — это план. Четыре — это тревога. Открепи одну! ✨",
+      ]);
+    }
   };
 
   const handleQuickRescue = () => {
@@ -945,7 +1655,10 @@ export default function App() {
 
   if (loading || !minLoadDone) return <LoadingScreen />;
 
+  const draggedTask = dragTaskId ? tasks.find(t => t.id === dragTaskId) : null;
+
   return (
+    <DndContext sensors={dndSensors} collisionDetection={dndCollision} onDragStart={({ active }) => setDragTaskId(String(active.id).replace("task-", ""))} onDragEnd={handleDragEnd}>
     <div className="app-wrapper">
       <div className="score-panel animated-fade-in">
         <span className="score-icon">⚡</span>
@@ -959,8 +1672,21 @@ export default function App() {
             <p className="greeting-text">Привет, {user?.first_name || "Гость"}!</p>
           </div>
           <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
+            <button
+              onClick={() => setFogMode(f => !f)}
+              className={`theme-toggle-btn${fogMode ? ' fog-btn-active' : ''}`}
+              title={fogMode ? 'Выйти из режима тумана' : 'Режим тумана — один фокус'}
+            >🌫️</button>
             <button onClick={toggleTheme} className="theme-toggle-btn" title="Сменить тему">
-              {isDark ? '☀️' : '🌙'}
+              {theme === 'dark' ? '🌆' : theme === 'neon' ? '☀️' : '🌙'}
+            </button>
+            <button
+              onClick={handleConnectCalendar}
+              className="theme-toggle-btn"
+              title={calendarToken ? "Календарь подключён" : "Подключить Google Calendar"}
+              style={{ opacity: calendarToken ? 0.5 : 1 }}
+            >
+              📅
             </button>
             <LogoutButton />
           </div>
@@ -973,13 +1699,16 @@ export default function App() {
           <h2 className="daily-pulse-title">
             {rescueTask ? rescueTask.text : "Сегодня всё под контролем"}
           </h2>
-          <p className="daily-pulse-description">{buildMissionCopy(rescueTask)}</p>
+          <p className="daily-pulse-description">{buildMissionCopy(rescueTask, missionReason)}</p>
           <div className="daily-pulse-stats">
             <span className="pulse-chip streak">⚔️ streak {pulseState.streak}</span>
             <span className="pulse-chip actions">🫡 действий сегодня {todayActions}</span>
             <span className="pulse-chip danger">☠️ на грани {tasksInDanger}</span>
             <span className="pulse-chip active">🔥 активных {activeTasks.length}</span>
             <span className="pulse-chip today">☀️ сегодня {todayPinnedTasks.length}</span>
+            {rescueTask && (
+              <span className="pulse-chip mission-reason">🧭 {getMissionReasonLabel(missionReason)}</span>
+            )}
             {rescueTask && (
               <>
                 {rescueDeadline && (
@@ -1099,6 +1828,40 @@ export default function App() {
         </div>
       )}
       
+      {cemeteryDigest && (
+        <div className="cemetery-digest animated-fade-in">
+          <div className="cemetery-digest-header">
+            <span>👼 Ангел заглянул на кладбище</span>
+            <button className="cemetery-digest-close" onClick={() => setCemeteryDigest(null)}>✕</button>
+          </div>
+          <p className="cemetery-digest-subtitle">
+            {tasks.filter(t => t.status === "dead").length} задач отдыхают. Может, кому-то дать второй шанс?
+          </p>
+          <div className="cemetery-digest-list">
+            {cemeteryDigest.tasks.map(t => (
+              <div key={t.id} className="cemetery-digest-item">
+                <span className="cemetery-digest-name">{t.text}</span>
+                <button className="cemetery-digest-resurrect" onClick={() => {
+                  handleResurrect(t.id);
+                  setCemeteryDigest(prev => prev
+                    ? { ...prev, tasks: prev.tasks.filter(x => x.id !== t.id) }
+                    : null
+                  );
+                }}>↩️ Воскресить</button>
+              </div>
+            ))}
+          </div>
+          <div className="cemetery-digest-footer">
+            <button className="cemetery-digest-goto" onClick={() => { setActiveTab('cemetery'); setCemeteryDigest(null); }}>
+              Открыть кладбище
+            </button>
+            <button className="cemetery-digest-dismiss" onClick={() => setCemeteryDigest(null)}>
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="tabs-navigation animated-fade-in" style={{maxWidth: '1200px'}}>
         <button className={`tab-btn ${activeTab === 'active' ? 'active tab-active' : ''}`} onClick={() => setActiveTab('active')}>
           🔥 {activeTasks.length} В процессе
@@ -1108,6 +1871,9 @@ export default function App() {
         </button>
         <button className={`tab-btn ${activeTab === 'cemetery' ? 'active tab-cemetery' : ''}`} onClick={() => setActiveTab('cemetery')}>
           🪦 {deadTasks.length} Кладбище
+        </button>
+        <button className={`tab-btn ${activeTab === 'stats' ? 'active tab-stats' : ''}`} onClick={() => setActiveTab('stats')}>
+          📊 Прогресс
         </button>
       </div>
 
@@ -1137,7 +1903,11 @@ export default function App() {
             onComplete={handleComplete}
             onKill={handleKill}
             onAddTask={handleAddTask}
+            onEditTask={handleEditTask}
+            onAddTime={handleAddTime}
             onAddSubtask={handleAddSubtask}
+            onDeleteSubtask={handleDeleteSubtask}
+            onEditSubtask={handleEditSubtask}
             onToggleSubtask={handleToggleSubtask}
             onToggleToday={handleToggleToday}
             onToggleVital={handleToggleVital}
@@ -1145,13 +1915,325 @@ export default function App() {
             onSetResistance={handleSetResistance}
             onSetDeadline={handleSetDeadline}
             highlightTaskId={highlightTaskId}
+            calendarToken={calendarToken}
           />
         )}
-        {activeTab === 'heaven' && <TaskColumn type="heaven" tasks={completedTasks} />}
+        {activeTab === 'heaven' && <TaskColumn type="heaven" tasks={completedTasks} onReopenCompleted={handleReopenCompleted} />}
         {activeTab === 'cemetery' && <TaskColumn type="cemetery" tasks={deadTasks} onResurrect={handleResurrect} />}
+        {activeTab === 'stats' && (() => {
+          const totalMs = tasks.reduce((sum, t) => sum + (t.timeSpent || 0), 0);
+          // Tasks with any tracked activity (auto activeDays OR manual timer)
+          const topByActivity = [...tasks]
+            .filter(t => (t.activeDays || []).length > 0 || (t.timeSpent || 0) > 0)
+            .sort((a, b) => {
+              const aDays = (a.activeDays || []).length;
+              const bDays = (b.activeDays || []).length;
+              if (bDays !== aDays) return bDays - aDays;
+              return (b.timeSpent || 0) - (a.timeSpent || 0);
+            })
+            .slice(0, 10);
+          const statusEmoji = t => t.status === 'completed' ? '☁️' : t.status === 'dead' ? '🪦' : '🔥';
+          const streakLabel = pulseState.streak === 1 ? 'день подряд' : pulseState.streak >= 2 && pulseState.streak <= 4 ? 'дня подряд' : 'дней подряд';
+          return (
+            <div className="stats-panel animated-fade-in">
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-icon">⏱️</div>
+                  <div className="stat-value">{formatTimeSpent(totalMs)}</div>
+                  <div className="stat-label">вложено времени</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon">☁️</div>
+                  <div className="stat-value">{completedTasks.length}</div>
+                  <div className="stat-label">завершено задач</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon">⚡</div>
+                  <div className="stat-value">{score}</div>
+                  <div className="stat-label">очков набрано</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon">🔥</div>
+                  <div className="stat-value">{pulseState.streak || 0}</div>
+                  <div className="stat-label">{streakLabel}</div>
+                </div>
+              </div>
+
+              {topByActivity.length > 0 ? (
+                <div className="stats-top-section">
+                  <h3 className="stats-section-title">История задач по дням</h3>
+                  <div className="stats-top-list">
+                    {topByActivity.map((t, i) => {
+                      const isExpanded = expandedTimeTaskId === t.id;
+                      const createdAt = typeof t.id === 'number' ? t.id : null;
+                      const endAt = t.completedAt || t.deadAt || null;
+                      const lifespanDays = createdAt && endAt
+                        ? Math.ceil((endAt - createdAt) / DAY_MS)
+                        : createdAt
+                          ? Math.ceil((Date.now() - createdAt) / DAY_MS)
+                          : null;
+
+                      // Build calendar: every day from creation to end (max 60 days)
+                      const activeDaySet = new Set(t.activeDays || []);
+                      const calStart = createdAt ? getDayKey(createdAt) : null;
+                      const calEnd = endAt ? getDayKey(endAt) : getDayKey();
+                      const calDays = [];
+                      if (calStart) {
+                        const startNum = Math.floor(new Date(calStart).getTime() / DAY_MS);
+                        const endNum = Math.floor(new Date(calEnd).getTime() / DAY_MS);
+                        const totalCal = Math.min(60, endNum - startNum + 1);
+                        for (let d = 0; d < totalCal; d++) {
+                          const dayKey = getDayKey(new Date((startNum + d) * DAY_MS).getTime());
+                          calDays.push({ key: dayKey, active: activeDaySet.has(dayKey) });
+                        }
+                      }
+
+                      const activeDaysCount = (t.activeDays || []).length;
+
+                      return (
+                        <div key={t.id} className="stats-top-item-wrap">
+                          <div
+                            className={`stats-top-item stats-top-item--clickable${isExpanded ? ' stats-top-item--open' : ''}`}
+                            onClick={() => setExpandedTimeTaskId(isExpanded ? null : t.id)}
+                          >
+                            <span className="stats-status-icon">{statusEmoji(t)}</span>
+                            <span className="stats-task-name">{t.text}</span>
+                            <span className="stats-activity-badge">
+                              {activeDaysCount > 0 && `${activeDaysCount}д`}
+                              {activeDaysCount > 0 && (t.timeSpent || 0) > 0 && ' · '}
+                              {(t.timeSpent || 0) > 0 && formatTimeSpent(t.timeSpent)}
+                            </span>
+                            <span className="stats-expand-arrow">{isExpanded ? '▲' : '▼'}</span>
+                          </div>
+                          {isExpanded && (
+                            <div className="stats-time-detail">
+                              <div className="stats-time-meta">
+                                {createdAt && (
+                                  <span>📅 {new Date(createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>
+                                )}
+                                {t.completedAt && (
+                                  <span>→ ☁️ {new Date(t.completedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>
+                                )}
+                                {t.deadAt && !t.completedAt && (
+                                  <span>→ 🪦 {new Date(t.deadAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>
+                                )}
+                                {lifespanDays !== null && (
+                                  <span>· {lifespanDays} {lifespanDays === 1 ? 'день' : lifespanDays >= 2 && lifespanDays <= 4 ? 'дня' : 'дней'}</span>
+                                )}
+                                {activeDaysCount > 0 && (
+                                  <span>· активна {activeDaysCount} {activeDaysCount === 1 ? 'день' : activeDaysCount >= 2 && activeDaysCount <= 4 ? 'дня' : 'дней'}</span>
+                                )}
+                              </div>
+
+                              {/* Day-dot calendar */}
+                              {calDays.length > 0 && (
+                                <div className="stats-cal-wrap">
+                                  {calDays.map(({ key, active }) => (
+                                    <div
+                                      key={key}
+                                      className={`stats-cal-dot${active ? ' stats-cal-dot--active' : ''}`}
+                                      title={key}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Timer log per day (optional, if user used manual timer) */}
+                              {t.timeByDay && Object.keys(t.timeByDay).length > 0 && (
+                                <div className="stats-day-log">
+                                  <div className="stats-day-log-title">⏱ Точное время (таймер)</div>
+                                  {Object.entries(t.timeByDay)
+                                    .sort(([a], [b]) => a.localeCompare(b))
+                                    .map(([date, ms]) => {
+                                      const pct = Math.min(100, Math.round(ms / (60 * 60 * 1000) * 100 / 3));
+                                      return (
+                                        <div key={date} className="stats-day-row">
+                                          <span className="stats-day-label">{date.slice(5)}</span>
+                                          <div className="stats-day-bar-wrap">
+                                            <div className="stats-day-bar" style={{ width: `${pct}%` }} />
+                                          </div>
+                                          <span className="stats-day-time">{formatTimeSpent(ms)}</span>
+                                        </div>
+                                      );
+                                    })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <p className="stats-empty">
+                  Пока нет истории.<br />
+                  Работай с задачами — и здесь появится хроника.
+                </p>
+              )}
+
+              {/* Snapshot restore section */}
+              <div className="stats-top-section">
+                <div className="stats-snapshots-header">
+                  <h3 className="stats-section-title">Снапшоты (резервные копии)</h3>
+                  <div className="stats-snapshots-actions">
+                    <button
+                      className="snapshot-btn"
+                      onClick={handleCreateSnapshot}
+                      disabled={snapshotLoading}
+                    >
+                      {snapshotLoading ? "..." : "💾 Создать снапшот"}
+                    </button>
+                    {snapshots === null && (
+                      <button
+                        className="snapshot-btn secondary"
+                        onClick={handleLoadSnapshots}
+                        disabled={snapshotLoading}
+                      >
+                        📂 Загрузить список
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {snapshots === null && !snapshotLoading && (
+                  <p className="stats-empty" style={{padding: '10px 0'}}>
+                    Нажми «Загрузить список», чтобы увидеть снапшоты
+                  </p>
+                )}
+
+                {snapshotLoading && (
+                  <p className="stats-empty" style={{padding: '10px 0'}}>Загружается...</p>
+                )}
+
+                {snapshots !== null && snapshots.length === 0 && (
+                  <p className="stats-empty" style={{padding: '10px 0'}}>Снапшотов пока нет. Нажми «Создать снапшот»!</p>
+                )}
+
+                {snapshots !== null && snapshots.length > 0 && (
+                  <div className="stats-top-list">
+                    {snapshots.map(snap => {
+                      const date = snap.capturedAt
+                        ? new Date(snap.capturedAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+                        : "—";
+                      const sourceLabel = snap.source === "pre_restore_backup" ? "авто-бэкап" : snap.source === "migration_pre_subcollection" ? "миграция" : snap.source || "ручной";
+                      return (
+                        <div key={snap.id} className="stats-top-item snapshot-item">
+                          <span className="snapshot-date">{date}</span>
+                          <span className="snapshot-count">{snap.taskCount ?? (snap.tasks?.length ?? "?")} задач</span>
+                          <span className="snapshot-source">{sourceLabel}</span>
+                          <button
+                            className="snapshot-restore-btn"
+                            onClick={() => setRestoreTarget(snap)}
+                          >↩️ Восстановить</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
-      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} />
+      <Companions tasksCount={activeTasks.length} deadCount={deadTasks.length} completedCount={completedTasks.length} tasks={tasks} onAddTask={handleAddTask} onAddSubtask={handleAddSubtask} onDeleteSubtask={handleDeleteSubtask} onKillTask={handleKill} onSetVital={handleToggleVital} onSetUrgency={handleSetUrgency} calendarToken={calendarToken} companionFlash={companionFlash} />
     </div>
+    <DragOverlay>
+      {draggedTask ? (
+        <div style={{
+          background: 'rgba(30,30,60,0.95)',
+          border: '2px solid rgba(255,255,255,0.3)',
+          borderRadius: '12px',
+          padding: '10px 16px',
+          color: '#fff',
+          fontSize: '0.95rem',
+          fontFamily: "'Inter', sans-serif",
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          maxWidth: '280px',
+          pointerEvents: 'none',
+        }}>
+          {draggedTask.text}
+        </div>
+      ) : null}
+    </DragOverlay>
+
+    {fogMode && (() => {
+      const fogTask = rescueTask || activeTasks[0] || null;
+      return (
+        <div className="fog-overlay" onClick={() => setFogMode(false)}>
+          <div className="fog-card" onClick={e => e.stopPropagation()}>
+            {fogTask ? (
+              <>
+                <div className="fog-label">🌫️ ФОКУС СЕЙЧАС</div>
+                <h2 className="fog-task-title">{fogTask.text}</h2>
+
+                {(fogTask.subtasks || []).length > 0 && (
+                  <div className="fog-subtasks">
+                    {fogTask.subtasks.map(sub => (
+                      <div key={sub.id} className={`fog-subtask${sub.completed ? ' done' : ''}`}>
+                        <span className="fog-subtask-dot">{sub.completed ? '✓' : '○'}</span>
+                        {sub.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="fog-actions">
+                  <button className="fog-action primary" onClick={() => { handleComplete(fogTask.id); setFogMode(false); }}>
+                    ✅ Выполнено
+                  </button>
+                  <button className="fog-action" onClick={() => { handleTouch(fogTask.id); setNudgeStatus("Пульс задан!"); }}>
+                    ⚡ Дать импульс
+                  </button>
+                  <button className="fog-action panic" onClick={() => { setFogMode(false); openPanicMode(fogTask); }}>
+                    🆘 Паника
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="fog-label">🌫️ РЕЖИМ ТУМАНА</div>
+                <p style={{color: 'rgba(240,224,255,0.6)', textAlign: 'center', margin: 0, fontSize: '1rem'}}>
+                  Нет активных задач.<br />Добавь задачу — туман откроется.
+                </p>
+              </>
+            )}
+
+            <button className="fog-exit" onClick={() => setFogMode(false)}>
+              Выйти из тумана
+            </button>
+          </div>
+        </div>
+      );
+    })()}
+    {restoreTarget && (
+      <div className="fog-overlay" onClick={() => setRestoreTarget(null)}>
+        <div className="fog-card" style={{maxWidth: '440px'}} onClick={e => e.stopPropagation()}>
+          <div className="fog-label">⚠️ ВОССТАНОВЛЕНИЕ ИЗ СНАПШОТА</div>
+          <p style={{color: '#f0e0ff', fontSize: '0.95rem', lineHeight: 1.5, margin: 0}}>
+            Текущие задачи будут заменены задачами из снапшота{' '}
+            <strong style={{color: '#fbbf24'}}>
+              {restoreTarget.capturedAt
+                ? new Date(restoreTarget.capturedAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : ""}
+            </strong>
+            {' '}({restoreTarget.taskCount ?? restoreTarget.tasks?.length ?? "?"} задач).
+          </p>
+          <p style={{color: 'rgba(240,224,255,0.5)', fontSize: '0.82rem', margin: 0}}>
+            Перед восстановлением автоматически сохранится резервная копия текущего состояния.
+          </p>
+          <div className="fog-actions">
+            <button className="fog-action primary" onClick={handleConfirmRestore} disabled={snapshotLoading}>
+              {snapshotLoading ? "Восстанавливаю..." : "✅ Да, восстановить"}
+            </button>
+            <button className="fog-action" onClick={() => setRestoreTarget(null)}>
+              Отмена
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </DndContext>
   );
 }

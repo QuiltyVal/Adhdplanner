@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@400;700&family=Orbitron:wght@400;600;700;900&display=swap');
 
 @font-face {
   font-family: 'GuildensternNbp';
@@ -419,6 +419,15 @@ input, textarea {
 }
 [data-theme="light"] .subtask-add-btn:hover { background: #c084fc; border-color: #c084fc; color: #fff; }
 [data-theme="light"] .subtask-checkbox { accent-color: #c084fc; }
+[data-theme="light"] .subtask-edit-input {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(124, 58, 237, 0.35);
+  color: #2d1b4e;
+}
+[data-theme="light"] .subtask-edit-input:focus {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.05);
+}
 
 /* Companions */
 [data-theme="light"] .avatar {
@@ -455,3 +464,319 @@ input, textarea {
 [data-theme="light"] .login-blob.blob-1 { background: rgba(192, 132, 252, 0.45); }
 [data-theme="light"] .login-blob.blob-2 { background: rgba(244, 114, 182, 0.35); }
 [data-theme="light"] .telegram-btn-wrapper { background: #faf5ff; border-color: #e9d5ff; }
+
+/* ========================================
+   NEON NIGHT — MIAMI VICE DARK THEME
+   ======================================== */
+
+[data-theme="neon"] {
+  --bg-gradient: linear-gradient(135deg, #0a0014 0%, #0d0028 50%, #07001a 100%);
+  --glass-bg: rgba(14, 0, 40, 0.92);
+  --glass-bg-hover: rgba(22, 0, 55, 0.95);
+  --glass-border: rgba(255, 45, 120, 0.28);
+  --glass-shadow: 0 0 18px rgba(255, 45, 120, 0.18), 0 4px 24px rgba(0,0,0,0.7);
+  --text-main: #f0e0ff;
+  --text-muted: #9070bb;
+  --accent-color: #ff2d78;
+  --accent-hover: #ff5599;
+  --danger-color: #ff2d78;
+  --success-color: #00ffc8;
+  --cool-glow: 0 0 20px rgba(255, 45, 120, 0.45);
+}
+
+[data-theme="neon"] body {
+  background: linear-gradient(135deg, #0a0014 0%, #0d0028 50%, #07001a 100%);
+  background-attachment: fixed;
+  color: #f0e0ff;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Subtle neon scanlines — horizontal purple tint */
+[data-theme="neon"] body::after {
+  background: linear-gradient(rgba(180, 0, 255, 0) 50%, rgba(180, 0, 255, 0.03) 50%);
+  background-size: 100% 4px;
+}
+
+[data-theme="neon"] input, [data-theme="neon"] button, [data-theme="neon"] textarea {
+  font-family: 'Inter', sans-serif;
+}
+
+[data-theme="neon"] .glass-panel {
+  background: rgba(14, 0, 40, 0.92);
+  border: 1px solid rgba(255, 45, 120, 0.3);
+  box-shadow: 0 0 18px rgba(255, 45, 120, 0.12), 0 4px 24px rgba(0,0,0,0.6);
+  border-radius: 12px;
+}
+
+[data-theme="neon"] .app-wrapper {
+  background: linear-gradient(135deg, #0a0014 0%, #0d0028 50%, #07001a 100%);
+  background-attachment: fixed;
+}
+
+/* Score */
+[data-theme="neon"] .score-panel {
+  background: rgba(14, 0, 40, 0.9);
+  border: 1px solid rgba(255, 45, 120, 0.4);
+  box-shadow: 0 0 12px rgba(255, 45, 120, 0.25);
+  border-radius: 10px;
+}
+[data-theme="neon"] .score-value {
+  color: #ff2d78;
+  text-shadow: 0 0 10px rgba(255, 45, 120, 0.8), 0 0 20px rgba(255, 45, 120, 0.4);
+}
+
+/* Header */
+[data-theme="neon"] .app-title {
+  font-family: 'Orbitron', sans-serif;
+  color: #ff2d78;
+  text-shadow: 0 0 10px rgba(255, 45, 120, 0.7), 0 0 30px rgba(255, 45, 120, 0.3);
+  letter-spacing: 2px;
+}
+[data-theme="neon"] .greeting-text { color: #c090e8; }
+[data-theme="neon"] .theme-toggle-btn {
+  background: rgba(255, 45, 120, 0.1);
+  border: 1px solid rgba(255, 45, 120, 0.35);
+  border-radius: 8px;
+  color: #ff2d78;
+}
+[data-theme="neon"] .theme-toggle-btn:hover {
+  background: rgba(255, 45, 120, 0.2);
+  box-shadow: 0 0 10px rgba(255, 45, 120, 0.3);
+}
+
+/* Daily pulse */
+[data-theme="neon"] .daily-pulse-panel {
+  background: rgba(14, 0, 40, 0.9);
+  border: 1px solid rgba(255, 45, 120, 0.25);
+  box-shadow: 0 0 15px rgba(255, 45, 120, 0.1);
+  border-radius: 12px;
+}
+[data-theme="neon"] .daily-pulse-kicker { color: #00e5ff; }
+[data-theme="neon"] .daily-pulse-title {
+  font-family: 'Orbitron', sans-serif;
+  color: #ff2d78;
+  text-shadow: 0 0 8px rgba(255, 45, 120, 0.5);
+}
+[data-theme="neon"] .daily-pulse-description { color: #c090e8; }
+[data-theme="neon"] .pulse-chip {
+  background: rgba(255, 45, 120, 0.08);
+  border: 1px solid rgba(255, 45, 120, 0.3);
+  color: #f0c0d8;
+  border-radius: 6px;
+}
+[data-theme="neon"] .pulse-chip.streak { border-color: rgba(0,229,255,0.4); color: #00e5ff; }
+[data-theme="neon"] .pulse-chip.actions { border-color: rgba(180,77,255,0.4); color: #b44dff; }
+[data-theme="neon"] .pulse-chip.danger { border-color: rgba(255,45,120,0.5); color: #ff2d78; }
+[data-theme="neon"] .pulse-chip.active { border-color: rgba(0,255,200,0.4); color: #00ffc8; }
+[data-theme="neon"] .pulse-chip.today { border-color: rgba(255,200,0,0.4); color: #ffc800; }
+[data-theme="neon"] .pulse-chip.deadline { border-color: rgba(255,140,0,0.4); color: #ff8c00; }
+[data-theme="neon"] .pulse-chip.deadline.today,
+[data-theme="neon"] .pulse-chip.deadline.overdue { border-color: rgba(255,45,120,0.6); color: #ff2d78; }
+[data-theme="neon"] .pulse-chip.urgency { border-color: rgba(255,140,0,0.4); color: #ff8c00; }
+[data-theme="neon"] .pulse-chip.resistance { border-color: rgba(180,77,255,0.4); color: #b44dff; }
+[data-theme="neon"] .pulse-action-btn {
+  background: rgba(255, 45, 120, 0.08);
+  border: 1px solid rgba(255, 45, 120, 0.3);
+  color: #f0c0d8;
+  border-radius: 8px;
+  box-shadow: none;
+}
+[data-theme="neon"] .pulse-action-btn:hover {
+  background: rgba(255, 45, 120, 0.18);
+  border-color: #ff2d78;
+  box-shadow: 0 0 10px rgba(255, 45, 120, 0.3);
+}
+[data-theme="neon"] .pulse-action-btn.primary {
+  background: linear-gradient(135deg, rgba(255,45,120,0.25), rgba(180,77,255,0.2));
+  border-color: rgba(255, 45, 120, 0.5);
+}
+[data-theme="neon"] .active-filter-btn {
+  background: rgba(14, 0, 40, 0.8);
+  border: 1px solid rgba(255, 45, 120, 0.25);
+  color: #c090e8;
+  border-radius: 8px;
+  box-shadow: none;
+}
+[data-theme="neon"] .active-filter-btn.is-active {
+  background: rgba(255, 45, 120, 0.18);
+  border-color: #ff2d78;
+  color: #ff2d78;
+  box-shadow: 0 0 8px rgba(255, 45, 120, 0.3);
+}
+[data-theme="neon"] .tab-btn {
+  background: rgba(14, 0, 40, 0.8);
+  border: 1px solid rgba(255, 45, 120, 0.2);
+  color: #c090e8;
+  border-radius: 8px;
+}
+[data-theme="neon"] .tab-btn.active-tab {
+  background: rgba(255, 45, 120, 0.18);
+  border-color: #ff2d78;
+  color: #ff2d78;
+  box-shadow: 0 0 10px rgba(255, 45, 120, 0.3);
+}
+
+/* Task cards */
+[data-theme="neon"] .task-card {
+  background: rgba(14, 0, 40, 0.88);
+  border: 1px solid rgba(255, 45, 120, 0.22);
+  border-radius: 10px;
+  box-shadow: 0 0 12px rgba(255, 45, 120, 0.08), 0 2px 8px rgba(0,0,0,0.5);
+}
+[data-theme="neon"] .task-card:hover {
+  border-color: rgba(255, 45, 120, 0.45);
+  box-shadow: 0 0 18px rgba(255, 45, 120, 0.18);
+}
+[data-theme="neon"] .task-card.is-vital {
+  border-color: rgba(255, 45, 120, 0.6);
+  box-shadow: 0 0 16px rgba(255, 45, 120, 0.3);
+}
+[data-theme="neon"] .task-card.is-today {
+  border-color: rgba(0, 229, 255, 0.45);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.2);
+}
+[data-theme="neon"] .task-title { color: #f0e0ff; }
+[data-theme="neon"] .task-action-btn {
+  background: rgba(255, 45, 120, 0.08);
+  border: 1px solid rgba(255, 45, 120, 0.25);
+  color: #c090e8;
+  border-radius: 6px;
+}
+[data-theme="neon"] .task-action-btn:hover {
+  background: rgba(255, 45, 120, 0.2);
+  border-color: #ff2d78;
+  color: #ff2d78;
+}
+[data-theme="neon"] .complete-btn:hover { border-color: #00ffc8; color: #00ffc8; }
+[data-theme="neon"] .kill-btn:hover { border-color: #ff2d78; color: #ff2d78; }
+
+/* Zone columns */
+[data-theme="neon"] .zone-column {
+  background: rgba(10, 0, 30, 0.6);
+  border: 1px solid rgba(255, 45, 120, 0.18);
+  border-radius: 12px;
+}
+[data-theme="neon"] .focus-zone {
+  border-color: rgba(255, 45, 120, 0.35);
+  box-shadow: 0 0 15px rgba(255, 45, 120, 0.1);
+}
+[data-theme="neon"] .passive-zone { border-color: rgba(0, 229, 255, 0.25); }
+[data-theme="neon"] .purgatory-zone { border-color: rgba(180, 77, 255, 0.25); }
+[data-theme="neon"] .zone-title { color: #c090e8; font-family: 'Orbitron', sans-serif; font-size: 0.7rem; letter-spacing: 1px; }
+[data-theme="neon"] .focus-zone .zone-title { color: #ff2d78; }
+[data-theme="neon"] .passive-zone .zone-title { color: #00e5ff; }
+[data-theme="neon"] .purgatory-zone .zone-title { color: #b44dff; }
+[data-theme="neon"] .zone-column.dnd-zone-over { box-shadow: 0 0 25px rgba(255, 45, 120, 0.4); }
+
+/* Today mission card */
+[data-theme="neon"] .today-mission-card {
+  background: rgba(14, 0, 40, 0.95);
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.12);
+}
+[data-theme="neon"] .today-mission-label {
+  color: #00e5ff;
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+}
+
+/* Heaven (completed) */
+[data-theme="neon"] .heaven-card {
+  background: rgba(0, 15, 35, 0.9);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.1);
+}
+
+/* Cemetery (dead tasks) */
+[data-theme="neon"] .tombstone-card {
+  background: rgba(20, 0, 50, 0.85);
+  border: 1px solid rgba(180, 77, 255, 0.3);
+  border-radius: 10px;
+}
+
+/* Companions */
+[data-theme="neon"] .avatar {
+  border-radius: 12px;
+  background: rgba(14, 0, 40, 0.9);
+}
+[data-theme="neon"] .angel-avatar {
+  border-color: rgba(0, 229, 255, 0.5);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.4), 0 0 40px rgba(0, 229, 255, 0.15);
+}
+[data-theme="neon"] .devil-avatar {
+  border-color: rgba(255, 45, 120, 0.5);
+  box-shadow: 0 0 20px rgba(255, 45, 120, 0.4), 0 0 40px rgba(255, 45, 120, 0.15);
+}
+[data-theme="neon"] .speech-bubble {
+  background: rgba(14, 0, 40, 0.95);
+  border-radius: 10px;
+  font-family: 'Inter', sans-serif;
+  text-transform: none;
+  font-size: 0.85rem;
+}
+[data-theme="neon"] .angel-bubble {
+  border-color: rgba(0, 229, 255, 0.4);
+  color: #00e5ff;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.15);
+}
+[data-theme="neon"] .devil-bubble {
+  border-color: rgba(255, 45, 120, 0.4);
+  color: #ff2d78;
+  box-shadow: 0 0 10px rgba(255, 45, 120, 0.15);
+}
+
+/* Subtasks */
+[data-theme="neon"] .subtasks-container {
+  background: rgba(255, 45, 120, 0.04);
+  border: 1px solid rgba(255, 45, 120, 0.15);
+  border-radius: 8px;
+}
+[data-theme="neon"] .subtask-item { color: #c090e8; }
+[data-theme="neon"] .subtask-input { color: #f0e0ff; border-bottom-color: rgba(255,45,120,0.3); font-family: 'Inter', sans-serif; }
+[data-theme="neon"] .subtask-input:focus { border-bottom-color: #ff2d78; }
+[data-theme="neon"] .subtask-input::placeholder { color: rgba(192, 144, 232, 0.5); }
+[data-theme="neon"] .subtask-add-btn {
+  background: rgba(255, 45, 120, 0.12);
+  border: 1px solid rgba(255, 45, 120, 0.35);
+  border-radius: 6px;
+  color: #ff2d78;
+}
+[data-theme="neon"] .subtask-add-btn:hover { background: rgba(255, 45, 120, 0.25); box-shadow: 0 0 8px rgba(255,45,120,0.3); }
+[data-theme="neon"] .subtask-checkbox { accent-color: #ff2d78; }
+[data-theme="neon"] .subtask-edit-input {
+  background: rgba(255, 45, 120, 0.07);
+  border-color: rgba(255, 45, 120, 0.35);
+  color: #f0e0ff;
+}
+[data-theme="neon"] .subtask-edit-input:focus {
+  border-color: #ff2d78;
+  box-shadow: 0 0 8px rgba(255, 45, 120, 0.25);
+}
+
+/* Nudge / status */
+[data-theme="neon"] .nudge-status { color: #ff2d78; font-family: 'Inter', sans-serif; }
+
+/* Login */
+[data-theme="neon"] .login-wrapper {
+  background: linear-gradient(135deg, #0a0014, #0d0028, #07001a);
+}
+[data-theme="neon"] .login-card {
+  background: rgba(14, 0, 40, 0.95);
+  border: 1px solid rgba(255, 45, 120, 0.35);
+  box-shadow: 0 0 30px rgba(255, 45, 120, 0.15), 0 8px 32px rgba(0,0,0,0.6);
+  border-radius: 16px;
+}
+[data-theme="neon"] .login-title {
+  font-family: 'Orbitron', sans-serif;
+  color: #ff2d78;
+  text-shadow: 0 0 12px rgba(255, 45, 120, 0.6);
+}
+[data-theme="neon"] .login-subtitle { color: #c090e8; font-family: 'Inter', sans-serif; }
+[data-theme="neon"] .login-blob.blob-1 { background: rgba(255, 45, 120, 0.35); }
+[data-theme="neon"] .login-blob.blob-2 { background: rgba(0, 229, 255, 0.25); }
+[data-theme="neon"] .telegram-btn-wrapper {
+  background: rgba(255, 45, 120, 0.06);
+  border-color: rgba(255, 45, 120, 0.3);
+  border-radius: 12px;
+}
