@@ -1,6 +1,7 @@
 const { openRouterChatCompletion } = require("./openrouter");
 
 const DEFAULT_TELEGRAM_INTENT_MODEL = "google/gemma-3-27b-it";
+const DEFAULT_TELEGRAM_INTENT_TIMEOUT_MS = 12000;
 
 const BERLIN_DATE_FORMAT = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Europe/Berlin",
@@ -28,6 +29,184 @@ const ALLOWED_INTENTS = new Set([
   "schedule_task",
   "chat",
 ]);
+
+function normalizeForIntent(text = "") {
+  return String(text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[«»]/g, "\"")
+    .replace(/\s+/g, " ");
+}
+
+function extractQuotedSegments(text = "") {
+  return Array.from(String(text).matchAll(/[«"]([^«»"]+)[»"]/g))
+    .map((match) => match[1].trim())
+    .filter(Boolean);
+}
+
+function inferTaskReference(text = "") {
+  return String(text || "")
+    .replace(/^(переведи|заверши|выполни|выполнить|открепи|сними|снять|верни|сделай|закрепи|пометь|запланируй|добавь|добавить|удали|удалить)\s+/i, "")
+    .replace(/\b(на|в)\s+сегодня\b/i, "")
+    .replace(/\b(критичн|выполненн|в\s+рай|сейчас|сегодня\s+в\s+раю)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function inferQuickIntent(text = "") {
+  const normalized = normalizeForIntent(text);
+  if (!normalized) return null;
+  const quoted = extractQuotedSegments(text);
+
+  if (/\b(показ|что.*сегодня|что.*сейчас|главн|горит|главное|сегодняшн)\b/.test(normalized)) {
+    return {
+      intent: "show_today",
+      task_text: "",
+      task_ref: null,
+      subtask_text: null,
+    };
+  }
+
+  if (/\b(паник|паника|panic)\b/.test(normalized)) {
+    return {
+      intent: "panic",
+      task_text: "",
+      task_ref: null,
+      subtask_text: null,
+    };
+  }
+
+  if (/\b(выполн|готов|заверш|в рай)\b/.test(normalized)) {
+    const taskRef = inferTaskReference(normalized);
+    return {
+      intent: "complete_task",
+      task_ref: taskRef || (quoted[0] || null),
+      subtask_text: null,
+      task_text: "",
+    };
+  }
+
+  if (/\b(верн|возврат|воскрес|восстанов|спаси)\b/.test(normalized)) {
+    return {
+      intent: "reopen_task",
+      task_ref: inferTaskReference(normalized) || quoted[0] || null,
+      subtask_text: null,
+      task_text: "",
+    };
+  }
+
+  if (/\b(сегодня|сегодняшн).*(закреп|прикреп)/.test(normalized)) {
+    return {
+      intent: "set_today",
+      task_ref: inferTaskReference(normalized) || quoted[0] || null,
+      subtask_text: null,
+      task_text: "",
+    };
+  }
+
+  if (/\b(сними|откреп|убер|удали|снять)\b.*(сегодня|сегодняшн)/.test(normalized)) {
+    return {
+      intent: "unset_today",
+      task_ref: inferTaskReference(normalized) || quoted[0] || null,
+      subtask_text: null,
+      task_text: "",
+    };
+  }
+
+  if (/\b(критич|жизненн|срочно)\b/.test(normalized)) {
+    return {
+      intent: "set_vital",
+      task_ref: inferTaskReference(normalized) || quoted[0] || null,
+      subtask_text: null,
+      task_text: "",
+    };
+  }
+
+  const addSubtaskQuoted = /\b(добавь|добавить).*(подзадач|шаг)/.test(normalized);
+  if (addSubtaskQuoted && quoted.length >= 2) {
+    return {
+      intent: "add_subtask",
+      task_ref: quoted[0],
+      subtask_text: quoted[1],
+      task_text: "",
+    };
+  }
+
+  const deleteSubtaskQuoted = /\b(удал|удали|снес|убери?)\b.*(подзадач|шаг)/.test(normalized);
+  if (deleteSubtaskQuoted && quoted.length >= 2) {
+    return {
+      intent: "delete_subtask",
+      task_ref: quoted[0],
+      subtask_text: quoted[1],
+      task_text: "",
+    };
+  }
+
+  if (/\b(посоветуй|что.*откреп|какую.*откреп|сними.*сегодня|предложи).*\b/.test(normalized)) {
+    return {
+      intent: "suggest_unpin",
+      task_text: "",
+      task_ref: null,
+      subtask_text: null,
+    };
+  }
+
+  if (/\b(заплан|календ|распис|создай.*событи)/.test(normalized)) {
+    return {
+      intent: "schedule_task",
+      task_text: "",
+      task_ref: quoted[0] || normalized,
+      subtask_text: null,
+    };
+  }
+
+  if (/^(добавь|добавить|поставь|напомни|напиши|нужно|надо|хочу|сделай|запиши|позже)\b/.test(normalized)) {
+    return {
+      intent: "add_task",
+      task_text: String(text || "").trim(),
+      task_ref: null,
+      subtask_text: null,
+    };
+  }
+
+  return null;
+}
+
+function inferFallbackIntent(text = "") {
+  const normalized = normalizeForIntent(text);
+  if (!normalized) {
+    return {
+      intent: "chat",
+      reply_text: "Сформулируй это как задачу, или просто напиши /today или /panic.",
+      task_text: "",
+    };
+  }
+
+  if (/\b(привет|как|что|когда|почему|как-то|помог|помоги|что-то)\b/.test(normalized) && normalized.length < 20) {
+    return {
+      intent: "chat",
+      reply_text: "Сформулируй это как задачу или просто выбери /today или /panic.",
+      task_text: "",
+    };
+  }
+
+  const quick = inferQuickIntent(normalized);
+  if (quick) {
+    return quick;
+  }
+
+  return {
+    intent: "add_task",
+    task_text: String(text || "").trim(),
+    task_ref: null,
+    subtask_text: null,
+  };
+}
+
+function normalizeTimeoutMs(value) {
+  const parsed = Number.parseInt(String(value || ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TELEGRAM_INTENT_TIMEOUT_MS;
+}
 
 function buildSystemPrompt({ tasks, telegramContext, todayDate }) {
   const activeTasks = (tasks || []).filter((t) => t.status === "active");
@@ -185,25 +364,40 @@ function normalizeIntent(payload = {}) {
 }
 
 async function parseTelegramIntent({ text, tasks = [], telegramContext = {} }) {
+  const quickIntent = inferQuickIntent(text);
+  if (quickIntent) {
+    return normalizeIntent(quickIntent);
+  }
+
   const systemPrompt = buildSystemPrompt({
     tasks,
     telegramContext,
     todayDate: getTodayIsoDate(),
   });
 
-  const data = await openRouterChatCompletion({
-    model: process.env.TELEGRAM_INTENT_MODEL || DEFAULT_TELEGRAM_INTENT_MODEL,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: text },
-    ],
-    maxTokens: 300,
-    responseFormat: { type: "json_object" },
-  });
+  try {
+    const data = await openRouterChatCompletion({
+      model: process.env.TELEGRAM_INTENT_MODEL || DEFAULT_TELEGRAM_INTENT_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: text },
+      ],
+      maxTokens: 300,
+      responseFormat: { type: "json_object" },
+      timeoutMs: normalizeTimeoutMs(process.env.TELEGRAM_INTENT_TIMEOUT_MS),
+    });
 
-  const content = data?.choices?.[0]?.message?.content || "";
-  const parsed = JSON.parse(extractJsonObject(content));
-  return normalizeIntent(parsed);
+    const content = data?.choices?.[0]?.message?.content || "";
+    const parsed = JSON.parse(extractJsonObject(content));
+    return normalizeIntent(parsed);
+  } catch (error) {
+    console.error("[telegram-intent] fallback:", error.message || String(error));
+    const fallback = inferFallbackIntent(text);
+    return normalizeIntent({
+      ...fallback,
+      task_text: fallback.intent === "add_task" ? String(text || "").trim() : fallback.task_text || "",
+    });
+  }
 }
 
 module.exports = {
