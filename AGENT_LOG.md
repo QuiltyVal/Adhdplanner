@@ -447,3 +447,21 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - other Cyrillic regexes should avoid `\b`; if similar “human follow-up not understood” bugs appear, inspect for ASCII-only boundary assumptions first
+
+## 2026-04-13 — Claude (claude-sonnet-4-6)
+
+- Summary: Fixed critical production bugs reported by user: pink screen on load, tasks reverting from heaven/cemetery after page reload, and complete button blocked by heat bar.
+- Changed:
+  - `src/App.js` — added `useRef` to React imports (was crashing entire app), added `mergeTaskLists` to onSnapshot callback so local optimistic updates (complete/kill/drag) aren't overwritten by stale Firestore snapshots, added automatic per-day activity tracking (`activeDays[]`, `timeByDay`), added `completedAt` timestamp on task completion
+  - `src/TaskColumn.js` — Complete button now always visible (was gated behind `heatCurrent > 60`), subtask edit input replaced with auto-growing textarea
+  - `src/TaskColumn.css` — `.subtask-edit-input` fixed to be readable (white text on translucent dark bg), `.subtask-item--editing` added for proper alignment
+  - `src/App.css` — stats tab redesigned with per-task activity dot-calendar and day-by-day time log
+  - `.gitignore` — removed `build/` so compiled output is committed and deployed via git pull
+  - `scripts/auto-pull.js` — added `npm run build` step between git pull and pm2 restart
+- Verified:
+  - `npm run build` compiled cleanly each time
+  - jsdom render test showed ROOT CONTENT was populated (not empty) after useRef fix
+- Branches: committed and pushed to both `main` and `claude/review-project-Zw7WB`
+- Risks / follow-up:
+  - `isFirstSnapshot` flag is set AFTER `firestoreReadyRef.current` is set to true, so technically always false — but `mergeTaskLists([], remoteTasks)` correctly returns remoteTasks, so initial load works fine; the branch is dead code but harmless
+  - The review branch (`claude/review-project-Zw7WB`) has AI companion features (OpenRouter) not yet in main — needs future merge/PR
