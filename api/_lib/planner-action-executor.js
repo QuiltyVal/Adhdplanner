@@ -550,6 +550,12 @@ async function executePlannerAction({
           if (currentTask.id !== task.id) return currentTask;
           reopenedTask = {
             ...currentTask,
+            __baseLastUpdated:
+              typeof task?.lastUpdated === "number"
+                ? task.lastUpdated
+                : typeof currentTask?.lastUpdated === "number"
+                  ? currentTask.lastUpdated
+                  : 0,
             status: "active",
             isToday: false,
             heatBase: typeof currentTask.heatBase === "number" ? currentTask.heatBase : 35,

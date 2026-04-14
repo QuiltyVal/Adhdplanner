@@ -210,6 +210,8 @@ Mitigation now in `main`:
 Residual risk:
 - a tab that is already open on the old pre-2026-04-14 bundle can still keep attempting bad writes until it is refreshed or closed once
 - non-web writers that bypass `src/firestoreUtils.saveTask()` still need live verification if rollbacks continue after refreshing all clients
+- as of 2026-04-14 13:05 Europe/Berlin, Vercel server mutations that go through `api/_lib/planner-store.mutatePlanner()` also carry stale-write protection: per-task overwrites/deletes are skipped when Firestore has already advanced beyond the version the server mutation was derived from
+- reopen flows in `api/telegram-webhook.js` and `api/_lib/planner-action-executor.js` now pass `__baseLastUpdated` for tasks fetched outside the active-task list so a valid reopen is still allowed while stale revives are blocked
 
 Other steps:
 1. **Drag & drop между зонами** (см. ниже)

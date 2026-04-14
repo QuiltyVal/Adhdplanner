@@ -493,3 +493,17 @@ Entry template:
 - Risks / follow-up:
   - game-tick auto-death still uses its own update path and should be reviewed separately if dead-task persistence behaves oddly
   - if tasks still revert after this deploy, next suspect is a non-web writer overwriting canonical subcollection state after the web write succeeds
+
+## 2026-04-14 13:05 Europe/Berlin - Codex
+
+- Summary: Hardened the Vercel server-side planner writer against stale overwrites. If any Telegram/server mutation is derived from an older task version, it now skips overwriting the newer Firestore document instead of blindly batch-writing old state back into the subcollection.
+- Changed:
+  - `api/_lib/planner-store.js` — `mutatePlanner()` now runs in a Firestore transaction, strips internal task sync markers before writing, compares each task doc against the base version the mutation was derived from, skips stale overwrites/deletes, and normalizes accepted writes to at least `base + 1`
+  - `api/telegram-webhook.js` — reopen flows now attach `__baseLastUpdated` when reviving tasks fetched outside the active-task list so the stale-write guard can tell a valid reopen from an out-of-date overwrite
+  - `api/_lib/planner-action-executor.js` — reopen flow carries the same base-version marker
+- Verified:
+  - `node --check api/_lib/planner-store.js`
+  - `node --check api/_lib/planner-action-executor.js`
+  - `node --check api/telegram-webhook.js`
+- Risks / follow-up:
+  - this protects server writers that go through `api/_lib/planner-store.js`; a completely separate writer that bypasses that module can still revert tasks

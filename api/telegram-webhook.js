@@ -702,6 +702,7 @@ async function handleReopenTask(chatId, plannerData, taskRef) {
     // Task is not in current.tasks (completed), so add it as active
     reopenedTask = {
       ...task,
+      __baseLastUpdated: typeof task?.lastUpdated === "number" ? task.lastUpdated : 0,
       status: "active",
       isToday: false,
       deadAt: null,
@@ -888,6 +889,7 @@ async function handleCallback(chatId, callbackQuery) {
     await mutatePlanner(userId, (current) => {
       reopenedTask = {
         ...source,
+        __baseLastUpdated: typeof source?.lastUpdated === "number" ? source.lastUpdated : 0,
         status: "active",
         isToday: false,
         deadAt: null,

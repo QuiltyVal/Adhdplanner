@@ -18,6 +18,16 @@ function tasksCol(userId) {
   return getDb().collection("Users").doc(userId).collection("tasks");
 }
 
+function stripServerTaskState(task) {
+  if (!task || typeof task !== "object") return task;
+  const { __baseLastUpdated, ...cleanTask } = task;
+  return cleanTask;
+}
+
+function stripServerTaskStateList(tasks = []) {
+  return tasks.map((task) => stripServerTaskState(task));
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -93,6 +103,11 @@ function buildPlannerFingerprint(data = {}) {
     score: typeof safe.score === "number" ? safe.score : 0,
     tasks: Array.isArray(safe.tasks) ? safe.tasks.map(normalizeTaskForFingerprint) : [],
   });
+}
+
+function getTaskBaseLastUpdated(task, fallback = 0) {
+  if (typeof task?.__baseLastUpdated === "number") return task.__baseLastUpdated;
+  return typeof fallback === "number" ? fallback : 0;
 }
 
 function hasMeaningfulPlannerState(data = {}) {
@@ -379,45 +394,123 @@ async function mutatePlanner(userId, mutator, options = {}) {
 
   const currentFingerprint = buildPlannerFingerprint(current);
   const nextFingerprint = buildPlannerFingerprint(nextSafe);
+  const currentTaskVersionById = new Map(
+    current.tasks.map((task) => [
+      String(task.id),
+      typeof task?.lastUpdated === "number" ? task.lastUpdated : 0,
+    ]),
+  );
+  const nextTasks = Array.isArray(nextSafe.tasks) ? nextSafe.tasks : [];
+  const nextTaskIds = new Set(nextTasks.map((task) => String(task.id)));
+  const db = getDb();
 
-  const batch = getDb().batch();
+  await db.runTransaction(async (transaction) => {
+    const taskIdsToRead = new Set([
+      ...current.tasks.map((task) => String(task.id)),
+      ...nextTasks.map((task) => String(task.id)),
+    ]);
+    const existingSnapshotsById = new Map();
 
-  // Backup snapshot before mutation (if something meaningful changed)
-  if (currentFingerprint !== nextFingerprint && hasMeaningfulPlannerState(current)) {
-    const snapshotRef = userDoc(userId).collection("taskSnapshots").doc();
-    batch.set(snapshotRef, {
-      source: options.source || "server",
-      kind: "pre_mutation",
-      reason: options.reason || "mutation",
-      userId,
-      taskCount: current.tasks.length,
-      score: current.score,
-      fingerprint: currentFingerprint,
-      capturedAt: Date.now(),
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      tasks: current.tasks,
-    });
-  }
-
-  // Write each task to subcollection
-  for (const task of nextSafe.tasks) {
-    batch.set(tasksCol(userId).doc(String(task.id)), task);
-  }
-
-  // Delete tasks that were removed by the mutator
-  const nextTaskIds = new Set(nextSafe.tasks.map((t) => String(t.id)));
-  for (const task of current.tasks) {
-    if (!nextTaskIds.has(String(task.id))) {
-      batch.delete(tasksCol(userId).doc(String(task.id)));
+    for (const taskId of taskIdsToRead) {
+      const ref = tasksCol(userId).doc(taskId);
+      existingSnapshotsById.set(taskId, await transaction.get(ref));
     }
-  }
 
-  // Write root doc fields (score, telegramContext, etc.) — NOT tasks array
-  const { tasks: _omitTasks, ...rootFields } = nextSafe;
-  batch.set(userDoc(userId), rootFields, { merge: true });
+    // Backup snapshot before mutation (if something meaningful changed)
+    if (currentFingerprint !== nextFingerprint && hasMeaningfulPlannerState(current)) {
+      const snapshotRef = userDoc(userId).collection("taskSnapshots").doc();
+      transaction.set(snapshotRef, {
+        source: options.source || "server",
+        kind: "pre_mutation",
+        reason: options.reason || "mutation",
+        userId,
+        taskCount: current.tasks.length,
+        score: current.score,
+        fingerprint: currentFingerprint,
+        capturedAt: Date.now(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        tasks: stripServerTaskStateList(current.tasks),
+      });
+    }
 
-  await batch.commit();
-  return nextSafe;
+    for (const rawTask of nextTasks) {
+      const task = stripServerTaskState(rawTask);
+      const taskId = String(task.id);
+      const existingSnap = existingSnapshotsById.get(taskId);
+      const existingTask = existingSnap?.exists ? existingSnap.data() || {} : null;
+      const existingUpdatedAt =
+        typeof existingTask?.lastUpdated === "number" ? existingTask.lastUpdated : 0;
+      const baseUpdatedAt = getTaskBaseLastUpdated(
+        rawTask,
+        currentTaskVersionById.get(taskId) || 0,
+      );
+
+      if (existingUpdatedAt > baseUpdatedAt) {
+        console.warn("[planner-store] skipped stale task overwrite", {
+          userId,
+          taskId,
+          source: options.source || "server",
+          reason: options.reason || "mutation",
+          existingUpdatedAt,
+          baseUpdatedAt,
+          incomingUpdatedAt:
+            typeof task?.lastUpdated === "number" ? task.lastUpdated : 0,
+          existingStatus: existingTask?.status,
+          incomingStatus: task?.status,
+        });
+        continue;
+      }
+
+      const incomingUpdatedAt =
+        typeof task?.lastUpdated === "number" ? task.lastUpdated : 0;
+      const normalizedTask = existingTask
+        ? {
+            ...task,
+            lastUpdated: Math.max(incomingUpdatedAt, baseUpdatedAt + 1),
+          }
+        : incomingUpdatedAt
+          ? task
+          : { ...task, lastUpdated: Date.now() };
+
+      transaction.set(tasksCol(userId).doc(taskId), normalizedTask);
+    }
+
+    for (const task of current.tasks) {
+      const taskId = String(task.id);
+      if (nextTaskIds.has(taskId)) continue;
+
+      const existingSnap = existingSnapshotsById.get(taskId);
+      const existingTask = existingSnap?.exists ? existingSnap.data() || {} : null;
+      const existingUpdatedAt =
+        typeof existingTask?.lastUpdated === "number" ? existingTask.lastUpdated : 0;
+      const baseUpdatedAt =
+        typeof task?.lastUpdated === "number" ? task.lastUpdated : 0;
+
+      if (existingUpdatedAt > baseUpdatedAt) {
+        console.warn("[planner-store] skipped stale task delete", {
+          userId,
+          taskId,
+          source: options.source || "server",
+          reason: options.reason || "mutation",
+          existingUpdatedAt,
+          baseUpdatedAt,
+          existingStatus: existingTask?.status,
+        });
+        continue;
+      }
+
+      transaction.delete(tasksCol(userId).doc(taskId));
+    }
+
+    // Write root doc fields (score, telegramContext, etc.) — NOT tasks array
+    const { tasks: _omitTasks, ...rootFields } = nextSafe;
+    transaction.set(userDoc(userId), rootFields, { merge: true });
+  });
+
+  return {
+    ...nextSafe,
+    tasks: stripServerTaskStateList(nextTasks),
+  };
 }
 
 async function linkTelegramChat(userId, chatId) {
