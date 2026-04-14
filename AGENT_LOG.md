@@ -479,3 +479,17 @@ Entry template:
 - Risks / follow-up:
   - tabs already open with the old pre-fix bundle can still write stale state until they are refreshed or fully closed once
   - this conflict guard protects web writes that go through `src/firestoreUtils.saveTask`; if reverts continue after refreshing all clients, inspect live Firestore snapshots and any non-web writer that may still bypass this path
+
+## 2026-04-14 11:25 Europe/Berlin - Codex
+
+- Summary: Fixed the more direct web write-loss bug in `src/App.js`. Existing-task handlers were mutating a local `saved` variable inside `setTasks(...)` and then calling `persistTask(saved)` outside; that is not a safe way to derive a task to persist from React state scheduling, and it could leave status changes visible in UI but never written to Firestore.
+- Changed:
+  - `src/App.js` — added `tasksRef` + `mutateSingleTask()` so task mutations are computed synchronously before `persistTask()`
+  - `src/App.js` — switched existing-task handlers (`complete/kill/resurrect/reopen/drag/today/subtasks/edits`) to the new mutation helper
+  - `src/App.js` — queued pending task writes until the first Firestore snapshot instead of silently dropping them while `firestoreReadyRef` is false
+  - regenerated tracked build output after verification
+- Verified:
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - game-tick auto-death still uses its own update path and should be reviewed separately if dead-task persistence behaves oddly
+  - if tasks still revert after this deploy, next suspect is a non-web writer overwriting canonical subcollection state after the web write succeeds

@@ -204,6 +204,8 @@ Mitigation now in `main`:
 - as of 2026-04-14, web tasks also carry a local base-version marker in memory; `saveTask()` rejects any write when Firestore has already moved beyond that base version, which blocks stale-tab rollbacks even if the stale client generates a newer `Date.now()`
 - as of 2026-04-14, accepted web writes normalize `lastUpdated` to at least `base + 1`, so a device with a slightly behind clock does not silently lose its own legitimate change
 - as of 2026-04-14, the web cloud cache is only refreshed after a real Firestore snapshot, so stale cache data can no longer keep renewing its own freshness on startup
+- as of 2026-04-14, existing-task web mutations no longer depend on assigning `saved` inside `setTasks(...)`; they now compute the updated task synchronously via `mutateSingleTask()` and then call `persistTask(updatedTask)` explicitly
+- as of 2026-04-14, task writes triggered before the first Firestore snapshot are queued and flushed once Firestore is ready, instead of being silently dropped by `firestoreReadyRef`
 
 Residual risk:
 - a tab that is already open on the old pre-2026-04-14 bundle can still keep attempting bad writes until it is refreshed or closed once
