@@ -16,6 +16,16 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
+function stripClientTaskState(task) {
+  if (!task || typeof task !== "object") return task;
+  const { __baseLastUpdated, __pendingSyncAt, ...cleanTask } = task;
+  return cleanTask;
+}
+
+function stripClientTaskStateList(tasks = []) {
+  return tasks.map((task) => stripClientTaskState(task));
+}
+
 // ── Subcollection: subscribe to all tasks (real-time) ─────────────────────────
 export function subscribeToTasks(userId, onTasks, onError) {
   const tasksRef = collection(db, "Users", userId, "tasks");
@@ -35,29 +45,55 @@ export function subscribeToTasks(userId, onTasks, onError) {
 // ── Subcollection: write one task ─────────────────────────────────────────────
 export async function saveTask(userId, task) {
   const taskRef = doc(db, "Users", userId, "tasks", String(task.id));
+  const baseUpdatedAt =
+    typeof task?.__baseLastUpdated === "number"
+      ? task.__baseLastUpdated
+      : typeof task?.lastUpdated === "number"
+        ? task.lastUpdated
+        : 0;
+  const cleanTask = stripClientTaskState(task);
+  let normalizedTask = cleanTask;
+
   await runTransaction(db, async (transaction) => {
     const existingSnap = await transaction.get(taskRef);
     if (existingSnap.exists()) {
       const existingTask = existingSnap.data() || {};
       const existingUpdatedAt =
         typeof existingTask.lastUpdated === "number" ? existingTask.lastUpdated : 0;
-      const incomingUpdatedAt = typeof task.lastUpdated === "number" ? task.lastUpdated : 0;
+      const incomingUpdatedAt =
+        typeof cleanTask.lastUpdated === "number" ? cleanTask.lastUpdated : 0;
 
-      // Refuse stale writes that would roll a task back to an older version.
-      if (existingUpdatedAt > incomingUpdatedAt) {
-        console.warn("[Firestore] saveTask skipped stale overwrite", {
+      // Reject writes coming from a stale base version. This blocks an old tab
+      // from overwriting a task that was already changed on another device.
+      if (existingUpdatedAt > baseUpdatedAt) {
+        const conflictError = new Error("Task changed on another device");
+        conflictError.code = "planner/conflict";
+        conflictError.existingTask = existingTask;
+        console.warn("[Firestore] saveTask rejected remote conflict", {
           taskId: task.id,
           existingUpdatedAt,
+          baseUpdatedAt,
           incomingUpdatedAt,
           existingStatus: existingTask.status,
-          incomingStatus: task.status,
+          incomingStatus: cleanTask.status,
         });
-        return;
+        throw conflictError;
       }
+
+      // Device clocks can drift. Make every accepted mutation strictly newer
+      // than the base version it was derived from.
+      normalizedTask = {
+        ...cleanTask,
+        lastUpdated: Math.max(incomingUpdatedAt, baseUpdatedAt + 1),
+      };
+    } else if (typeof cleanTask.lastUpdated !== "number") {
+      normalizedTask = { ...cleanTask, lastUpdated: Date.now() };
     }
 
-    transaction.set(taskRef, task, { merge: true });
+    transaction.set(taskRef, normalizedTask, { merge: true });
   });
+
+  return normalizedTask;
 }
 
 // ── Root doc: write score ─────────────────────────────────────────────────────
@@ -181,14 +217,15 @@ export async function saveTaskSnapshot(userId, tasks, score, source = "manual_we
     score: score || 0,
     capturedAt: Date.now(),
     createdAt: serverTimestamp(),
-    tasks,
+    tasks: stripClientTaskStateList(tasks),
   });
 }
 
 // Restores tasks from a snapshot: writes all snapshot tasks (bypassing stale-check),
 // and deletes any current tasks not present in the snapshot.
 export async function restoreFromSnapshot(userId, currentTaskIds, snapshotTasks) {
-  const snapshotIds = new Set(snapshotTasks.map(t => String(t.id)));
+  const cleanSnapshotTasks = stripClientTaskStateList(snapshotTasks);
+  const snapshotIds = new Set(cleanSnapshotTasks.map(t => String(t.id)));
 
   // Delete tasks that exist now but are absent from the snapshot
   for (const id of currentTaskIds) {
@@ -203,7 +240,7 @@ export async function restoreFromSnapshot(userId, currentTaskIds, snapshotTasks)
 
   // Write all snapshot tasks (direct setDoc, no stale-write guard)
   const now = Date.now();
-  for (const task of snapshotTasks) {
+  for (const task of cleanSnapshotTasks) {
     if (!task.id) continue;
     await setDoc(doc(db, "Users", userId, "tasks", String(task.id)), {
       ...task,

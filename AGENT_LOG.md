@@ -465,3 +465,17 @@ Entry template:
 - Risks / follow-up:
   - `isFirstSnapshot` flag is set AFTER `firestoreReadyRef.current` is set to true, so technically always false — but `mergeTaskLists([], remoteTasks)` correctly returns remoteTasks, so initial load works fine; the branch is dead code but harmless
   - The review branch (`claude/review-project-Zw7WB`) has AI companion features (OpenRouter) not yet in main — needs future merge/PR
+
+## 2026-04-14 10:55 Europe/Berlin - Codex
+
+- Summary: Hardened cross-device task sync against stale tabs and clock skew. The likely failure mode was not just “snapshot race on reload” anymore: a stale browser session or a device with a slightly older clock could still send a whole-task overwrite that looked newer locally and rolled tasks back across devices.
+- Changed:
+  - `src/App.js` — added local-only task sync metadata (`__baseLastUpdated`, `__pendingSyncAt`), bounded optimistic merge window to 15s, stopped refreshing cloud cache before a real Firestore snapshot, and applied remote conflict replacements directly in UI when Firestore rejects a stale write
+  - `src/firestoreUtils.js` — `saveTask()` now rejects writes when Firestore has already advanced beyond the task’s local base version, normalizes accepted `lastUpdated` to at least `base + 1` to tolerate clock skew, and strips local-only sync metadata from saved tasks/snapshots
+  - regenerated tracked build output after verification
+- Verified:
+  - `npm install`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - tabs already open with the old pre-fix bundle can still write stale state until they are refreshed or fully closed once
+  - this conflict guard protects web writes that go through `src/firestoreUtils.saveTask`; if reverts continue after refreshing all clients, inspect live Firestore snapshots and any non-web writer that may still bypass this path

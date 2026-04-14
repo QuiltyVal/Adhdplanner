@@ -40,8 +40,19 @@ const NUDGE_INTERVAL_MS = 20 * 60 * 1000;
 const PULSE_STORAGE_PREFIX = "adhd_planner_pulse";
 const CLOUD_CACHE_PREFIX = "adhd_planner_cloud_cache";
 const CLOUD_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
+const LOCAL_PENDING_SYNC_TTL_MS = 15 * 1000;
 const DEVIL_AUTO_CLEAN_THRESHOLD = 5;   // purgatory tasks before devil intervenes
 const DEVIL_AUTO_CLEAN_COOLDOWN_MS = 30 * 60 * 1000; // 30 min between auto-cleans
+
+function stripLocalTaskState(task) {
+  if (!task || typeof task !== "object") return task;
+  const { __baseLastUpdated, __pendingSyncAt, ...cleanTask } = task;
+  return cleanTask;
+}
+
+function stripLocalTaskStateList(tasks = []) {
+  return tasks.map((task) => stripLocalTaskState(task));
+}
 
 function formatTimeSpent(ms) {
   if (!ms || ms <= 0) return "—";
@@ -123,7 +134,7 @@ function loadCloudCache(userId) {
     }
 
     return {
-      tasks: parsedState.tasks || [],
+      tasks: stripLocalTaskStateList(parsedState.tasks || []),
       score: typeof parsedState.score === "number" ? parsedState.score : 0,
       savedAt,
     };
@@ -140,7 +151,7 @@ function saveCloudCache(userId, tasks, score) {
     localStorage.setItem(
       getCloudCacheKey(userId),
       JSON.stringify({
-        tasks,
+        tasks: stripLocalTaskStateList(tasks),
         score,
         savedAt: Date.now(),
       }),
@@ -166,18 +177,54 @@ function mergeSubtasks(localSubtasks = [], remoteSubtasks = [], preferRemote = t
   return [...mergedRemote, ...localOnly];
 }
 
+function getTaskBaseLastUpdated(task) {
+  if (typeof task?.__baseLastUpdated === "number") return task.__baseLastUpdated;
+  return typeof task?.lastUpdated === "number" ? task.lastUpdated : 0;
+}
+
+function hasFreshPendingSync(task, now = Date.now()) {
+  return (
+    typeof task?.__pendingSyncAt === "number" &&
+    task.__pendingSyncAt > 0 &&
+    now - task.__pendingSyncAt <= LOCAL_PENDING_SYNC_TTL_MS
+  );
+}
+
+function markTaskFromCloud(task) {
+  const cleanTask = stripLocalTaskState(task);
+  return {
+    ...cleanTask,
+    __baseLastUpdated: typeof cleanTask?.lastUpdated === "number" ? cleanTask.lastUpdated : 0,
+    __pendingSyncAt: 0,
+  };
+}
+
+function markTaskPendingSync(task, previousTask = null) {
+  const cleanTask = stripLocalTaskState(task);
+  const previousBase = getTaskBaseLastUpdated(previousTask);
+  const previousUpdatedAt = typeof previousTask?.lastUpdated === "number" ? previousTask.lastUpdated : 0;
+  return {
+    ...cleanTask,
+    __baseLastUpdated: Math.max(previousBase, previousUpdatedAt),
+    __pendingSyncAt: Date.now(),
+  };
+}
+
 function mergeTaskLists(localTasks = [], remoteTasks = []) {
+  const now = Date.now();
   const localById = new Map(localTasks.map((task) => [String(task.id), task]));
   const remoteIds = new Set(remoteTasks.map((task) => String(task.id)));
 
-  const mergedRemote = remoteTasks.map((remoteTask) => {
+  const mergedRemote = remoteTasks.map((rawRemoteTask) => {
+    const remoteTask = markTaskFromCloud(rawRemoteTask);
     const localTask = localById.get(String(remoteTask.id));
     if (!localTask) return remoteTask;
 
-    // User intent: a locally-completed task must never be reverted to active/dead
-    // by a stale Firestore snapshot that arrived before the completion write committed.
-    // This handles both the race condition (reload before write) and the auto-death
-    // race (game tick kills task the same millisecond user drags to heaven).
+    const localIntentIsFresh = hasFreshPendingSync(localTask, now);
+    if (!localIntentIsFresh) {
+      return remoteTask;
+    }
+
     if (localTask.status === "completed" && remoteTask.status !== "completed") {
       const mergedTask = { ...remoteTask, ...localTask };
       mergedTask.subtasks = mergeSubtasks(
@@ -190,22 +237,22 @@ function mergeTaskLists(localTasks = [], remoteTasks = []) {
 
     const remoteUpdatedAt = remoteTask.lastUpdated || 0;
     const localUpdatedAt = localTask.lastUpdated || 0;
-    const preferRemote = remoteUpdatedAt >= localUpdatedAt;
+    if (remoteUpdatedAt >= localUpdatedAt) {
+      return remoteTask;
+    }
 
-    const mergedTask = preferRemote
-      ? { ...localTask, ...remoteTask }
-      : { ...remoteTask, ...localTask };
-
+    const mergedTask = { ...remoteTask, ...localTask };
     mergedTask.subtasks = mergeSubtasks(
       localTask.subtasks || [],
       remoteTask.subtasks || [],
-      preferRemote,
+      false,
     );
-
     return mergedTask;
   });
 
-  const localOnly = localTasks.filter((task) => !remoteIds.has(String(task.id)));
+  const localOnly = localTasks.filter(
+    (task) => !remoteIds.has(String(task.id)) && hasFreshPendingSync(task, now),
+  );
   return [...localOnly, ...mergedRemote];
 }
 
@@ -725,7 +772,9 @@ export default function App() {
     const loadCloudData = () => {
       // If guest mode (offline)
       if (parsedUser.id.startsWith("guest_")) {
-        const localTasks = JSON.parse(localStorage.getItem("adhd_planner_tasks") || "[]") || [];
+        const localTasks = stripLocalTaskStateList(
+          JSON.parse(localStorage.getItem("adhd_planner_tasks") || "[]") || [],
+        );
         const localScore = parseInt(localStorage.getItem("adhd_planner_score"), 10) || 0;
         setTasks(localTasks);
         setScore(localScore);
@@ -851,13 +900,14 @@ export default function App() {
 
   useEffect(() => {
     if (!user?.id || user.id.startsWith("guest_")) return;
+    if (!firestoreReadyRef.current) return;
     saveCloudCache(user.id, tasks, score);
   }, [tasks, score, user?.id]);
 
   // Guest mode: sync to localStorage whenever tasks or score change
   useEffect(() => {
     if (!dataLoaded || !user?.id.startsWith("guest_")) return;
-    localStorage.setItem("adhd_planner_tasks", JSON.stringify(tasks));
+    localStorage.setItem("adhd_planner_tasks", JSON.stringify(stripLocalTaskStateList(tasks)));
     localStorage.setItem("adhd_planner_score", score.toString());
   }, [tasks, score, dataLoaded, user?.id]);
 
@@ -886,11 +936,16 @@ export default function App() {
           const protectedFromAutoDeath = isAutoDeathProtected(task);
 
           if (currentHeatValue <= 0 && !protectedFromAutoDeath) {
-            newTask.status = "dead";
-            newTask.deadAt = now;
-            newTask.isToday = false;
+            const deadTask = markTaskPendingSync({
+              ...newTask,
+              status: "dead",
+              deadAt: now,
+              isToday: false,
+              lastUpdated: now,
+            }, task);
             changed = true;
-            dead.push(newTask);
+            dead.push(deadTask);
+            return deadTask;
           } else if (Math.abs((task.heatCurrent || 0) - currentHeatValue) > 0.5) {
             changed = true;
           }
@@ -1070,7 +1125,35 @@ export default function App() {
 
   const persistTask = (task) => {
     if (!isCloudUser || !firestoreReadyRef.current) return;
-    saveTask(user.id, task).catch((e) => console.error("[saveTask]", e));
+    saveTask(user.id, task)
+      .then((savedTask) => {
+        if (!savedTask?.id || savedTask.lastUpdated === task.lastUpdated) return;
+        setTasks((currentTasks) =>
+          currentTasks.map((currentTask) => {
+            if (currentTask.id !== savedTask.id) return currentTask;
+            return {
+              ...currentTask,
+              lastUpdated: savedTask.lastUpdated,
+              __baseLastUpdated: Math.max(getTaskBaseLastUpdated(currentTask), savedTask.lastUpdated),
+            };
+          }),
+        );
+      })
+      .catch((e) => {
+        if (e?.code === "planner/conflict" && e?.existingTask?.id) {
+          console.warn("[Planner] saveTask conflict, applying remote task", e.existingTask);
+          setTasks((currentTasks) => {
+            const replacement = markTaskFromCloud(e.existingTask);
+            const exists = currentTasks.some((currentTask) => currentTask.id === replacement.id);
+            return exists
+              ? currentTasks.map((currentTask) => (currentTask.id === replacement.id ? replacement : currentTask))
+              : [replacement, ...currentTasks];
+          });
+          setNudgeStatus("Эта задача уже была изменена на другом устройстве. Показала свежую версию из облака.");
+          return;
+        }
+        console.error("[saveTask]", e);
+      });
   };
 
   const persistScore = (newScore) => {
@@ -1080,7 +1163,7 @@ export default function App() {
 
   const handleAddTask = (text, options = {}) => {
     const now = Date.now();
-    const newTask = {
+    const newTask = markTaskPendingSync({
       id: now.toString(),
       text,
       lastUpdated: now,
@@ -1092,7 +1175,7 @@ export default function App() {
       resistance: "medium",
       isToday: false,
       isVital: false,
-    };
+    });
     setTasks((currentTasks) => [newTask, ...currentTasks]);
     persistTask(newTask);
     setHighlightTaskId(newTask.id);
@@ -1113,7 +1196,10 @@ export default function App() {
     setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id !== taskId) return t;
       const newHeatBase = Math.min(100, t.heatCurrent + TOUCH_HEAT_BONUS);
-      saved = withActiveDay({ ...t, lastUpdated: Date.now(), heatBase: newHeatBase, heatCurrent: newHeatBase });
+      saved = markTaskPendingSync(
+        withActiveDay({ ...t, lastUpdated: Date.now(), heatBase: newHeatBase, heatCurrent: newHeatBase }),
+        t,
+      );
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1126,7 +1212,7 @@ export default function App() {
     setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id !== taskId) return t;
       const newSubtasks = [...(t.subtasks || []), { id: Date.now().toString(), text, completed: false }];
-      saved = { ...t, subtasks: newSubtasks, lastUpdated: Date.now() };
+      saved = markTaskPendingSync({ ...t, subtasks: newSubtasks, lastUpdated: Date.now() }, t);
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1139,7 +1225,10 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id !== taskId) return t;
-      saved = withActiveDay({ ...t, text: newText.trim(), lastUpdated: Date.now() });
+      saved = markTaskPendingSync(
+        withActiveDay({ ...t, text: newText.trim(), lastUpdated: Date.now() }),
+        t,
+      );
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1153,7 +1242,10 @@ export default function App() {
       if (t.id !== taskId) return t;
       const timeByDay = { ...(t.timeByDay || {}) };
       timeByDay[today] = (timeByDay[today] || 0) + elapsedMs;
-      saved = withActiveDay({ ...t, timeSpent: (t.timeSpent || 0) + elapsedMs, timeByDay, lastUpdated: Date.now() });
+      saved = markTaskPendingSync(
+        withActiveDay({ ...t, timeSpent: (t.timeSpent || 0) + elapsedMs, timeByDay, lastUpdated: Date.now() }),
+        t,
+      );
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1163,7 +1255,10 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id !== taskId) return t;
-      saved = { ...t, subtasks: (t.subtasks || []).filter(s => s.id !== subtaskId), lastUpdated: Date.now() };
+      saved = markTaskPendingSync(
+        { ...t, subtasks: (t.subtasks || []).filter(s => s.id !== subtaskId), lastUpdated: Date.now() },
+        t,
+      );
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1174,11 +1269,14 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(t => {
       if (t.id !== taskId) return t;
-      saved = withActiveDay({
-        ...t,
-        subtasks: (t.subtasks || []).map(s => s.id === subtaskId ? { ...s, text: newText.trim() } : s),
-        lastUpdated: Date.now(),
-      });
+      saved = markTaskPendingSync(
+        withActiveDay({
+          ...t,
+          subtasks: (t.subtasks || []).map(s => s.id === subtaskId ? { ...s, text: newText.trim() } : s),
+          lastUpdated: Date.now(),
+        }),
+        t,
+      );
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1197,7 +1295,10 @@ export default function App() {
       const completionDelta = completedAfter - completedBefore;
       const subtaskWeight = subtasksCount > 0 ? (SUBTASK_COMPLETION_CAP / subtasksCount) : 0;
       let newHeatBase = Math.min(100, Math.max(0, t.heatCurrent + completionDelta * subtaskWeight));
-      saved = withActiveDay({ ...t, subtasks: newSubtasks, heatBase: newHeatBase, heatCurrent: newHeatBase, lastUpdated: Date.now() });
+      saved = markTaskPendingSync(
+        withActiveDay({ ...t, subtasks: newSubtasks, heatBase: newHeatBase, heatCurrent: newHeatBase, lastUpdated: Date.now() }),
+        t,
+      );
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1209,7 +1310,7 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(task => {
       if (task.id !== taskId) return task;
-      saved = { ...task, urgency, lastUpdated: Date.now() };
+      saved = markTaskPendingSync({ ...task, urgency, lastUpdated: Date.now() }, task);
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1220,7 +1321,7 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(task => {
       if (task.id !== taskId) return task;
-      saved = { ...task, resistance, lastUpdated: Date.now() };
+      saved = markTaskPendingSync({ ...task, resistance, lastUpdated: Date.now() }, task);
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1231,7 +1332,7 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(task => {
       if (task.id !== taskId) return task;
-      saved = { ...task, deadlineAt, lastUpdated: Date.now() };
+      saved = markTaskPendingSync({ ...task, deadlineAt, lastUpdated: Date.now() }, task);
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1242,7 +1343,7 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map(task => {
       if (task.id !== taskId) return task;
-      saved = { ...task, isVital: !task.isVital, lastUpdated: Date.now() };
+      saved = markTaskPendingSync({ ...task, isVital: !task.isVital, lastUpdated: Date.now() }, task);
       return saved;
     }));
     if (saved) persistTask(saved);
@@ -1257,7 +1358,7 @@ export default function App() {
       // User intent (drag to heaven) has absolute priority over pulse level,
       // auto-death timer, and any pending Firestore snapshots.
       const completedSubtasks = (task.subtasks || []).map(s => ({ ...s, completed: true }));
-      saved = {
+      saved = markTaskPendingSync({
         ...task,
         status: "completed",
         isToday: false,
@@ -1267,7 +1368,7 @@ export default function App() {
         subtasks: completedSubtasks,
         heatBase: 100,      // pulse always 100% when user manually sends to heaven
         heatCurrent: 100,
-      };
+      }, task);
       return saved;
     }));
     const newScore = score + 10;
@@ -1298,13 +1399,13 @@ export default function App() {
         if (t.id !== taskId) return t;
         prevStatus = t.status;
         const wasInactive = t.status === "completed" || t.status === "dead";
-        saved = {
+        saved = markTaskPendingSync({
           ...t,
           heatBase: newHeat,
           heatCurrent: newHeat,
           lastUpdated: Date.now(),
           ...(wasInactive ? { status: "active", isToday: false, deadAt: null } : {}),
-        };
+        }, t);
         return saved;
       }));
       if (saved) persistTask(saved);
@@ -1349,7 +1450,10 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map((task) => {
       if (task.id !== taskId) return task;
-      saved = { ...task, status: "dead", isToday: false, lastUpdated: Date.now(), deadAt: Date.now() };
+      saved = markTaskPendingSync(
+        { ...task, status: "dead", isToday: false, lastUpdated: Date.now(), deadAt: Date.now() },
+        task,
+      );
       return saved;
     }));
     const newScore = score - 5;
@@ -1373,9 +1477,15 @@ export default function App() {
     // Kill the 2 coldest non-protected tasks
     const sorted = [...coldUnprotected].sort((a, b) => getTaskHeat(a) - getTaskHeat(b));
     const toKill = sorted.slice(0, 2);
-    const killedTasks = toKill.map(t => ({
-      ...t, status: "dead", isToday: false, lastUpdated: now, deadAt: now,
-    }));
+    const killedTasks = toKill.map((t) =>
+      markTaskPendingSync({
+        ...t,
+        status: "dead",
+        isToday: false,
+        lastUpdated: now,
+        deadAt: now,
+      }, t),
+    );
     const killedById = new Map(killedTasks.map(t => [t.id, t]));
 
     devilAutoCleanLastRef.current = now;
@@ -1453,7 +1563,7 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map((task) => {
       if (task.id !== taskId) return task;
-      saved = {
+      saved = markTaskPendingSync({
         ...task,
         status: "active",
         heatBase: DEFAULT_TASK_HEAT,
@@ -1461,7 +1571,7 @@ export default function App() {
         lastUpdated: Date.now(),
         isToday: false,
         deadAt: null,
-      };
+      }, task);
       return saved;
     }));
     const newScore = score - 2;
@@ -1476,7 +1586,7 @@ export default function App() {
     let saved = null;
     setTasks((currentTasks) => currentTasks.map((task) => {
       if (task.id !== taskId) return task;
-      saved = {
+      saved = markTaskPendingSync({
         ...task,
         status: "active",
         heatBase: DEFAULT_TASK_HEAT,
@@ -1484,7 +1594,7 @@ export default function App() {
         lastUpdated: Date.now(),
         isToday: false,
         deadAt: null,
-      };
+      }, task);
       return saved;
     }));
     const newScore = score - 10;
@@ -1525,7 +1635,9 @@ export default function App() {
       // Save current state before restoring
       await saveTaskSnapshot(user.id, tasks, score, "pre_restore_backup");
       await restoreFromSnapshot(user.id, currentIds, snapshotTasks);
-      const restored = snapshotTasks.map(t => ({ ...t, lastUpdated: Date.now() }));
+      const restored = snapshotTasks.map((t) =>
+        markTaskFromCloud({ ...t, lastUpdated: Date.now() }),
+      );
       setTasks(restored);
       if (typeof restoreTarget.score === "number") {
         setScore(restoreTarget.score);
@@ -1559,7 +1671,7 @@ export default function App() {
           ? "Задача попала в шортлист на сегодня."
           : "Задача снята с ручного списка на сегодня.";
 
-        saved = { ...task, isToday: nextValue, lastUpdated: Date.now() };
+        saved = markTaskPendingSync({ ...task, isToday: nextValue, lastUpdated: Date.now() }, task);
         return saved;
       });
     });
