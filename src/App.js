@@ -1196,7 +1196,7 @@ export default function App() {
     const queuedTasks = [...pendingTaskWritesRef.current.values()];
     pendingTaskWritesRef.current.clear();
     queuedTasks.forEach((task) => persistTask(task));
-  }, [isCloudUser, dataLoaded, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isCloudUser, dataLoaded, user?.id]);
 
   const persistScore = (newScore) => {
     if (!isCloudUser) return;
