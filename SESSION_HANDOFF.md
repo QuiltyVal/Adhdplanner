@@ -6,6 +6,7 @@ This file exists so the project can survive context loss and switching between C
 
 Companion file:
 - `AGENT_LOG.md` = append-only short session log
+- `EXECUTION_PLAN.md` = active execution tracker for the angel / memory roadmap
 
 ## Repo portability
 
@@ -18,6 +19,7 @@ Companion file:
 - Reference docs:
   - `MACHINE_SETUP.md`
   - `WORKFLOW.md`
+  - `EXECUTION_PLAN.md`
 
 ## Current reality
 

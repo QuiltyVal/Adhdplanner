@@ -527,3 +527,17 @@ Entry template:
   - `node --check api/telegram-webhook.js`
 - Risks / follow-up:
   - this protects server writers that go through `api/_lib/planner-store.js`; a completely separate writer that bypasses that module can still revert tasks
+
+## 2026-04-15 16:10 Europe/Berlin - Codex
+
+- Summary: Added a dedicated execution tracker for the new "angel / executive-function companion" direction so agents can work against one shared plan instead of free-floating product notes.
+- Changed:
+  - `EXECUTION_PLAN.md` — added phased plan with checkboxes, non-negotiable product rules, and "done when" criteria for captures, commitments, angel pinning, daily decisions, delivery loop, and validation
+  - `AGENTS.md` — made `EXECUTION_PLAN.md` part of the expected reading and end-of-session update flow
+  - `CLAUDE.md` — added the same requirement for Claude-style agents
+  - `README.md` and `SESSION_HANDOFF.md` — linked the execution plan as the active tracker for this product direction
+- Verified:
+  - reviewed updated docs locally
+- Risks / follow-up:
+  - this is planning structure only; none of the capture/commitment/angel features are implemented yet
+  - `ROADMAP.md` still contains older broader backlog items, so future agents should treat `EXECUTION_PLAN.md` as the execution tracker for this specific product direction

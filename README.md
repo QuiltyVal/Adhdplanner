@@ -45,6 +45,16 @@ If multiple agents or machines are making parallel changes at the same time, use
 
 Full workflow: [WORKFLOW.md](WORKFLOW.md)
 
+## Execution Plan
+
+Active product execution now lives in [EXECUTION_PLAN.md](EXECUTION_PLAN.md).
+
+Use it when work touches:
+- angel / executive-function companion features
+- capture and memory architecture
+- commitments / boss score / angel pin logic
+- cross-agent product execution tracking
+
 ## Agent Handoff
 
 If you or an AI coding agent continue work in a new session, start with:
@@ -52,4 +62,5 @@ If you or an AI coding agent continue work in a new session, start with:
 - [AGENTS.md](AGENTS.md)
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
 - [ROADMAP.md](ROADMAP.md)
+- [EXECUTION_PLAN.md](EXECUTION_PLAN.md)
 - [AGENT_LOG.md](AGENT_LOG.md)

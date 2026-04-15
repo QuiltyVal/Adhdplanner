@@ -69,6 +69,7 @@ This repo must stay portable between home and office machines.
 - `api/_lib/planner-store.js`
 - `api/_lib/telegram-intent.js`
 - `ROADMAP.md`
+- `EXECUTION_PLAN.md`
 - `SESSION_HANDOFF.md`
 - `AGENT_LOG.md`
 - `WORKFLOW.md`
@@ -136,25 +137,28 @@ Do not assume deadline already changes heat. It does not.
 
 1. Read `SESSION_HANDOFF.md`
 2. Read `ROADMAP.md`
-3. Read the newest entries in `AGENT_LOG.md`
-4. If on a new machine, read `MACHINE_SETUP.md` and `WORKFLOW.md`
-5. Check recent commits
-6. Avoid touching unrelated features
-7. Keep changes small and verifiable
+3. Read `EXECUTION_PLAN.md` if the work touches roadmap/product execution
+4. Read the newest entries in `AGENT_LOG.md`
+5. If on a new machine, read `MACHINE_SETUP.md` and `WORKFLOW.md`
+6. Check recent commits
+7. Avoid touching unrelated features
+8. Keep changes small and verifiable
 
 ## After making changes
 
 1. Run `DISABLE_ESLINT_PLUGIN=true npm run build`
 2. If Telegram/webhook logic changed, also run:
    - `node -e "require('./api/_lib/planner-store'); require('./api/telegram-webhook'); require('./api/telegram-nudge'); console.log('server ok')"`
-3. Append a short factual entry to `AGENT_LOG.md`
-4. Update `SESSION_HANDOFF.md` if the project state meaningfully changed
+3. Update `EXECUTION_PLAN.md` if you completed or meaningfully re-scoped plan items
+4. Append a short factual entry to `AGENT_LOG.md`
+5. Update `SESSION_HANDOFF.md` if the project state meaningfully changed
 
 ## Logging is mandatory
 
 Every coding agent must leave a trail for the next one.
 
 Minimum end-of-session requirement:
+- update `EXECUTION_PLAN.md` when you finished a relevant plan item
 - append one entry to `AGENT_LOG.md`
 - include what changed, what was verified, and what still looks risky
 - if live infrastructure was changed outside git, say that explicitly
