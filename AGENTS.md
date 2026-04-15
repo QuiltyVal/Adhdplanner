@@ -14,6 +14,20 @@ ADHD Planner is not a generic todo app. It is a personal executive-memory and or
 - Telegram bot runs through Vercel API routes in `api/`
 - MCP server runs on Hetzner and is used by Claude and other MCP-capable clients
 
+## Multi-machine rule
+
+This repo must stay portable between home and office machines.
+
+- Do not hardcode local filesystem paths in living docs unless they are explicitly historical notes inside logs.
+- Prefer repo-relative links like `README.md`, `src/App.js`, `api/telegram-webhook.js`.
+- GitHub is the source of truth for code and docs.
+- Firestore is the source of truth for live planner data.
+- `.vercel`, `.env`, local SSH keys, and other machine-local state must stay out of git.
+- New machines should work from:
+  - `.nvmrc`
+  - `bash scripts/bootstrap-machine.sh`
+  - `bash scripts/sync-local.sh`
+
 ## Core architecture
 
 - Web app: React + CRA
@@ -47,21 +61,27 @@ ADHD Planner is not a generic todo app. It is a personal executive-memory and or
 
 ## Files that matter most
 
-- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/src/App.js`
-- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/src/TaskColumn.js`
-- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/src/firestoreUtils.js`
-- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/api/telegram-webhook.js`
-- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/api/telegram-nudge.js`
-- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/api/_lib/planner-store.js`
-- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/api/_lib/telegram-intent.js`
-- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/ROADMAP.md`
-- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/SESSION_HANDOFF.md`
-- `/Users/valquilty/Documents/My Website/Adhdplanner-repo/AGENT_LOG.md`
+- `src/App.js`
+- `src/TaskColumn.js`
+- `src/firestoreUtils.js`
+- `api/telegram-webhook.js`
+- `api/telegram-nudge.js`
+- `api/_lib/planner-store.js`
+- `api/_lib/telegram-intent.js`
+- `ROADMAP.md`
+- `SESSION_HANDOFF.md`
+- `AGENT_LOG.md`
+- `WORKFLOW.md`
+- `MACHINE_SETUP.md`
 
 ## Commands
 
 - Dev: `npm start`
 - Production build: `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Portable machine bootstrap: `bash scripts/bootstrap-machine.sh`
+- Portable machine sync: `bash scripts/sync-local.sh`
+- Verify build: `npm run verify`
+- Verify server syntax after API changes: `npm run verify:server`
 
 Why the build command disables eslint:
 - this repo can hit `EPERM` on `.eslintcache` inside `node_modules/.cache`
@@ -117,9 +137,10 @@ Do not assume deadline already changes heat. It does not.
 1. Read `SESSION_HANDOFF.md`
 2. Read `ROADMAP.md`
 3. Read the newest entries in `AGENT_LOG.md`
-4. Check recent commits
-5. Avoid touching unrelated features
-6. Keep changes small and verifiable
+4. If on a new machine, read `MACHINE_SETUP.md` and `WORKFLOW.md`
+5. Check recent commits
+6. Avoid touching unrelated features
+7. Keep changes small and verifiable
 
 ## After making changes
 

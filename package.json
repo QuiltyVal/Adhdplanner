@@ -15,7 +15,11 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "GENERATE_SOURCEMAP=false react-scripts build"
+    "build": "GENERATE_SOURCEMAP=false react-scripts build",
+    "bootstrap": "bash scripts/bootstrap-machine.sh",
+    "sync": "bash scripts/sync-local.sh",
+    "verify": "DISABLE_ESLINT_PLUGIN=true npm run build",
+    "verify:server": "node --check api/_lib/planner-store.js && node --check api/_lib/planner-action-executor.js && node --check api/telegram-webhook.js"
   },
   "browserslist": {
     "production": [

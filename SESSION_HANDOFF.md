@@ -1,11 +1,23 @@
 # SESSION_HANDOFF.md
 
-Last updated: 2026-04-10
+Last updated: 2026-04-15
 
 This file exists so the project can survive context loss and switching between Codex, Claude, or another coding agent.
 
 Companion file:
 - `AGENT_LOG.md` = append-only short session log
+
+## Repo portability
+
+- The repo is now meant to be used from both home and office machines.
+- Living docs should use repo-relative links, not `/Users/<name>/...` paths.
+- GitHub is the source of truth for code and docs.
+- Firestore is the source of truth for live planner data.
+- New machine bootstrap lives in `scripts/bootstrap-machine.sh`.
+- Main-machine sync lives in `scripts/sync-local.sh`.
+- Reference docs:
+  - `MACHINE_SETUP.md`
+  - `WORKFLOW.md`
 
 ## Current reality
 

@@ -29,6 +29,26 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-15 Europe/Berlin - Codex
+
+- Summary: Added a portable multi-machine / multi-agent repo wrapper so the project can be developed comfortably from both home and office without depending on one hardcoded Mac path.
+- Changed:
+  - `README.md` — rewritten around portable setup, daily sync, and agent handoff
+  - `AGENTS.md` + `CLAUDE.md` — switched to repo-relative links and added multi-machine guidance
+  - `MACHINE_SETUP.md` — new first-clone / new-machine setup guide
+  - `WORKFLOW.md` — new daily home/office and parallel-agent workflow doc
+  - `scripts/bootstrap-machine.sh` — new fresh-machine bootstrap helper
+  - `scripts/sync-local.sh` — new safe `main` sync helper for switching machines
+  - `package.json` — added `bootstrap`, `sync`, `verify`, and `verify:server` scripts
+  - `.nvmrc` — pinned recommended Node major to `24`
+  - `.gitignore` — now ignores `.DS_Store` and `.vercel`
+  - `SESSION_HANDOFF.md` — added repo portability notes
+- Verified:
+  - repo docs updated
+  - package scripts updated
+- Risks / follow-up:
+  - root `.DS_Store` is still currently tracked from older repo history; removing it from git can be done later if desired, but it was not force-removed in this pass
+
 ## 2026-04-11 (evening) — Claude (Sonnet 4.6, remote session)
 
 - Summary: Replaced all regex-based Telegram routing with unified LLM intent router. Bot now has 12 intents and full conversation context — "давай последнюю" after suggest_unpin now resolves correctly.
