@@ -132,4 +132,8 @@ Do not use these as the base for new angel features:
 As of 2026-04-15:
 
 - Telegram plain-text intake now creates append-only `captures` documents before continuing with normal intent handling when the input looks like a new task or open-ended brain dump
+- those captures are then post-processed into an `extraction` payload with:
+  - `commitments`
+  - `candidateTasks`
+  - `facts`
 - this is only the first ingestion slice, not the full extraction / commitment / angel loop

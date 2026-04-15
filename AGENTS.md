@@ -67,6 +67,7 @@ This repo must stay portable between home and office machines.
 - `api/telegram-webhook.js`
 - `api/telegram-nudge.js`
 - `api/_lib/planner-store.js`
+- `api/_lib/capture-extractor.js`
 - `api/_lib/telegram-intent.js`
 - `ROADMAP.md`
 - `EXECUTION_PLAN.md`

@@ -75,11 +75,11 @@ Done when:
 
 Goal: turn raw captures into structured memory without making the LLM the only brain.
 
-- [ ] Define extractor output shape for:
+- [x] Define extractor output shape for:
   - `commitments`
   - `candidateTasks`
   - `facts`
-- [ ] Implement extraction from capture text into those three output groups.
+- [x] Implement extraction from capture text into those three output groups.
 - [ ] Upsert extracted task hints into existing task fields where safe:
   - `urgency`
   - `resistance`
@@ -87,7 +87,7 @@ Goal: turn raw captures into structured memory without making the LLM the only b
   - `deadlineAt`
   - `lifeArea`
   - `commitmentIds`
-- [ ] Store extraction confidence and source capture linkage.
+- [x] Store extraction confidence and source capture linkage.
 - [ ] Keep extraction idempotent enough that re-running it does not spray duplicate tasks.
 
 Done when:

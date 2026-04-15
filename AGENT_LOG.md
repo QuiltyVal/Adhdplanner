@@ -558,3 +558,18 @@ Entry template:
 - Risks / follow-up:
   - live Telegram still uses the older webhook file, not the newer `planner-agent-router -> planner-action-executor` path, so future capture/extraction work must either migrate webhook routing or keep both paths aligned
   - capture ingestion exists only for Telegram plain text so far; web and MCP are still missing
+
+## 2026-04-15 17:05 Europe/Berlin - Codex
+
+- Summary: Added the first extraction pass for Telegram captures. Raw plain-text capture docs are now immediately enriched with structured `commitments`, `candidateTasks`, and `facts` instead of staying as unprocessed blobs.
+- Changed:
+  - `api/_lib/capture-extractor.js` — new heuristic extractor + capture post-processing helpers
+  - `api/telegram-webhook.js` — after writing a Telegram capture, immediately processes it into structured extraction and logs extracted counts
+  - `package.json` — `verify:server` now also checks `api/_lib/capture-extractor.js`
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, `ANGEL_ARCHITECTURE.md` — updated to reflect that Phase 2 extraction now exists in first-pass form
+- Verified:
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - this extractor is heuristic and intentionally rough; it is good enough for a first memory layer, not for final semantic quality
+  - extraction does not yet upsert tasks or commitments into canonical collections

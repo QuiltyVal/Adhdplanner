@@ -27,10 +27,15 @@ Companion file:
 - As of 2026-04-15, the repo has a dedicated execution tracker in `EXECUTION_PLAN.md`.
 - As of 2026-04-15, foundational storage boundaries for the angel layer are documented in `ANGEL_ARCHITECTURE.md`.
 - As of 2026-04-15, Telegram plain-text intake creates append-only `Users/{uid}/captures/{captureId}` documents for open-ended text / new-task text before continuing normal intent handling.
+- As of 2026-04-15, those Telegram captures are immediately post-processed by a first-pass heuristic extractor into:
+  - `commitments`
+  - `candidateTasks`
+  - `facts`
 - This is only the first ingestion slice:
-  - no extraction pipeline yet
   - no commitments collection yet
   - no daily angel decision job yet
+  - no task enrichment from extraction yet
+  - extractor is heuristic only, not LLM-backed
 
 ## Current reality
 

@@ -1,4 +1,5 @@
 const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getNonActiveTasks, getTaskById, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeCapture, writeTelegramLog } = require("./_lib/planner-store");
+const { processCapture } = require("./_lib/capture-extractor");
 const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
 const { parseTelegramIntent } = require("./_lib/telegram-intent");
 const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
@@ -773,8 +774,14 @@ async function handlePlainCapture(chatId, text) {
           intent: intent.intent,
           taskText: intent.task_text || "",
           taskRef: intent.task_ref || "",
+          urgency: intent.urgency || "",
+          isToday: Boolean(intent.is_today),
+          isVital: Boolean(intent.is_vital),
+          deadlineAt: intent.deadline_at || "",
+          subtasks: Array.isArray(intent.subtasks) ? intent.subtasks : [],
         },
       });
+      const extraction = await processCapture(userId, capture);
 
       await safeWriteTelegramLog({
         kind: "action",
@@ -784,6 +791,9 @@ async function handlePlainCapture(chatId, text) {
         captureSource: "telegram",
         captureKind: "text_dump",
         intent: intent.intent,
+        extractedCommitmentCount: Array.isArray(extraction?.commitments) ? extraction.commitments.length : 0,
+        extractedCandidateTaskCount: Array.isArray(extraction?.candidateTasks) ? extraction.candidateTasks.length : 0,
+        extractedFactCount: Array.isArray(extraction?.facts) ? extraction.facts.length : 0,
       });
     } catch (captureError) {
       console.error("[telegram-capture]", captureError);
