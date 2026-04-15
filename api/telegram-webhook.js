@@ -1,5 +1,5 @@
 const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getNonActiveTasks, getTaskById, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeCapture, writeTelegramLog } = require("./_lib/planner-store");
-const { processCapture } = require("./_lib/capture-extractor");
+const { failCaptureProcessing, processCapture } = require("./_lib/capture-extractor");
 const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
 const { parseTelegramIntent } = require("./_lib/telegram-intent");
 const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
@@ -761,8 +761,9 @@ async function handlePlainCapture(chatId, text) {
   });
 
   if (["add_task", "chat"].includes(intent.intent)) {
+    let capture = null;
     try {
-      const capture = await writeCapture(userId, {
+      capture = await writeCapture(userId, {
         source: "telegram",
         kind: "text_dump",
         rawText: cleaned,
@@ -781,7 +782,9 @@ async function handlePlainCapture(chatId, text) {
           subtasks: Array.isArray(intent.subtasks) ? intent.subtasks : [],
         },
       });
-      const extraction = await processCapture(userId, capture);
+      const processing = await processCapture(userId, capture);
+      const extraction = processing?.extraction || { commitments: [], candidateTasks: [], facts: [] };
+      const commitments = Array.isArray(processing?.commitments) ? processing.commitments : [];
 
       await safeWriteTelegramLog({
         kind: "action",
@@ -794,9 +797,14 @@ async function handlePlainCapture(chatId, text) {
         extractedCommitmentCount: Array.isArray(extraction?.commitments) ? extraction.commitments.length : 0,
         extractedCandidateTaskCount: Array.isArray(extraction?.candidateTasks) ? extraction.candidateTasks.length : 0,
         extractedFactCount: Array.isArray(extraction?.facts) ? extraction.facts.length : 0,
+        upsertedCommitmentCount: commitments.length,
+        commitmentIds: commitments.map((commitment) => commitment.id).slice(0, 10),
       });
     } catch (captureError) {
       console.error("[telegram-capture]", captureError);
+      if (capture?.id) {
+        await failCaptureProcessing(userId, capture.id, captureError);
+      }
       await safeWriteTelegramLog({
         kind: "error",
         chatId: String(chatId),

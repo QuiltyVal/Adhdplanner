@@ -573,3 +573,19 @@ Entry template:
 - Risks / follow-up:
   - this extractor is heuristic and intentionally rough; it is good enough for a first memory layer, not for final semantic quality
   - extraction does not yet upsert tasks or commitments into canonical collections
+
+## 2026-04-15 17:30 Europe/Berlin - Codex
+
+- Summary: Added durable commitment memory. Extraction no longer stops at the capture document: extracted life obligations now upsert into `Users/{uid}/commitments/{commitmentId}` with stable review and pressure metadata.
+- Changed:
+  - `api/_lib/commitment-store.js` — new per-document commitment upsert layer
+  - `api/_lib/capture-extractor.js` — `processCapture()` now materializes extracted commitments and writes `commitmentIds` back onto the processed capture
+  - `api/telegram-webhook.js` — Telegram capture processing now logs both extracted commitment count and actually upserted commitment IDs/count
+  - `package.json` — `verify:server` now also checks `api/_lib/commitment-store.js`
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, `ANGEL_ARCHITECTURE.md`, `AGENTS.md` — updated to reflect that commitment memory exists as a real Firestore layer
+- Verified:
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - commitment IDs currently come from extractor `tempKey` values and heuristic fallback slugs, so long-term ID stability still needs a more deliberate strategy
+  - commitments exist, but task docs still do not carry `commitmentIds`, so the planner UI cannot yet use that memory for ranking or visibility

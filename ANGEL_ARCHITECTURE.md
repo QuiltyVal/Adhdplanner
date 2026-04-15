@@ -80,7 +80,7 @@ Rules:
 
 ### Commitments
 
-Planned canonical storage:
+Canonical storage:
 
 - `Users/{uid}/commitments/{commitmentId}`
 
@@ -95,6 +95,31 @@ Examples:
 - health
 - cat care
 - work obligations
+
+Minimum schema:
+
+```js
+Users/{uid}/commitments/{commitmentId} {
+  id,
+  title,
+  kind,
+  whyMatters,
+  failureCost,
+  pressureStyle,
+  state,
+  confidence,
+  mentionCount30d,
+  totalMentionCount,
+  lastMentionedAt,
+  lastTouchedAt,
+  nextReviewAt,
+  needsTaskIfSilentDays,
+  sourceCaptureIds,
+  keywordsMatched,
+  createdAt,
+  updatedAt
+}
+```
 
 ### Angel decisions
 
@@ -136,4 +161,5 @@ As of 2026-04-15:
   - `commitments`
   - `candidateTasks`
   - `facts`
+- extracted commitments are upserted into `Users/{uid}/commitments/{commitmentId}`
 - this is only the first ingestion slice, not the full extraction / commitment / angel loop

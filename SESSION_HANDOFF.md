@@ -31,8 +31,15 @@ Companion file:
   - `commitments`
   - `candidateTasks`
   - `facts`
+- As of 2026-04-15, extracted commitments are upserted into `Users/{uid}/commitments/{commitmentId}` with durable memory fields like:
+  - `kind`
+  - `whyMatters`
+  - `failureCost`
+  - `pressureStyle`
+  - `lastMentionedAt`
+  - `lastTouchedAt`
+  - `nextReviewAt`
 - This is only the first ingestion slice:
-  - no commitments collection yet
   - no daily angel decision job yet
   - no task enrichment from extraction yet
   - extractor is heuristic only, not LLM-backed

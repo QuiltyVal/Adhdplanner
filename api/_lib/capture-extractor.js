@@ -1,4 +1,5 @@
 const { getDb, admin } = require("./firebase-admin");
+const { upsertCommitmentsFromExtraction } = require("./commitment-store");
 
 const LIFE_AREA_RULES = [
   {
@@ -248,17 +249,26 @@ async function processCapture(userId, capture) {
   }
 
   const extraction = extractCapture(capture);
+  const commitments = await upsertCommitmentsFromExtraction(userId, extraction, {
+    captureId: capture.id,
+    source: capture.source || "unknown",
+  });
+
   await capturesCol(userId).doc(capture.id).set(
     {
       status: "processed",
       processedAt: Date.now(),
       extraction,
+      commitmentIds: commitments.map((commitment) => commitment.id),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     },
     { merge: true },
   );
 
-  return extraction;
+  return {
+    extraction,
+    commitments,
+  };
 }
 
 async function failCaptureProcessing(userId, captureId, error) {

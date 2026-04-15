@@ -98,9 +98,9 @@ Done when:
 
 Goal: remember life obligations even when individual tasks die.
 
-- [ ] Add `Users/{uid}/commitments/{commitmentId}` schema.
-- [ ] Support commitment upsert from extraction output.
-- [ ] Track:
+- [x] Add `Users/{uid}/commitments/{commitmentId}` schema.
+- [x] Support commitment upsert from extraction output.
+- [x] Track:
   - `kind`
   - `whyMatters`
   - `failureCost`
