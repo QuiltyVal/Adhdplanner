@@ -18,6 +18,10 @@ function tasksCol(userId) {
   return getDb().collection("Users").doc(userId).collection("tasks");
 }
 
+function capturesCol(userId) {
+  return getDb().collection("Users").doc(userId).collection("captures");
+}
+
 function stripServerTaskState(task) {
   if (!task || typeof task !== "object") return task;
   const { __baseLastUpdated, ...cleanTask } = task;
@@ -534,6 +538,43 @@ async function writeTelegramLog(userId, payload = {}) {
   });
 }
 
+async function writeCapture(userId, payload = {}) {
+  const rawText = String(payload.rawText || "").trim();
+  const transcript = String(payload.transcript || "").trim();
+
+  if (!rawText && !transcript) {
+    throw new Error("writeCapture requires rawText or transcript");
+  }
+
+  const captureRef = capturesCol(userId).doc();
+  const status = ["new", "processed", "failed"].includes(payload.status) ? payload.status : "new";
+  const normalizedMeta =
+    payload.meta && typeof payload.meta === "object" && !Array.isArray(payload.meta)
+      ? payload.meta
+      : {};
+  const normalizedExtraction =
+    payload.extraction && typeof payload.extraction === "object" && !Array.isArray(payload.extraction)
+      ? payload.extraction
+      : null;
+
+  const capture = {
+    id: captureRef.id,
+    source: String(payload.source || "unknown"),
+    kind: String(payload.kind || "text_dump"),
+    rawText,
+    transcript,
+    status,
+    processedAt: status === "processed" ? Date.now() : null,
+    extraction: normalizedExtraction,
+    meta: normalizedMeta,
+    capturedAt: Date.now(),
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  await captureRef.set(capture);
+  return capture;
+}
+
 module.exports = {
   DEFAULT_TASK_HEAT,
   buildTelegramContext,
@@ -553,5 +594,6 @@ module.exports = {
   pickRescueTask,
   getMissionSelection,
   sortTasksByPriority,
+  writeCapture,
   writeTelegramLog,
 };

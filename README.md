@@ -49,6 +49,8 @@ Full workflow: [WORKFLOW.md](WORKFLOW.md)
 
 Active product execution now lives in [EXECUTION_PLAN.md](EXECUTION_PLAN.md).
 
+Foundational storage and mutation boundaries for the angel layer live in [ANGEL_ARCHITECTURE.md](ANGEL_ARCHITECTURE.md).
+
 Use it when work touches:
 - angel / executive-function companion features
 - capture and memory architecture
@@ -63,4 +65,5 @@ If you or an AI coding agent continue work in a new session, start with:
 - [SESSION_HANDOFF.md](SESSION_HANDOFF.md)
 - [ROADMAP.md](ROADMAP.md)
 - [EXECUTION_PLAN.md](EXECUTION_PLAN.md)
+- [ANGEL_ARCHITECTURE.md](ANGEL_ARCHITECTURE.md)
 - [AGENT_LOG.md](AGENT_LOG.md)

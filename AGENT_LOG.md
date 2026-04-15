@@ -541,3 +541,20 @@ Entry template:
 - Risks / follow-up:
   - this is planning structure only; none of the capture/commitment/angel features are implemented yet
   - `ROADMAP.md` still contains older broader backlog items, so future agents should treat `EXECUTION_PLAN.md` as the execution tracker for this specific product direction
+
+## 2026-04-15 16:40 Europe/Berlin - Codex
+
+- Summary: Landed the first real angel-memory slice: a documented storage boundary note plus append-only Telegram `captures` ingestion for open-ended plain text.
+- Changed:
+  - `ANGEL_ARCHITECTURE.md` — documented source-of-truth boundaries for `tasks`, `captures`, `commitments`, and `angelDecisions`, plus anti-patterns like relying on legacy `Users/{uid}.tasks`
+  - `api/_lib/planner-store.js` — added `writeCapture(userId, payload)` for append-only capture documents under `Users/{uid}/captures/{captureId}`
+  - `api/telegram-webhook.js` — plain-text Telegram intake now writes a `text_dump` capture before normal handling when the parsed intent is `add_task` or `chat`, and logs `capture_created`
+  - `EXECUTION_PLAN.md` — marked the architecture-note and Telegram-capture items done
+  - `README.md`, `SESSION_HANDOFF.md`, `AGENTS.md`, `CLAUDE.md` — linked the new architecture note for future agents
+- Verified:
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - exact `node -e "require(...)"` verification could not be completed on this machine because the only installed global Node is `v25.4.0`, and a transitive dependency (`buffer-equal-constant-time`) crashes under Node 25 before app modules load
+- Risks / follow-up:
+  - live Telegram still uses the older webhook file, not the newer `planner-agent-router -> planner-action-executor` path, so future capture/extraction work must either migrate webhook routing or keep both paths aligned
+  - capture ingestion exists only for Telegram plain text so far; web and MCP are still missing

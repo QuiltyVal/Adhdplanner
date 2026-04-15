@@ -1,4 +1,4 @@
-const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getNonActiveTasks, getTaskById, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeTelegramLog } = require("./_lib/planner-store");
+const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getNonActiveTasks, getTaskById, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeCapture, writeTelegramLog } = require("./_lib/planner-store");
 const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
 const { parseTelegramIntent } = require("./_lib/telegram-intent");
 const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
@@ -758,6 +758,43 @@ async function handlePlainCapture(chatId, text) {
     messageText: cleaned,
     intent,
   });
+
+  if (["add_task", "chat"].includes(intent.intent)) {
+    try {
+      const capture = await writeCapture(userId, {
+        source: "telegram",
+        kind: "text_dump",
+        rawText: cleaned,
+        status: "new",
+        meta: {
+          chatId: String(chatId),
+          via: "telegram-webhook",
+          intake: "plain_text",
+          intent: intent.intent,
+          taskText: intent.task_text || "",
+          taskRef: intent.task_ref || "",
+        },
+      });
+
+      await safeWriteTelegramLog({
+        kind: "action",
+        action: "capture_created",
+        chatId: String(chatId),
+        captureId: capture.id,
+        captureSource: "telegram",
+        captureKind: "text_dump",
+        intent: intent.intent,
+      });
+    } catch (captureError) {
+      console.error("[telegram-capture]", captureError);
+      await safeWriteTelegramLog({
+        kind: "error",
+        chatId: String(chatId),
+        action: "capture_create_failed",
+        errorMessage: captureError.message || "capture create failed",
+      });
+    }
+  }
 
   if (intent.intent === "show_today") {
     await handleToday(chatId);

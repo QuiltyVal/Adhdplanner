@@ -37,12 +37,12 @@ It turns the "angel / executive-function companion" direction into concrete deli
 
 Goal: make sure the new memory layer is built on safe mutation rules instead of the old overwrite patterns.
 
-- [ ] Write a short architecture note that defines the new source-of-truth boundaries for:
+- [x] Write a short architecture note that defines the new source-of-truth boundaries for:
   - `tasks`
   - `captures`
   - `commitments`
   - `angelDecisions`
-- [ ] Explicitly document that new angel features must not depend on legacy `Users/{uid}.tasks`.
+- [x] Explicitly document that new angel features must not depend on legacy `Users/{uid}.tasks`.
 - [ ] Add or reuse a server-side safe per-task writer for any new agent/angel mutations instead of batch planner rewrites.
 - [ ] Define the minimal observability needed to debug angel actions:
   - decision log
@@ -57,15 +57,15 @@ Done when:
 
 Goal: let the user dump chaos into the system without first organizing it.
 
-- [ ] Add `Users/{uid}/captures/{captureId}` schema to the plan/docs.
-- [ ] Support append-only capture creation from Telegram free text.
+- [x] Add `Users/{uid}/captures/{captureId}` schema to the plan/docs.
+- [x] Support append-only capture creation from Telegram free text.
 - [ ] Support append-only capture creation from web input.
 - [ ] Support append-only capture creation from MCP-originated notes/facts.
-- [ ] Track capture lifecycle:
+- [x] Track capture lifecycle:
   - `new`
   - `processed`
   - `failed`
-- [ ] Preserve raw input and transcript/origin metadata instead of flattening too early.
+- [x] Preserve raw input and transcript/origin metadata instead of flattening too early.
 
 Done when:
 - a free-form dump can be saved without immediately mutating planner state

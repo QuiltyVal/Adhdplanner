@@ -70,6 +70,7 @@ This repo must stay portable between home and office machines.
 - `api/_lib/telegram-intent.js`
 - `ROADMAP.md`
 - `EXECUTION_PLAN.md`
+- `ANGEL_ARCHITECTURE.md`
 - `SESSION_HANDOFF.md`
 - `AGENT_LOG.md`
 - `WORKFLOW.md`
@@ -138,11 +139,12 @@ Do not assume deadline already changes heat. It does not.
 1. Read `SESSION_HANDOFF.md`
 2. Read `ROADMAP.md`
 3. Read `EXECUTION_PLAN.md` if the work touches roadmap/product execution
-4. Read the newest entries in `AGENT_LOG.md`
-5. If on a new machine, read `MACHINE_SETUP.md` and `WORKFLOW.md`
-6. Check recent commits
-7. Avoid touching unrelated features
-8. Keep changes small and verifiable
+4. Read `ANGEL_ARCHITECTURE.md` if the work touches captures / commitments / angel logic
+5. Read the newest entries in `AGENT_LOG.md`
+6. If on a new machine, read `MACHINE_SETUP.md` and `WORKFLOW.md`
+7. Check recent commits
+8. Avoid touching unrelated features
+9. Keep changes small and verifiable
 
 ## After making changes
 
