@@ -30,7 +30,7 @@ It turns the "angel / executive-function companion" direction into concrete deli
 - [x] Canonical task storage is `Users/{uid}/tasks/{taskId}`, not the legacy root `tasks` array.
 - [x] Web and Vercel task writes now include stale-write protection.
 - [x] Today mission logic already exists in web and server code.
-- [x] Telegram text already goes through `route -> execute` instead of a single monolithic handler.
+- [x] Newer `planner-agent-router` / `planner-action-executor` modules already exist in repo for the Telegram migration path.
 - [x] Panic / rescue flow already exists and can be reused for micro-steps.
 
 ## Phase 0 - Foundation guardrails
@@ -80,7 +80,7 @@ Goal: turn raw captures into structured memory without making the LLM the only b
   - `candidateTasks`
   - `facts`
 - [x] Implement extraction from capture text into those three output groups.
-- [ ] Upsert extracted task hints into existing task fields where safe:
+- [~] Upsert extracted task hints into existing task fields where safe:
   - `urgency`
   - `resistance`
   - `isVital`
@@ -108,11 +108,15 @@ Goal: remember life obligations even when individual tasks die.
   - `lastMentionedAt`
   - `lastTouchedAt`
   - `nextReviewAt`
-- [ ] Link tasks to commitments with `commitmentIds`.
+- [x] Link Telegram-created and Telegram-updated tasks to commitments with `commitmentIds`.
 - [ ] Add the rule: if an important commitment has no live next step for too long, the system should surface that explicitly.
 
 Done when:
 - the system can remember "documents", "money", "health", "cat", and similar obligations even when no active task is currently visible
+
+Notes:
+- As of 2026-04-15, Telegram task creation/update paths now carry `lifeArea` and `commitmentIds` into canonical task docs.
+- The broader Phase 2 item stays in progress because web/MCP capture enrichment is still missing, and deadline/vital extraction is not yet fully inferred outside explicit intent fields.
 
 ## Phase 4 - Angel pin layer
 

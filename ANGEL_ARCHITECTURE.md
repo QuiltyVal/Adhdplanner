@@ -170,4 +170,5 @@ As of 2026-04-15:
 - extracted commitments are upserted into `Users/{uid}/commitments/{commitmentId}`
 - Telegram capture creation is now idempotent by inbound Telegram message/update identity to avoid replay inflating commitments
 - the extractor no longer creates fallback commitments from arbitrary unmatched text
+- Telegram task create/update flows now carry `lifeArea` and `commitmentIds` into canonical task docs so memory can start attaching to real planner items
 - this is only the first ingestion slice, not the full extraction / commitment / angel loop

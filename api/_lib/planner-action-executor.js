@@ -221,6 +221,30 @@ function mergeDeadline(existingDeadline, incomingDeadline) {
   return incomingDeadline < existingDeadline ? incomingDeadline : existingDeadline;
 }
 
+function getResistanceRank(resistance) {
+  if (resistance === "high") return 3;
+  if (resistance === "medium") return 2;
+  return 1;
+}
+
+function pickMergedResistance(existingResistance, incomingResistance) {
+  return getResistanceRank(incomingResistance) > getResistanceRank(existingResistance)
+    ? incomingResistance
+    : existingResistance;
+}
+
+function normalizeCommitmentIds(value = []) {
+  return [...new Set(
+    (Array.isArray(value) ? value : [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean),
+  )].slice(0, 10);
+}
+
+function mergeCommitmentIds(existingIds = [], incomingIds = []) {
+  return normalizeCommitmentIds([...(existingIds || []), ...(incomingIds || [])]);
+}
+
 function buildSubtask(text, seed) {
   return {
     id: `${seed}-${Math.random().toString(36).slice(2, 8)}`,
@@ -248,9 +272,12 @@ function mergeIncomingIntoTask(task, incoming) {
   return {
     ...task,
     urgency: pickMergedUrgency(task.urgency || "medium", incoming.urgency || task.urgency || "medium"),
+    resistance: pickMergedResistance(task.resistance || "medium", incoming.resistance || task.resistance || "medium"),
     isToday: task.isToday || Boolean(incoming.isToday),
     isVital: task.isVital || Boolean(incoming.isVital),
     deadlineAt: mergeDeadline(task.deadlineAt || "", incoming.deadlineAt || ""),
+    lifeArea: incoming.lifeArea || task.lifeArea || "",
+    commitmentIds: mergeCommitmentIds(task.commitmentIds || [], incoming.commitmentIds || []),
     subtasks: [...existingSubtasks, ...appendedSubtasks],
     lastUpdated: Date.now(),
   };
@@ -883,9 +910,12 @@ async function executePlannerAction({
         const existingTask = current.tasks[existingIndex];
         const updatedTask = mergeIncomingIntoTask(existingTask, {
           urgency: route.urgency,
+          resistance: route.resistance,
           isToday: route.isToday,
           isVital: route.isVital,
           deadlineAt: route.deadlineAt,
+          lifeArea: route.lifeArea || "",
+          commitmentIds: route.commitmentIds || [],
           subtasks: route.subtasks || [],
         });
         const tasks = [...current.tasks];
@@ -902,8 +932,11 @@ async function executePlannerAction({
         source: "telegram",
         deadlineAt: route.deadlineAt || "",
         urgency: route.urgency || "medium",
+        resistance: route.resistance || "medium",
         isToday: route.isToday,
         isVital: route.isVital,
+        lifeArea: route.lifeArea || "",
+        commitmentIds: route.commitmentIds || [],
       });
 
       if (Array.isArray(route.subtasks) && route.subtasks.length > 0) {

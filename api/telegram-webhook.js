@@ -81,6 +81,64 @@ function mergeDeadline(existingDeadline, incomingDeadline) {
   return incomingDeadline < existingDeadline ? incomingDeadline : existingDeadline;
 }
 
+function getResistanceRank(resistance) {
+  if (resistance === "high") return 3;
+  if (resistance === "medium") return 2;
+  return 1;
+}
+
+function pickMergedResistance(existingResistance, incomingResistance) {
+  return getResistanceRank(incomingResistance) > getResistanceRank(existingResistance)
+    ? incomingResistance
+    : existingResistance;
+}
+
+function normalizeCommitmentIds(value = []) {
+  return [...new Set(
+    (Array.isArray(value) ? value : [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean),
+  )].slice(0, 10);
+}
+
+function mergeCommitmentIds(existingIds = [], incomingIds = []) {
+  return normalizeCommitmentIds([...(existingIds || []), ...(incomingIds || [])]);
+}
+
+function pickCaptureCandidateTask(processing, taskText = "") {
+  const candidates = Array.isArray(processing?.extraction?.candidateTasks)
+    ? processing.extraction.candidateTasks
+    : [];
+  if (!candidates.length) return null;
+
+  const normalizedTaskText = normalizeTaskText(taskText);
+  if (normalizedTaskText) {
+    const exact = candidates.find((candidate) => normalizeTaskText(candidate.text) === normalizedTaskText);
+    if (exact) return exact;
+  }
+
+  return candidates[0] || null;
+}
+
+function buildTaskMemoryEnrichment(processing, taskText = "") {
+  const candidate = pickCaptureCandidateTask(processing, taskText);
+  const commitments = Array.isArray(processing?.commitments) ? processing.commitments : [];
+  const knownCommitmentIds = new Set(commitments.map((commitment) => String(commitment.id || "").trim()).filter(Boolean));
+
+  const commitmentIds = normalizeCommitmentIds(
+    Array.isArray(candidate?.commitmentTempKeys) && candidate.commitmentTempKeys.length
+      ? candidate.commitmentTempKeys.filter((id) => knownCommitmentIds.has(String(id || "").trim()))
+      : commitments.map((commitment) => commitment.id),
+  );
+
+  return {
+    urgency: candidate?.urgency || "",
+    resistance: candidate?.resistance || "",
+    lifeArea: candidate?.lifeArea || "",
+    commitmentIds,
+  };
+}
+
 function buildSubtask(text, seed) {
   return {
     id: `${seed}-${Math.random().toString(36).slice(2, 8)}`,
@@ -110,9 +168,12 @@ function mergeIncomingIntoTask(task, incoming) {
   return {
     ...task,
     urgency: pickMergedUrgency(task.urgency || "medium", incoming.urgency || task.urgency || "medium"),
+    resistance: pickMergedResistance(task.resistance || "medium", incoming.resistance || task.resistance || "medium"),
     isToday: task.isToday || Boolean(incoming.isToday),
     isVital: task.isVital || Boolean(incoming.isVital),
     deadlineAt: mergeDeadline(task.deadlineAt || "", incoming.deadlineAt || ""),
+    lifeArea: incoming.lifeArea || task.lifeArea || "",
+    commitmentIds: mergeCommitmentIds(task.commitmentIds || [], incoming.commitmentIds || []),
     subtasks: [...existingSubtasks, ...appendedSubtasks],
     lastUpdated: Date.now(),
   };
@@ -145,8 +206,11 @@ async function upsertTask(chatId, incoming) {
       source: incoming.source || "telegram",
       deadlineAt: incoming.deadlineAt || "",
       urgency: incoming.urgency || "medium",
+      resistance: incoming.resistance || "medium",
       isToday: incoming.isToday,
       isVital: incoming.isVital,
+      lifeArea: incoming.lifeArea || "",
+      commitmentIds: incoming.commitmentIds || [],
     });
 
     if (Array.isArray(incoming.subtasks) && incoming.subtasks.length > 0) {
@@ -382,16 +446,117 @@ async function handlePanic(chatId) {
   });
 }
 
-async function handleAdd(chatId, argText) {
+async function handleAdd(chatId, argText, options = {}) {
   if (!argText) {
     await sendText(chatId, "Напиши так: /add купить корм");
     return;
   }
 
+  const userId = getTargetUserId();
+  const processing = await processTelegramCapture({
+    userId,
+    chatId,
+    rawText: argText,
+    intent: "add_task",
+    taskText: argText,
+    telegramMessageId: options.telegramMessageId || null,
+    telegramUpdateId: options.telegramUpdateId || null,
+  });
+  const enrichment = buildTaskMemoryEnrichment(processing, argText);
+
   await upsertTask(chatId, {
     text: argText,
     source: "telegram",
+    urgency: enrichment.urgency || "medium",
+    resistance: enrichment.resistance || "medium",
+    lifeArea: enrichment.lifeArea || "",
+    commitmentIds: enrichment.commitmentIds || [],
   });
+}
+
+async function processTelegramCapture({
+  userId,
+  chatId,
+  rawText,
+  intent,
+  taskText = "",
+  taskRef = "",
+  urgency = "",
+  isToday = false,
+  isVital = false,
+  deadlineAt = "",
+  subtasks = [],
+  telegramMessageId = null,
+  telegramUpdateId = null,
+}) {
+  let capture = null;
+
+  try {
+    const safeMessageId = telegramMessageId ? String(telegramMessageId) : "";
+    const safeUpdateId = telegramUpdateId ? String(telegramUpdateId) : "";
+    const idempotencyKey =
+      safeUpdateId
+        ? `telegram_update_${safeUpdateId}`
+        : safeMessageId
+          ? `telegram_message_${chatId}_${safeMessageId}`
+          : "";
+
+    capture = await writeCapture(userId, {
+      idempotencyKey,
+      source: "telegram",
+      kind: "text_dump",
+      rawText: rawText,
+      status: "new",
+      meta: {
+        chatId: String(chatId),
+        via: "telegram-webhook",
+        intake: "plain_text",
+        intent,
+        telegramMessageId: safeMessageId,
+        telegramUpdateId: safeUpdateId,
+        taskText: taskText || "",
+        taskRef: taskRef || "",
+        urgency: urgency || "",
+        isToday: Boolean(isToday),
+        isVital: Boolean(isVital),
+        deadlineAt: deadlineAt || "",
+        subtasks: Array.isArray(subtasks) ? subtasks : [],
+      },
+    });
+
+    const processing = await processCapture(userId, capture);
+    const extraction = processing?.extraction || { commitments: [], candidateTasks: [], facts: [] };
+    const commitments = Array.isArray(processing?.commitments) ? processing.commitments : [];
+
+    await safeWriteTelegramLog({
+      kind: "action",
+      action: processing?.replayed || capture?.__reused ? "capture_reused" : "capture_created",
+      chatId: String(chatId),
+      captureId: capture.id,
+      captureSource: "telegram",
+      captureKind: "text_dump",
+      intent,
+      extractedCommitmentCount: Array.isArray(extraction?.commitments) ? extraction.commitments.length : 0,
+      extractedCandidateTaskCount: Array.isArray(extraction?.candidateTasks) ? extraction.candidateTasks.length : 0,
+      extractedFactCount: Array.isArray(extraction?.facts) ? extraction.facts.length : 0,
+      upsertedCommitmentCount: commitments.length,
+      commitmentIds: commitments.map((commitment) => commitment.id).slice(0, 10),
+    });
+
+    return processing;
+  } catch (captureError) {
+    console.error("[telegram-capture]", captureError);
+    if (capture?.id) {
+      await failCaptureProcessing(userId, capture.id, captureError);
+    }
+    await safeWriteTelegramLog({
+      kind: "error",
+      chatId: String(chatId),
+      action: "capture_create_failed",
+      errorMessage: captureError.message || "capture create failed",
+    });
+    return null;
+  }
 }
 
 async function handleCalendar(chatId) {
@@ -760,31 +925,13 @@ async function handlePlainCapture(chatId, text, options = {}) {
     intent,
   });
 
-  if (["add_task", "chat"].includes(intent.intent)) {
-    let capture = null;
-    try {
-      const telegramMessageId = options.telegramMessageId ? String(options.telegramMessageId) : "";
-      const telegramUpdateId = options.telegramUpdateId ? String(options.telegramUpdateId) : "";
-      const idempotencyKey =
-        telegramUpdateId
-          ? `telegram_update_${telegramUpdateId}`
-          : telegramMessageId
-            ? `telegram_message_${chatId}_${telegramMessageId}`
-            : "";
-
-      capture = await writeCapture(userId, {
-        idempotencyKey,
-        source: "telegram",
-        kind: "text_dump",
-        rawText: cleaned,
-        status: "new",
-        meta: {
-          chatId: String(chatId),
-          via: "telegram-webhook",
-          intake: "plain_text",
+  const captureProcessing =
+    ["add_task", "chat"].includes(intent.intent)
+      ? await processTelegramCapture({
+          userId,
+          chatId,
+          rawText: cleaned,
           intent: intent.intent,
-          telegramMessageId,
-          telegramUpdateId,
           taskText: intent.task_text || "",
           taskRef: intent.task_ref || "",
           urgency: intent.urgency || "",
@@ -792,39 +939,10 @@ async function handlePlainCapture(chatId, text, options = {}) {
           isVital: Boolean(intent.is_vital),
           deadlineAt: intent.deadline_at || "",
           subtasks: Array.isArray(intent.subtasks) ? intent.subtasks : [],
-        },
-      });
-      const processing = await processCapture(userId, capture);
-      const extraction = processing?.extraction || { commitments: [], candidateTasks: [], facts: [] };
-      const commitments = Array.isArray(processing?.commitments) ? processing.commitments : [];
-
-      await safeWriteTelegramLog({
-        kind: "action",
-        action: processing?.replayed || capture?.__reused ? "capture_reused" : "capture_created",
-        chatId: String(chatId),
-        captureId: capture.id,
-        captureSource: "telegram",
-        captureKind: "text_dump",
-        intent: intent.intent,
-        extractedCommitmentCount: Array.isArray(extraction?.commitments) ? extraction.commitments.length : 0,
-        extractedCandidateTaskCount: Array.isArray(extraction?.candidateTasks) ? extraction.candidateTasks.length : 0,
-        extractedFactCount: Array.isArray(extraction?.facts) ? extraction.facts.length : 0,
-        upsertedCommitmentCount: commitments.length,
-        commitmentIds: commitments.map((commitment) => commitment.id).slice(0, 10),
-      });
-    } catch (captureError) {
-      console.error("[telegram-capture]", captureError);
-      if (capture?.id) {
-        await failCaptureProcessing(userId, capture.id, captureError);
-      }
-      await safeWriteTelegramLog({
-        kind: "error",
-        chatId: String(chatId),
-        action: "capture_create_failed",
-        errorMessage: captureError.message || "capture create failed",
-      });
-    }
-  }
+          telegramMessageId: options.telegramMessageId || null,
+          telegramUpdateId: options.telegramUpdateId || null,
+        })
+      : null;
 
   if (intent.intent === "show_today") {
     await handleToday(chatId);
@@ -925,13 +1043,17 @@ async function handlePlainCapture(chatId, text, options = {}) {
 
   // Default: add_task
   const taskText = intent.task_text || cleaned;
+  const enrichment = buildTaskMemoryEnrichment(captureProcessing, taskText);
   await upsertTask(chatId, {
     text: taskText,
     source: "telegram",
     deadlineAt: intent.deadline_at || "",
-    urgency: intent.urgency || "medium",
+    urgency: intent.urgency || enrichment.urgency || "medium",
+    resistance: enrichment.resistance || "medium",
     isToday: intent.is_today,
     isVital: intent.is_vital,
+    lifeArea: enrichment.lifeArea || "",
+    commitmentIds: enrichment.commitmentIds || [],
     subtasks: intent.subtasks || [],
   });
 }
@@ -1128,7 +1250,10 @@ module.exports = async function handler(req, res) {
     } else if (command === "/calendar") {
       await handleCalendar(chatId);
     } else if (command === "/add") {
-      await handleAdd(chatId, argText);
+      await handleAdd(chatId, argText, {
+        telegramMessageId: message?.message_id || null,
+        telegramUpdateId: update?.update_id || null,
+      });
     } else if (text) {
       await handlePlainCapture(chatId, text, {
         telegramMessageId: message?.message_id || null,

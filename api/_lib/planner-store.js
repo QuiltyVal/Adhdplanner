@@ -90,6 +90,14 @@ function normalizeSubtaskForFingerprint(subtask = {}) {
   };
 }
 
+function normalizeTaskCommitmentIds(value = []) {
+  return [...new Set(
+    (Array.isArray(value) ? value : [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean),
+  )].slice(0, 10);
+}
+
 function normalizeTaskForFingerprint(task = {}) {
   return {
     id: String(task.id || ""),
@@ -100,6 +108,8 @@ function normalizeTaskForFingerprint(task = {}) {
     isToday: Boolean(task.isToday),
     isVital: Boolean(task.isVital),
     deadlineAt: String(task.deadlineAt || ""),
+    lifeArea: String(task.lifeArea || ""),
+    commitmentIds: normalizeTaskCommitmentIds(task.commitmentIds),
     source: String(task.source || ""),
     subtasks: Array.isArray(task.subtasks)
       ? task.subtasks.map(normalizeSubtaskForFingerprint)
@@ -357,6 +367,8 @@ function createTask(text, options = {}) {
     isToday: Boolean(options.isToday),
     isVital: Boolean(options.isVital),
     deadlineAt: options.deadlineAt || "",
+    lifeArea: options.lifeArea || "",
+    commitmentIds: normalizeTaskCommitmentIds(options.commitmentIds),
     source: options.source || "telegram",
   };
 }

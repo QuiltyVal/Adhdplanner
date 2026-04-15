@@ -605,3 +605,18 @@ Entry template:
 - Risks / follow-up:
   - Telegram replay safety is now much better, but it still depends on Telegram identity fields being present for the inbound message
   - the newer router/executor path still is not the live plain-text handler, so there is still real legacy behavior in Telegram code
+
+## 2026-04-15 18:45 Europe/Berlin - Codex
+
+- Summary: Wired commitment memory into real Telegram task docs instead of leaving it isolated in capture/commitment collections.
+- Changed:
+  - `api/_lib/planner-store.js` — canonical task fingerprints and `createTask()` now include `lifeArea` and `commitmentIds`
+  - `api/telegram-webhook.js` — Telegram `/add` and plain-text task upsert flows now carry extraction-based `urgency`, `resistance`, `lifeArea`, and `commitmentIds`; existing tasks merge those fields conservatively instead of dropping them
+  - `api/_lib/planner-action-executor.js` — kept the newer non-live Telegram execution path aligned so it also preserves `resistance`, `lifeArea`, and `commitmentIds`
+  - `EXECUTION_PLAN.md`, `ANGEL_ARCHITECTURE.md`, `SESSION_HANDOFF.md` — updated to reflect that task-linking now exists and to correct the misleading "Telegram already fully migrated to router/executor" implication
+- Verified:
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - this only links memory on Telegram task create/update flows; web and MCP capture ingestion still do not enrich task docs
+  - extractor-driven urgency fallback is now used where safe, but broader deadline/vital inference still mostly depends on explicit intent parsing

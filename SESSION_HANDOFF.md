@@ -41,9 +41,10 @@ Companion file:
   - `nextReviewAt`
 - As of 2026-04-15, Telegram capture creation is idempotent by Telegram message/update identity, so webhook retries should not inflate commitment counters.
 - As of 2026-04-15, the extractor no longer fabricates fallback commitments from arbitrary unmatched text.
+- As of 2026-04-15, Telegram task create/update flows attach `lifeArea` and `commitmentIds` to canonical task docs, so commitment memory is no longer isolated in `captures` / `commitments` only.
 - This is only the first ingestion slice:
   - no daily angel decision job yet
-  - no task enrichment from extraction yet
+  - task enrichment exists only for Telegram task create/update flows, not for web or MCP capture paths yet
   - extractor is heuristic only, not LLM-backed
 
 ## Current reality
