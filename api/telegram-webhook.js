@@ -1,7 +1,8 @@
 const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getNonActiveTasks, getTaskById, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeTelegramLog } = require("./_lib/planner-store");
 const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
-const { buildTaskMemoryEnrichment, processTelegramTaskCapture } = require("./_lib/telegram-task-memory");
-const { parseTelegramIntent } = require("./_lib/telegram-intent");
+const { buildTaskMemoryEnrichment, mergeTelegramTaskMemoryIntoRoute, processTelegramTaskCapture } = require("./_lib/telegram-task-memory");
+const { routePlannerAgentInput } = require("./_lib/planner-agent-router");
+const { executePlannerAction } = require("./_lib/planner-action-executor");
 const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
 
 const DEFAULT_USER_ID = process.env.PLANNER_DEFAULT_USER_ID;
@@ -793,151 +794,51 @@ async function handlePlainCapture(chatId, text, options = {}) {
 
   const userId = getTargetUserId();
   const plannerData = await getPlannerData(userId);
-
-  const intent = await parseTelegramIntent({
+  const route = await routePlannerAgentInput({
     text: cleaned,
-    tasks: plannerData.tasks,
-    telegramContext: plannerData.telegramContext,
+    plannerData,
   });
 
   await safeWriteTelegramLog({
     kind: "intent",
     chatId: String(chatId),
     messageText: cleaned,
-    intent,
+    intent: route,
   });
 
   const captureProcessing =
-    ["add_task", "chat"].includes(intent.intent)
+    ["add_task", "chat"].includes(route.type)
       ? await processTelegramTaskCapture({
           userId,
           chatId,
           rawText: cleaned,
-          intent: intent.intent,
-          taskText: intent.task_text || "",
-          taskRef: intent.task_ref || "",
-          urgency: intent.urgency || "",
-          isToday: Boolean(intent.is_today),
-          isVital: Boolean(intent.is_vital),
-          deadlineAt: intent.deadline_at || "",
-          subtasks: Array.isArray(intent.subtasks) ? intent.subtasks : [],
+          intent: route.type,
+          taskText: route.taskText || "",
+          taskRef: route.taskRef || "",
+          urgency: route.urgency || "",
+          isToday: Boolean(route.isToday),
+          isVital: Boolean(route.isVital),
+          deadlineAt: route.deadlineAt || "",
+          subtasks: Array.isArray(route.subtasks) ? route.subtasks : [],
           telegramMessageId: options.telegramMessageId || null,
           telegramUpdateId: options.telegramUpdateId || null,
           writeLog: safeWriteTelegramLog,
         })
       : null;
 
-  if (intent.intent === "show_today") {
-    await handleToday(chatId);
-    return;
-  }
+  const enrichedRoute = mergeTelegramTaskMemoryIntoRoute(route, captureProcessing);
 
-  if (intent.intent === "panic") {
-    await handlePanic(chatId);
-    return;
-  }
-
-  if (intent.intent === "suggest_unpin") {
-    await handleSuggestUnpin(chatId, plannerData);
-    return;
-  }
-
-  if (intent.intent === "set_today") {
-    await handleSetToday(chatId, plannerData, intent.task_ref);
-    return;
-  }
-
-  if (intent.intent === "unset_today") {
-    await handleUnsetToday(chatId, plannerData, intent.task_ref);
-    return;
-  }
-
-  if (intent.intent === "set_vital") {
-    await handleSetVital(chatId, plannerData, intent.task_ref);
-    return;
-  }
-
-  if (intent.intent === "complete_task") {
-    await handleCompleteTaskRequest(chatId, plannerData, intent.task_ref || "");
-    return;
-  }
-
-  if (intent.intent === "reopen_task") {
-    await handleReopenTask(chatId, plannerData, intent.task_ref);
-    return;
-  }
-
-  if (intent.intent === "add_subtask") {
-    await handleAddSubtask(chatId, plannerData, intent.task_ref, intent.subtask_text);
-    return;
-  }
-
-  if (intent.intent === "delete_subtask") {
-    await handleDeleteSubtaskRequest(chatId, plannerData, {
-      taskText: intent.task_ref || "",
-      subtaskText: intent.subtask_text || "",
-    });
-    return;
-  }
-
-  if (intent.intent === "schedule_task") {
-    const hasConnection = await hasGoogleCalendarConnection(userId);
-    if (!hasConnection) {
-      const url = buildGoogleCalendarConnectUrl(userId);
-      await sendText(
-        chatId,
-        "Сначала подключи Google Calendar. Потом я смогу создавать там события прямо из Telegram.",
-        { reply_markup: calendarConnectKeyboard(url) },
-      );
-      return;
-    }
-
-    if (!intent.deadline_at || !intent.start_time) {
-      await sendText(
-        chatId,
-        "Для календаря мне нужны дата и время. Например: запланируй на завтра в 14:00 задачу про диплом.",
-      );
-      return;
-    }
-
-    const taskTitle = intent.task_ref || intent.task_text || cleaned;
-    const createdEvent = await createCalendarEvent(userId, {
-      title: taskTitle,
-      date: intent.deadline_at,
-      startTime: intent.start_time,
-      durationMinutes: intent.duration_minutes || 60,
-      description: "Создано из ADHD Planner Telegram bot",
-    });
-
-    await sendText(
-      chatId,
-      `📅 Поставила в календарь: <b>${escapeHtml(createdEvent.summary || taskTitle)}</b>\n${escapeHtml(intent.deadline_at)} ${escapeHtml(intent.start_time)}`,
-    );
-    return;
-  }
-
-  if (intent.intent === "chat") {
-    await sendText(
-      chatId,
-      intent.reply_text || "Сформулируй это как задачу, или напиши /today или /panic.",
-    );
-    return;
-  }
-
-  // Default: add_task
-  const taskText = intent.task_text || cleaned;
-  const enrichment = buildTaskMemoryEnrichment(captureProcessing, taskText);
-  await upsertTask(chatId, {
-    text: taskText,
-    source: "telegram",
-    deadlineAt: intent.deadline_at || "",
-    urgency: intent.urgency || enrichment.urgency || "medium",
-    resistance: enrichment.resistance || "medium",
-    isToday: intent.is_today,
-    isVital: intent.is_vital,
-    lifeArea: enrichment.lifeArea || "",
-    commitmentIds: enrichment.commitmentIds || [],
-    subtasks: intent.subtasks || [],
+  await executePlannerAction({
+    userId,
+    chatId,
+    plannerData,
+    route: enrichedRoute,
+    adapter: {
+      sendText: async (messageText, extra = {}) => sendText(chatId, messageText, extra),
+      taskKeyboard: plannerTaskKeyboard,
+      calendarConnectKeyboard,
+    },
+    log: safeWriteTelegramLog,
   });
 }
 

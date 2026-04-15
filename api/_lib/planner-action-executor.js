@@ -4,6 +4,7 @@ const {
   createTask,
   escapeHtml,
   getFirstOpenSubtask,
+  getNonActiveTasks,
   mutatePlanner,
   pickRescueTask,
   sortTasksByPriority,
@@ -340,6 +341,26 @@ async function logAction(log, payload) {
   }
 }
 
+async function resolveTaskReferenceIncludingNonActive(userId, plannerData, taskQuery, allowedStatuses = ["active"]) {
+  const allowed = Array.isArray(allowedStatuses) ? allowedStatuses : ["active"];
+  const activeMatch = resolveTaskReference(plannerData, taskQuery, allowed);
+  if (activeMatch) return activeMatch;
+
+  const needsNonActive = allowed.some((status) => status === "completed" || status === "dead");
+  if (!needsNonActive) return null;
+
+  const nonActiveTasks = await getNonActiveTasks(userId);
+  const nonActiveAllowed = nonActiveTasks.filter((task) => allowed.includes(task.status));
+  const query = String(taskQuery || "").trim();
+
+  if (!query || query === "last_task" || looksLikeContextTaskQuery(query)) {
+    return [...nonActiveAllowed]
+      .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))[0] || null;
+  }
+
+  return findTaskByText(nonActiveAllowed, query, allowed) || null;
+}
+
 async function executePlannerAction({
   userId,
   chatId,
@@ -421,7 +442,12 @@ async function executePlannerAction({
       return;
     }
 
-    const referencedTask = resolveTaskReference(plannerData, route.taskRef || "", ["active", "completed", "dead"]);
+    const referencedTask = await resolveTaskReferenceIncludingNonActive(
+      userId,
+      plannerData,
+      route.taskRef || "",
+      ["active", "completed", "dead"],
+    );
     const eventTitle = referencedTask?.text || route.taskText || route.rawText || "";
 
     const createdEvent = await createCalendarEvent(userId, {
@@ -563,7 +589,12 @@ async function executePlannerAction({
   }
 
   if (route.type === "reopen_task") {
-    const task = resolveTaskReference(plannerData, route.taskRef || route.taskText, ["completed", "dead"]);
+    const task = await resolveTaskReferenceIncludingNonActive(
+      userId,
+      plannerData,
+      route.taskRef || route.taskText,
+      ["completed", "dead"],
+    );
     if (!task) {
       await adapter.sendText("Не нашла задачу, которую нужно вернуть в активные.");
       return;
@@ -573,34 +604,28 @@ async function executePlannerAction({
     await mutatePlanner(
       userId,
       (current) => {
-        const tasks = current.tasks.map((currentTask) => {
-          if (currentTask.id !== task.id) return currentTask;
-          reopenedTask = {
-            ...currentTask,
-            __baseLastUpdated:
-              typeof task?.lastUpdated === "number"
-                ? task.lastUpdated
-                : typeof currentTask?.lastUpdated === "number"
-                  ? currentTask.lastUpdated
-                  : 0,
-            status: "active",
-            isToday: false,
-            heatBase: typeof currentTask.heatBase === "number" ? currentTask.heatBase : 35,
-            heatCurrent:
-              typeof currentTask.heatCurrent === "number"
-                ? currentTask.heatCurrent
-                : typeof currentTask.heatBase === "number"
-                  ? currentTask.heatBase
-                  : 35,
-            lastUpdated: Date.now(),
-            deadAt: null,
-          };
-          return reopenedTask;
-        });
+        reopenedTask = {
+          ...task,
+          __baseLastUpdated: typeof task?.lastUpdated === "number" ? task.lastUpdated : 0,
+          status: "active",
+          isToday: false,
+          heatBase: typeof task.heatBase === "number" ? task.heatBase : 35,
+          heatCurrent:
+            typeof task.heatCurrent === "number"
+              ? task.heatCurrent
+              : typeof task.heatBase === "number"
+                ? task.heatBase
+                : 35,
+          lastUpdated: Date.now(),
+          deadAt: null,
+        };
 
         return {
           ...current,
-          tasks,
+          tasks: [
+            reopenedTask,
+            ...current.tasks.filter((currentTask) => currentTask.id !== task.id),
+          ],
           telegramContext: buildTelegramContext(reopenedTask || task, "reopen"),
         };
       },

@@ -47,6 +47,25 @@ function buildTaskMemoryEnrichment(processing, taskText = "") {
   };
 }
 
+function mergeCommitmentIds(existingIds = [], incomingIds = []) {
+  return normalizeCommitmentIds([...(existingIds || []), ...(incomingIds || [])]);
+}
+
+function mergeTelegramTaskMemoryIntoRoute(route = {}, processing = null) {
+  const enrichment = buildTaskMemoryEnrichment(processing, route.taskText || route.rawText || "");
+  const explicitUrgency = String(route?.rawIntent?.urgency || "").trim();
+
+  return {
+    ...route,
+    urgency: explicitUrgency
+      ? (route.urgency || explicitUrgency || "medium")
+      : (enrichment.urgency || route.urgency || "medium"),
+    resistance: enrichment.resistance || route.resistance || "",
+    lifeArea: route.lifeArea || enrichment.lifeArea || "",
+    commitmentIds: mergeCommitmentIds(route.commitmentIds || [], enrichment.commitmentIds || []),
+  };
+}
+
 async function processTelegramTaskCapture({
   userId,
   chatId,
@@ -135,5 +154,6 @@ async function processTelegramTaskCapture({
 
 module.exports = {
   buildTaskMemoryEnrichment,
+  mergeTelegramTaskMemoryIntoRoute,
   processTelegramTaskCapture,
 };

@@ -637,3 +637,18 @@ Entry template:
 - Risks / follow-up:
   - this does not migrate Telegram traffic to `planner-agent-router` / `planner-action-executor`; it only removes the misleading split and makes the enrichment seam reusable
   - there is still no automated behavioral test that proves memory enrichment survives a future router migration
+
+## 2026-04-15 20:05 Europe/Berlin - Codex
+
+- Summary: Moved live plain-text Telegram back onto the shared `route -> memory -> execute` path, while keeping slash commands and callback buttons local for now.
+- Changed:
+  - `api/_lib/telegram-task-memory.js` — added shared route-level merge logic so memory enrichment can be applied to a routed Telegram action before execution
+  - `api/_lib/planner-action-executor.js` — `reopen_task` and `schedule_task` now safely resolve non-active tasks too, so the shared executor can match the old webhook plain-text behavior more closely
+  - `api/telegram-webhook.js` — `handlePlainCapture` now uses `routePlannerAgentInput(...)`, runs Telegram capture/enrichment once, and delegates to `executePlannerAction(...)`
+  - `EXECUTION_PLAN.md` and `SESSION_HANDOFF.md` — updated to reflect that live plain-text Telegram is now on the shared route/enrichment/executor path, while slash/callback flows still remain local
+- Verified:
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - slash commands and callback-button flows still duplicate part of the old webhook behavior
+  - there is still no automated behavioral Telegram test, so this is verified structurally/build-wise rather than by end-to-end bot replay

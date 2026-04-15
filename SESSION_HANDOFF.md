@@ -41,8 +41,8 @@ Companion file:
   - `nextReviewAt`
 - As of 2026-04-15, Telegram capture creation is idempotent by Telegram message/update identity, so webhook retries should not inflate commitment counters.
 - As of 2026-04-15, the extractor no longer fabricates fallback commitments from arbitrary unmatched text.
-- As of 2026-04-15, the live inline Telegram webhook task create/update path attaches `lifeArea` and `commitmentIds` to canonical task docs, so commitment memory is no longer isolated in `captures` / `commitments` only.
-- The newer `planner-agent-router` / `planner-action-executor` path still does not source memory enrichment by itself; it must receive that data from an outer intake layer before any future migration flips traffic to it.
+- As of 2026-04-15, live plain-text Telegram now runs through `planner-agent-router -> telegram-task-memory -> planner-action-executor`, and that path attaches `lifeArea` and `commitmentIds` to canonical task docs.
+- Slash commands and callback-button flows in `api/telegram-webhook.js` still use local handlers; only plain-text Telegram is on the shared route/executor path today.
 - This is only the first ingestion slice:
   - no daily angel decision job yet
   - task enrichment exists only for Telegram task create/update flows, not for web or MCP capture paths yet
@@ -82,7 +82,7 @@ Companion file:
 - today mission rules clarified and aligned across web + Telegram
 - Telegram logs written to Firestore `telegramLogs`
 - Telegram today-unpin flow now stores the last suggested shortlist in `telegramContext` so follow-ups like `давай последнюю` can resolve against that list
-- `api/_lib/planner-agent-router.js` and `api/_lib/planner-action-executor.js` exist in repo, but the live Vercel webhook still uses the older inline `handlePlainCapture` path for plain-text Telegram handling
+- `api/_lib/planner-agent-router.js`, `api/_lib/telegram-task-memory.js`, and `api/_lib/planner-action-executor.js` now power the live plain-text Telegram path, but slash commands and callback buttons still remain in local webhook handlers
 
 ## Very recent commits
 
@@ -109,7 +109,7 @@ Important:
 
 1. Telegram NLP still needs real-world testing.
    - The bot now has more context, but natural language can still misfire.
-   - There is still a legacy split between the live inline webhook handler and the newer router/executor modules in repo.
+   - Live plain-text Telegram now goes through `planner-agent-router -> telegram-task-memory -> planner-action-executor`, but slash commands and callback-button flows still remain in local webhook handlers.
 
 2. Cron nudges are still on Vercel.
    - Timing is not trustworthy to the exact minute.

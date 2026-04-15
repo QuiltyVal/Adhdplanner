@@ -115,8 +115,8 @@ Done when:
 - the system can remember "documents", "money", "health", "cat", and similar obligations even when no active task is currently visible
 
 Notes:
-- As of 2026-04-15, the live inline Telegram webhook task creation/update path carries `lifeArea` and `commitmentIds` into canonical task docs.
-- The newer `planner-agent-router` / `planner-action-executor` path is still not memory-enriched on its own; if that migration resumes, the caller must run capture/enrichment first.
+- As of 2026-04-15, live plain-text Telegram now runs through `route -> memory enrichment -> execute`, and task creation/update carries `lifeArea` and `commitmentIds` into canonical task docs.
+- Slash commands and callback-button flows in `api/telegram-webhook.js` still use local handlers; only plain-text Telegram is on the shared route/executor path today.
 - The broader Phase 2 item stays in progress because web/MCP capture enrichment is still missing, and deadline/vital extraction is not yet fully inferred outside explicit intent fields.
 
 ## Phase 4 - Angel pin layer
