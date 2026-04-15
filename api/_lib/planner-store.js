@@ -22,6 +22,12 @@ function capturesCol(userId) {
   return getDb().collection("Users").doc(userId).collection("captures");
 }
 
+function normalizeCaptureIdempotencyKey(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return raw.replace(/[\/\s]+/g, "_").slice(0, 180);
+}
+
 function stripServerTaskState(task) {
   if (!task || typeof task !== "object") return task;
   const { __baseLastUpdated, ...cleanTask } = task;
@@ -546,7 +552,9 @@ async function writeCapture(userId, payload = {}) {
     throw new Error("writeCapture requires rawText or transcript");
   }
 
-  const captureRef = capturesCol(userId).doc();
+  const db = getDb();
+  const idempotencyKey = normalizeCaptureIdempotencyKey(payload.idempotencyKey || "");
+  const captureRef = idempotencyKey ? capturesCol(userId).doc(idempotencyKey) : capturesCol(userId).doc();
   const status = ["new", "processed", "failed"].includes(payload.status) ? payload.status : "new";
   const normalizedMeta =
     payload.meta && typeof payload.meta === "object" && !Array.isArray(payload.meta)
@@ -559,6 +567,7 @@ async function writeCapture(userId, payload = {}) {
 
   const capture = {
     id: captureRef.id,
+    idempotencyKey: idempotencyKey || null,
     source: String(payload.source || "unknown"),
     kind: String(payload.kind || "text_dump"),
     rawText,
@@ -571,8 +580,30 @@ async function writeCapture(userId, payload = {}) {
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
-  await captureRef.set(capture);
-  return capture;
+  if (!idempotencyKey) {
+    await captureRef.set(capture);
+    return {
+      ...capture,
+      __reused: false,
+    };
+  }
+
+  return db.runTransaction(async (transaction) => {
+    const existingSnap = await transaction.get(captureRef);
+    if (existingSnap.exists) {
+      return {
+        ...(existingSnap.data() || {}),
+        id: captureRef.id,
+        __reused: true,
+      };
+    }
+
+    transaction.set(captureRef, capture);
+    return {
+      ...capture,
+      __reused: false,
+    };
+  });
 }
 
 module.exports = {

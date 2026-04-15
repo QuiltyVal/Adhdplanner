@@ -39,6 +39,8 @@ Companion file:
   - `lastMentionedAt`
   - `lastTouchedAt`
   - `nextReviewAt`
+- As of 2026-04-15, Telegram capture creation is idempotent by Telegram message/update identity, so webhook retries should not inflate commitment counters.
+- As of 2026-04-15, the extractor no longer fabricates fallback commitments from arbitrary unmatched text.
 - This is only the first ingestion slice:
   - no daily angel decision job yet
   - no task enrichment from extraction yet
@@ -77,9 +79,8 @@ Companion file:
 - server-side Google Calendar flow for Telegram
 - today mission rules clarified and aligned across web + Telegram
 - Telegram logs written to Firestore `telegramLogs`
-- Telegram text input now goes through `api/_lib/planner-agent-router.js` before executing actions
 - Telegram today-unpin flow now stores the last suggested shortlist in `telegramContext` so follow-ups like `давай последнюю` can resolve against that list
-- Telegram plain-text execution now runs through `api/_lib/planner-action-executor.js`; webhook text handling is `route -> execute`
+- `api/_lib/planner-agent-router.js` and `api/_lib/planner-action-executor.js` exist in repo, but the live Vercel webhook still uses the older inline `handlePlainCapture` path for plain-text Telegram handling
 
 ## Very recent commits
 
@@ -106,7 +107,7 @@ Important:
 
 1. Telegram NLP still needs real-world testing.
    - The bot now has more context, but natural language can still misfire.
-   - As of 2026-04-11, text routing itself is centralized in `planner-agent-router`, but execution is still Telegram-specific.
+   - There is still a legacy split between the live inline webhook handler and the newer router/executor modules in repo.
 
 2. Cron nudges are still on Vercel.
    - Timing is not trustworthy to the exact minute.

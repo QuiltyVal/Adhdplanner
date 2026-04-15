@@ -589,3 +589,19 @@ Entry template:
 - Risks / follow-up:
   - commitment IDs currently come from extractor `tempKey` values and heuristic fallback slugs, so long-term ID stability still needs a more deliberate strategy
   - commitments exist, but task docs still do not carry `commitmentIds`, so the planner UI cannot yet use that memory for ranking or visibility
+
+## 2026-04-15 18:10 Europe/Berlin - Codex
+
+- Summary: Fixed the two biggest risks in the new memory layer after independent review. Telegram capture ingestion is now replay-safe enough for webhook retries, and the extractor no longer turns arbitrary unmatched text into fake durable commitments.
+- Changed:
+  - `api/_lib/planner-store.js` — `writeCapture()` now supports deterministic idempotency keys and reuses an existing capture doc instead of always generating a new random one
+  - `api/_lib/capture-extractor.js` — `processCapture()` now short-circuits already processed captures, returns a `replayed` flag, and stops creating fallback commitments for unmatched text
+  - `api/_lib/commitment-store.js` — commitment upserts now avoid re-incrementing mention counters when the same capture ID is replayed
+  - `api/telegram-webhook.js` — Telegram plain-text capture path now derives an idempotency key from `update_id` / `message_id`, logs `capture_reused` on replay, and records Telegram ids in capture metadata
+  - `SESSION_HANDOFF.md` and `ANGEL_ARCHITECTURE.md` — clarified the remaining legacy Telegram split and the new replay-safe capture behavior
+- Verified:
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - Telegram replay safety is now much better, but it still depends on Telegram identity fields being present for the inbound message
+  - the newer router/executor path still is not the live plain-text handler, so there is still real legacy behavior in Telegram code

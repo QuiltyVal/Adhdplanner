@@ -61,8 +61,22 @@ function normalizeCommitmentInput(commitment = {}, fallbackCaptureId = null) {
   };
 }
 
+async function getCommitmentsByIds(userId, ids = []) {
+  const uniqueIds = normalizeStringList(ids);
+  if (!uniqueIds.length) return [];
+
+  const snapshots = await Promise.all(
+    uniqueIds.map((id) => commitmentsCol(userId).doc(id).get()),
+  );
+
+  return snapshots
+    .filter((snap) => snap.exists)
+    .map((snap) => snap.data() || {});
+}
+
 async function upsertCommitmentsFromExtraction(userId, extraction = {}, options = {}) {
   const now = Date.now();
+  const dedupeCaptureId = normalizeText(options.captureId || "");
   const incomingCommitments = normalizeStringList((extraction.commitments || []).map((commitment) => {
     const normalized = normalizeCommitmentInput(commitment, options.captureId || null);
     return normalized ? JSON.stringify(normalized) : "";
@@ -78,10 +92,12 @@ async function upsertCommitmentsFromExtraction(userId, extraction = {}, options 
       const ref = commitmentsCol(userId).doc(incoming.id);
       const snap = await transaction.get(ref);
       const existing = snap.exists ? (snap.data() || {}) : {};
+      const existingSourceCaptureIds = Array.isArray(existing.sourceCaptureIds) ? existing.sourceCaptureIds : [];
+      const alreadySeenCapture = Boolean(dedupeCaptureId) && existingSourceCaptureIds.includes(dedupeCaptureId);
 
       const failureCost = incoming.failureCost || existing.failureCost || "medium";
       const mergedSourceCaptureIds = normalizeStringList([
-        ...(Array.isArray(existing.sourceCaptureIds) ? existing.sourceCaptureIds : []),
+        ...existingSourceCaptureIds,
         incoming.sourceCaptureId,
         options.captureId,
       ]).slice(-20);
@@ -96,8 +112,12 @@ async function upsertCommitmentsFromExtraction(userId, extraction = {}, options 
           ? existing.nextReviewAt
           : now + inferReviewDays(failureCost) * DAY_MS;
 
-      const totalMentionCount = (typeof existing.totalMentionCount === "number" ? existing.totalMentionCount : 0) + 1;
-      const mentionCount30d = (typeof existing.mentionCount30d === "number" ? existing.mentionCount30d : 0) + 1;
+      const totalMentionCount = alreadySeenCapture
+        ? (typeof existing.totalMentionCount === "number" ? existing.totalMentionCount : 0)
+        : (typeof existing.totalMentionCount === "number" ? existing.totalMentionCount : 0) + 1;
+      const mentionCount30d = alreadySeenCapture
+        ? (typeof existing.mentionCount30d === "number" ? existing.mentionCount30d : 0)
+        : (typeof existing.mentionCount30d === "number" ? existing.mentionCount30d : 0) + 1;
 
       const merged = {
         id: incoming.id,
@@ -113,7 +133,9 @@ async function upsertCommitmentsFromExtraction(userId, extraction = {}, options 
         ),
         mentionCount30d,
         totalMentionCount,
-        lastMentionedAt: now,
+        lastMentionedAt: alreadySeenCapture
+          ? (typeof existing.lastMentionedAt === "number" ? existing.lastMentionedAt : now)
+          : now,
         lastTouchedAt: typeof existing.lastTouchedAt === "number" ? existing.lastTouchedAt : 0,
         nextReviewAt,
         needsTaskIfSilentDays:
@@ -142,5 +164,6 @@ async function upsertCommitmentsFromExtraction(userId, extraction = {}, options 
 }
 
 module.exports = {
+  getCommitmentsByIds,
   upsertCommitmentsFromExtraction,
 };

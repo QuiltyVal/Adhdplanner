@@ -77,6 +77,7 @@ Rules:
 - append-only by default
 - raw input must survive extraction mistakes
 - capture creation must not require immediate task mutation
+- Telegram capture ingestion should be idempotent per inbound message/update so retries do not inflate memory state
 
 ### Commitments
 
@@ -95,6 +96,11 @@ Examples:
 - health
 - cat care
 - work obligations
+
+Rules:
+
+- not every capture must become a commitment
+- if the extractor is unsure, it is better to produce zero commitments than to create fake durable memory from random chat text
 
 Minimum schema:
 
@@ -162,4 +168,6 @@ As of 2026-04-15:
   - `candidateTasks`
   - `facts`
 - extracted commitments are upserted into `Users/{uid}/commitments/{commitmentId}`
+- Telegram capture creation is now idempotent by inbound Telegram message/update identity to avoid replay inflating commitments
+- the extractor no longer creates fallback commitments from arbitrary unmatched text
 - this is only the first ingestion slice, not the full extraction / commitment / angel loop

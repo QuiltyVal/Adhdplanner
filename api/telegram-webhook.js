@@ -724,7 +724,7 @@ async function handleReopenTask(chatId, plannerData, taskRef) {
   });
 }
 
-async function handlePlainCapture(chatId, text) {
+async function handlePlainCapture(chatId, text, options = {}) {
   const cleaned = text.trim();
   if (!cleaned) return;
   if (cleaned.startsWith("/")) {
@@ -763,7 +763,17 @@ async function handlePlainCapture(chatId, text) {
   if (["add_task", "chat"].includes(intent.intent)) {
     let capture = null;
     try {
+      const telegramMessageId = options.telegramMessageId ? String(options.telegramMessageId) : "";
+      const telegramUpdateId = options.telegramUpdateId ? String(options.telegramUpdateId) : "";
+      const idempotencyKey =
+        telegramUpdateId
+          ? `telegram_update_${telegramUpdateId}`
+          : telegramMessageId
+            ? `telegram_message_${chatId}_${telegramMessageId}`
+            : "";
+
       capture = await writeCapture(userId, {
+        idempotencyKey,
         source: "telegram",
         kind: "text_dump",
         rawText: cleaned,
@@ -773,6 +783,8 @@ async function handlePlainCapture(chatId, text) {
           via: "telegram-webhook",
           intake: "plain_text",
           intent: intent.intent,
+          telegramMessageId,
+          telegramUpdateId,
           taskText: intent.task_text || "",
           taskRef: intent.task_ref || "",
           urgency: intent.urgency || "",
@@ -788,7 +800,7 @@ async function handlePlainCapture(chatId, text) {
 
       await safeWriteTelegramLog({
         kind: "action",
-        action: "capture_created",
+        action: processing?.replayed || capture?.__reused ? "capture_reused" : "capture_created",
         chatId: String(chatId),
         captureId: capture.id,
         captureSource: "telegram",
@@ -1118,7 +1130,10 @@ module.exports = async function handler(req, res) {
     } else if (command === "/add") {
       await handleAdd(chatId, argText);
     } else if (text) {
-      await handlePlainCapture(chatId, text);
+      await handlePlainCapture(chatId, text, {
+        telegramMessageId: message?.message_id || null,
+        telegramUpdateId: update?.update_id || null,
+      });
     }
 
     try {

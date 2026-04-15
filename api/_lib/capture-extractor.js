@@ -1,5 +1,5 @@
 const { getDb, admin } = require("./firebase-admin");
-const { upsertCommitmentsFromExtraction } = require("./commitment-store");
+const { getCommitmentsByIds, upsertCommitmentsFromExtraction } = require("./commitment-store");
 
 const LIFE_AREA_RULES = [
   {
@@ -66,15 +66,6 @@ function capturesCol(userId) {
 
 function normalizeText(value = "") {
   return String(value).toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function slugify(value = "") {
-  return String(value)
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/[^\p{L}\p{N}]+/gu, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 60);
 }
 
 function uniqueBy(items = [], keyFn) {
@@ -220,20 +211,6 @@ function extractCapture(capture = {}) {
     sourceCaptureId: capture.id || null,
   }));
 
-  if (!commitments.length && rawText) {
-    const fallbackKey = slugify(rawText.split(/[,.!?\n]/)[0] || "general_context");
-    commitments.push({
-      tempKey: fallbackKey || "general_context",
-      title: rawText.slice(0, 80),
-      kind: "unknown",
-      whyMatters: "Нужно больше контекста, но это явно что-то, что пользователь посчитал важным.",
-      failureCost: "medium",
-      confidence: 0.35,
-      sourceCaptureId: capture.id || null,
-      keywordsMatched: [],
-    });
-  }
-
   return {
     extractorVersion: "heuristic_v1",
     extractedAt: Date.now(),
@@ -246,6 +223,17 @@ function extractCapture(capture = {}) {
 async function processCapture(userId, capture) {
   if (!capture?.id) {
     throw new Error("processCapture requires capture.id");
+  }
+
+  const existingCaptureSnap = await capturesCol(userId).doc(capture.id).get();
+  const existingCapture = existingCaptureSnap.exists ? (existingCaptureSnap.data() || {}) : null;
+
+  if (existingCapture?.status === "processed") {
+    return {
+      extraction: existingCapture.extraction || extractCapture(existingCapture),
+      commitments: await getCommitmentsByIds(userId, existingCapture.commitmentIds || []),
+      replayed: true,
+    };
   }
 
   const extraction = extractCapture(capture);
@@ -268,6 +256,7 @@ async function processCapture(userId, capture) {
   return {
     extraction,
     commitments,
+    replayed: false,
   };
 }
 
