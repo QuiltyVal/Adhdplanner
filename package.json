@@ -19,7 +19,7 @@
     "bootstrap": "bash scripts/bootstrap-machine.sh",
     "sync": "bash scripts/sync-local.sh",
     "verify": "DISABLE_ESLINT_PLUGIN=true npm run build",
-    "verify:server": "node --check api/_lib/planner-store.js && node --check api/_lib/commitment-store.js && node --check api/_lib/capture-extractor.js && node --check api/_lib/planner-action-executor.js && node --check api/telegram-webhook.js"
+    "verify:server": "node --check api/_lib/planner-store.js && node --check api/_lib/commitment-store.js && node --check api/_lib/capture-extractor.js && node --check api/_lib/telegram-task-memory.js && node --check api/_lib/planner-agent-router.js && node --check api/_lib/planner-action-executor.js && node --check api/telegram-webhook.js"
   },
   "browserslist": {
     "production": [

@@ -269,6 +269,13 @@ async function routePlannerAgentInput({ text, plannerData }) {
     rawText: cleaned,
   };
 
+  // Router stays pure on purpose: it classifies text, but it does not run
+  // capture/extraction side effects. Future callers that pipe add_task into the
+  // executor must attach memory enrichment separately first.
+  if (routed.type === "add_task") {
+    routed.requiresTaskMemoryEnrichment = true;
+  }
+
   if (routed.type === "chat" && !routed.replyText) {
     routed.replyText = "Сформулируй это как задачу, или просто напиши /today или /panic.";
   }

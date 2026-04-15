@@ -620,3 +620,20 @@ Entry template:
 - Risks / follow-up:
   - this only links memory on Telegram task create/update flows; web and MCP capture ingestion still do not enrich task docs
   - extractor-driven urgency fallback is now used where safe, but broader deadline/vital inference still mostly depends on explicit intent parsing
+
+## 2026-04-15 19:20 Europe/Berlin - Codex
+
+- Summary: Applied the smallest safe fix after skeptical review of the Telegram memory split: extracted the live webhook enrichment into a shared helper, marked the router contract honestly, and corrected docs that overstated router/executor readiness.
+- Changed:
+  - `api/_lib/telegram-task-memory.js` — new shared helper for Telegram capture processing and task-memory enrichment so the logic is no longer buried only inside the legacy webhook file
+  - `api/telegram-webhook.js` — now calls the shared helper but keeps the live behavior unchanged
+  - `api/_lib/planner-agent-router.js` — `add_task` routes now explicitly mark that they still require external memory enrichment before execution
+  - `package.json` — `verify:server` now syntax-checks the new helper and the router too
+  - `EXECUTION_PLAN.md` and `SESSION_HANDOFF.md` — corrected to say only the live inline webhook path is memory-enriched today; router/executor still needs an outer intake/enrichment step
+- Verified:
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - attempted full server module-load check, but local `Node v25.4.0` hits an old transitive dependency before repo code loads; `~/.nvm/nvm.sh` was not present here to retry under Node 24 from this shell
+- Risks / follow-up:
+  - this does not migrate Telegram traffic to `planner-agent-router` / `planner-action-executor`; it only removes the misleading split and makes the enrichment seam reusable
+  - there is still no automated behavioral test that proves memory enrichment survives a future router migration
