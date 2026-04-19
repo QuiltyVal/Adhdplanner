@@ -15,6 +15,7 @@ const {
   hasGoogleCalendarConnection,
 } = require("./google-calendar");
 const { getCommitmentsNeedingLiveTask } = require("./commitment-store");
+const { resolveDailyAngelDecision } = require("./angel-decision-store");
 
 function normalizeTaskText(text = "") {
   return String(text).trim().toLowerCase().replace(/\s+/g, " ");
@@ -360,6 +361,95 @@ function buildAngelReasonText(task = null) {
   return `🤖 Почему ангел выбрал это: ${escapeHtml(reason)}`;
 }
 
+function applyAngelPinsToTasks(tasks = [], decisionItems = [], options = {}) {
+  const now = Date.now();
+  const touchLastUpdated = Boolean(options.touchLastUpdated);
+  const byTaskId = new Map(
+    (Array.isArray(decisionItems) ? decisionItems : [])
+      .map((item) => [String(item?.taskId || "").trim(), item]),
+  );
+
+  let changed = false;
+  const nextTasks = (Array.isArray(tasks) ? tasks : []).map((task) => {
+    if (!task || task.status !== "active") return task;
+
+    const decision = byTaskId.get(String(task.id || ""));
+    if (decision) {
+      const nextReason = String(decision.angelReason || "").trim();
+      const nextScore = Number.isFinite(Number(decision.angelScore)) ? Number(decision.angelScore) : 0;
+      if (
+        task.angelPinned === true &&
+        String(task.angelReason || "") === nextReason &&
+        Number(task.angelScore || 0) === nextScore
+      ) {
+        return task;
+      }
+      changed = true;
+      return {
+        ...task,
+        angelPinned: true,
+        angelReason: nextReason,
+        angelScore: nextScore,
+        ...(touchLastUpdated ? { lastUpdated: now } : {}),
+      };
+    }
+
+    if (!task.angelPinned && !task.angelReason && Number(task.angelScore || 0) === 0) {
+      return task;
+    }
+    changed = true;
+    return {
+      ...task,
+      angelPinned: false,
+      angelReason: "",
+      angelScore: 0,
+      ...(touchLastUpdated ? { lastUpdated: now } : {}),
+    };
+  });
+
+  return { changed, tasks: nextTasks };
+}
+
+async function ensureDailyAngelPins(userId, plannerData, source = "telegram_today") {
+  const tasks = Array.isArray(plannerData?.tasks) ? plannerData.tasks : [];
+  const decision = await resolveDailyAngelDecision(userId, tasks, {
+    source,
+    maxPrimary: 2,
+  });
+
+  const localApplied = applyAngelPinsToTasks(tasks, decision.items, { touchLastUpdated: false });
+  if (!localApplied.changed) {
+    return {
+      plannerData,
+      decision,
+    };
+  }
+
+  await mutatePlanner(
+    userId,
+    (current) => {
+      const applied = applyAngelPinsToTasks(current.tasks, decision.items, { touchLastUpdated: true });
+      if (!applied.changed) return current;
+      return {
+        ...current,
+        tasks: applied.tasks,
+      };
+    },
+    {
+      source: "telegram",
+      reason: "angel_daily_pin_sync",
+    },
+  );
+
+  return {
+    plannerData: {
+      ...plannerData,
+      tasks: localApplied.tasks,
+    },
+    decision,
+  };
+}
+
 function buildCommitmentGapText(commitments = []) {
   if (!Array.isArray(commitments) || commitments.length === 0) return "";
 
@@ -476,7 +566,8 @@ async function executePlannerAction({
   }
 
   if (route.type === "show_today") {
-    const topTask = await sendTodayDigest(adapter, plannerData);
+    const { plannerData: plannerDataWithAngel } = await ensureDailyAngelPins(userId, plannerData, "show_today");
+    const topTask = await sendTodayDigest(adapter, plannerDataWithAngel);
     if (!topTask) return;
     await mutatePlanner(userId, (current) => ({
       ...current,
@@ -486,8 +577,8 @@ async function executePlannerAction({
       reason: "show_today",
     });
 
-    const activeTasks = Array.isArray(plannerData?.tasks)
-      ? plannerData.tasks.filter((task) => task?.status === "active")
+    const activeTasks = Array.isArray(plannerDataWithAngel?.tasks)
+      ? plannerDataWithAngel.tasks.filter((task) => task?.status === "active")
       : [];
     const todayTopTasks = sortTasksByPriority(activeTasks).slice(0, 3);
     const explicitImportant = sortTasksByPriority(

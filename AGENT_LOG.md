@@ -31,6 +31,21 @@ Entry template:
 
 ## 2026-04-19 Europe/Berlin - Codex
 
+- Summary: Added first working daily angel-decision persistence layer: `/today` now resolves/reuses a day decision document and syncs angel pin fields to active tasks.
+- Changed:
+  - `api/_lib/angel-decision-store.js` — new daily decision store in `Users/{uid}/angelDecisions/{dateKey}` with deterministic 1-2 task selection, reason, and score
+  - `api/_lib/planner-action-executor.js` — `show_today` now runs daily decision sync (`ensureDailyAngelPins`) before digest
+  - `api/_lib/planner-action-executor.js` — added shared pin applicator for active tasks (`angelPinned`, `angelReason`, `angelScore`)
+  - `api/_lib/planner-store.js` — priority score now includes `angelPinned` bonus, so angel-focused tasks stay visible
+  - `EXECUTION_PLAN.md` — Phase 5 marked in progress with implementation note
+- Verified:
+  - code integration + production deploy in this session
+- Risks / follow-up:
+  - override rules (deadline shock, completed pinned task, manual dismiss, emergency) are not implemented yet
+  - no separate scheduler yet; decision is refreshed lazily on `/today`
+
+## 2026-04-19 Europe/Berlin - Codex
+
 - Summary: Started Phase 4 angel-pin layer on server: tasks now support angel markers, and Telegram `/today` can surface angel-selected focus with explicit reason text.
 - Changed:
   - `api/_lib/planner-store.js` — added task fields `angelPinned`, `angelScore`, `angelReason` to `createTask(...)` and planner fingerprint normalization; mission selection now considers `angelPinned` after manual `isToday` shortlist

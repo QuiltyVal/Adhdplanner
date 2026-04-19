@@ -237,6 +237,7 @@ function getDeadlineInfo(task) {
 function getPriorityScore(task) {
   const deadlineScore = getDeadlineInfo(task)?.priorityScore || 0;
   const vitalScore = task?.isVital ? 160 : 0;
+  const angelPinnedScore = task?.angelPinned ? 110 : 0;
   const urgencyScore = task?.urgency === "high" ? 90 : task?.urgency === "medium" ? 45 : 0;
   const resistanceScore =
     task?.resistance === "high" ? 55 : task?.resistance === "medium" ? 25 : 0;
@@ -244,7 +245,7 @@ function getPriorityScore(task) {
   const heatScore = Math.max(0, 100 - getTaskHeat(task)) * 0.35;
   const staleScore = Math.min(40, Math.max(0, (Date.now() - (task?.lastUpdated || Date.now())) / DAY_MS) * 4);
 
-  return vitalScore + deadlineScore + urgencyScore + resistanceScore + todayScore + heatScore + staleScore;
+  return angelPinnedScore + vitalScore + deadlineScore + urgencyScore + resistanceScore + todayScore + heatScore + staleScore;
 }
 
 function sortTasksForMission(tasks = []) {

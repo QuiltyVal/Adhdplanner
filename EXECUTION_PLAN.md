@@ -165,7 +165,7 @@ Done when:
 
 Goal: make one stable daily decision instead of constantly re-deciding and thrashing.
 
-- [ ] Add `Users/{uid}/angelDecisions/{dateKey}` schema.
+- [~] Add `Users/{uid}/angelDecisions/{dateKey}` schema.
 - [ ] Generate at most 1-2 primary angel picks per day; 3 is the hard cap.
 - [ ] Persist reasons for each selected task.
 - [ ] Persist the outbound morning message body or message template inputs.
@@ -175,6 +175,10 @@ Goal: make one stable daily decision instead of constantly re-deciding and thras
   - completed angel task
   - user manual dismissal
   - emergency mode
+
+Notes:
+- As of 2026-04-19, server now writes/reuses `Users/{uid}/angelDecisions/{dateKey}` when `/today` runs and syncs `angelPinned/angelReason/angelScore` into active tasks.
+- Override rules and a dedicated scheduler are still pending.
 
 Done when:
 - the system can explain why it is pushing exactly these tasks today
