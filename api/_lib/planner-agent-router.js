@@ -26,7 +26,12 @@ function looksLikeSuggestUnpinRequest(text = "") {
 
 function looksLikeUnsetTodayRequest(text = "") {
   const lowered = String(text).toLowerCase();
-  return /(открепи|открепить|сними с сегодня|убери с сегодня|убрать с сегодня|снять с сегодня)/.test(lowered);
+  return /(сегодня|на сегодня)/.test(lowered) && /(открепи|открепить|сними|снять|убери|убрать)/.test(lowered);
+}
+
+function looksLikeUnsetVitalRequest(text = "") {
+  const lowered = String(text).toLowerCase();
+  return /(сними|снять|убери|убрать|без|не).*(критич|критичност|жизненн|важн|срочн)/.test(lowered);
 }
 
 function extractTaskNameForCompletion(text = "") {
@@ -61,12 +66,24 @@ function extractTaskNameForUnsetToday(text = "") {
   return cleaned;
 }
 
+function extractTaskNameForUnsetVital(text = "") {
+  const quoted = extractQuotedSegments(text);
+  if (quoted.length > 0) return quoted[0];
+
+  return String(text)
+    .replace(/^(ну\s+)?/iu, "")
+    .replace(/^(сними|снять|убери|убрать|сделай\s+не)\s+/iu, "")
+    .replace(/(?:^|\s)(критичност[ьи]?|критичн(?:ость|ую|ый|ой)?|жизненн(?:ую|ый|ой)?\s+важн(?:ость|ую|ый|ой)?|срочн(?:ость|ую|ый|ой)?)(?=\s|$)/giu, " ")
+    .replace(/(?:^|\s)(у|для|в)(?=\s|$)/giu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function looksLikeTodaySelectionReply(text = "") {
   const lowered = String(text).toLowerCase().trim();
   return (
-    /^(давай|тогда|ок|ладно|хорошо)(\s|$)/u.test(lowered) ||
-    /^(последн|перв|втор|треть|эту|эту давай|ее|её)(\s|$)/u.test(lowered) ||
-    /^нет(\s|$)/u.test(lowered)
+    /^(давай|тогда|ок|ладно|хорошо|нет)[.!?]?$/u.test(lowered) ||
+    /^(давай\s+)?(последнюю|первую|вторую|третью|эту|ее|её)[.!?]?$/u.test(lowered)
   );
 }
 
@@ -171,78 +188,6 @@ async function routePlannerAgentInput({ text, plannerData }) {
 
   if (cleaned.startsWith("/")) {
     return { type: "unknown_command", rawText: cleaned };
-  }
-
-  const deleteSubtaskRequest = parseDeleteSubtaskRequest(cleaned);
-  if (deleteSubtaskRequest) {
-    return {
-      type: "delete_subtask",
-      taskText: deleteSubtaskRequest.taskText,
-      subtaskText: deleteSubtaskRequest.subtaskText,
-      source: "explicit_rule",
-      rawText: cleaned,
-    };
-  }
-
-  const addSubtaskRequest = parseAddSubtaskRequest(cleaned);
-  if (addSubtaskRequest) {
-    return {
-      type: "add_subtask",
-      taskText: addSubtaskRequest.taskText,
-      subtaskText: addSubtaskRequest.subtaskText,
-      source: "explicit_rule",
-      rawText: cleaned,
-    };
-  }
-
-  if (looksLikeReopenRequest(cleaned)) {
-    return {
-      type: "reopen_task",
-      taskRef: extractTaskNameForReopen(cleaned),
-      source: "explicit_rule",
-      rawText: cleaned,
-    };
-  }
-
-  if (
-    looksLikeSuggestUnpinRequest(cleaned) ||
-    (plannerData?.telegramContext?.lastAction === "today_limit" && /предложи|какую|что/i.test(cleaned))
-  ) {
-    return {
-      type: "suggest_unpin",
-      source: "explicit_rule",
-      rawText: cleaned,
-    };
-  }
-
-  if (
-    ["today_limit", "suggest_unpin_today"].includes(plannerData?.telegramContext?.lastAction || "") &&
-    looksLikeTodaySelectionReply(cleaned)
-  ) {
-    return {
-      type: "unset_today",
-      taskRef: extractTaskNameForTodaySelection(cleaned),
-      source: "selection_context",
-      rawText: cleaned,
-    };
-  }
-
-  if (looksLikeUnsetTodayRequest(cleaned)) {
-    return {
-      type: "unset_today",
-      taskRef: extractTaskNameForUnsetToday(cleaned),
-      source: "explicit_rule",
-      rawText: cleaned,
-    };
-  }
-
-  if (looksLikeCompleteRequest(cleaned)) {
-    return {
-      type: "complete_task",
-      taskRef: extractTaskNameForCompletion(cleaned),
-      source: "explicit_rule",
-      rawText: cleaned,
-    };
   }
 
   const intent = await parseTelegramIntent({

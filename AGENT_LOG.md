@@ -29,6 +29,87 @@ Entry template:
   - open issue
 ```
 
+## 2026-04-19 Europe/Berlin - Codex
+
+- Summary: Switched Angel Lab default behavior to simple brain-dump mode (`dump -> create cards`) so it focuses on turning chaotic text into clear new tasks without merge complexity.
+- Changed:
+  - `api/captures.js` — added default mode switch `ANGEL_LAB_MODE` (`simple` by default, `smart` opt-in)
+  - `api/captures.js` — added `buildSimpleBrainDumpTaskCards(...)` path using deterministic parsing + actionable filtering + near-duplicate suppression
+  - `api/captures.js` — in `simple` mode disabled smart merge/classification + AI subtask enrichment + create preselection pipeline (returns plain create cards)
+- Verified:
+  - code integration only; no tests in this session
+- Risks / follow-up:
+  - simple mode intentionally does not merge into existing tasks; if needed later, keep it in optional `smart` mode only
+
+## 2026-04-19 Europe/Berlin - Codex
+
+- Summary: Added beta auto-preselection for `create` Angel Lab cards so 1-2 strongest subtasks are selected by default, while keeping an instant rollback switch.
+- Changed:
+  - `api/captures.js` — added `applyCreateCardSubtaskPreselection(...)` after server card enrichment; applies only to `mode: "create"` cards and selects up to 2 highest-confidence subtasks
+  - `api/captures.js` — added env flag `ANGEL_LAB_CREATE_AUTO_PRESELECT` (`"1"` default enabled, set `"0"` to disable and return to strict manual selection)
+- Verified:
+  - code integration only; no tests and no deploy in this session
+- Risks / follow-up:
+  - if low-confidence AI subtasks still feel noisy, raise threshold (`CREATE_CARD_AUTO_PRESELECT_MIN_CONFIDENCE`) or disable with env flag
+
+## 2026-04-18 Europe/Berlin - Codex
+
+- Summary: Added transparent capture-enrichment reporting so Angel Lab can tell the user which existing tasks were updated and which fields changed after saving a dump.
+- Changed:
+  - `api/_lib/capture-extractor.js` — `taskEnrichment` now includes `updatedTasks[]` with task text and changed field keys (`urgency`, `resistance`, `isVital`, `deadlineAt`, `lifeArea`, `commitmentIds`)
+  - `src/App.js` — Angel Lab success status now shows human-readable update details (`Обновила N задач: ...`) based on server enrichment output
+- Verified:
+  - code integration only; no tests and no deploy in this session
+- Risks / follow-up:
+  - enrichment messages can be long when many tasks are updated; UI currently truncates by showing top 3 and `+N`
+
+## 2026-04-18 Europe/Berlin - Codex
+
+- Summary: Stabilized Angel Lab extraction quality and then moved to the next plan item by adding safe web-capture hint upsert into active tasks via server-domain mutation path.
+- Changed:
+  - `api/_lib/capture-extractor.js` — added conservative extraction->task enrichment pass (`applyExtractionTaskHints`) with fuzzy matching guardrails, safe field merges (`urgency`, `resistance`, `isVital`, `deadlineAt`, `lifeArea`, `commitmentIds`), and `mutatePlanner` stale-safe writes
+  - `api/captures.js` — now returns `taskEnrichment` summary from capture processing
+  - `EXECUTION_PLAN.md` — added Phase 2 note about safe web capture hint upsert and clarified remaining scope (MCP enrichment still pending)
+  - `SESSION_HANDOFF.md` — documented new capture->task enrichment behavior
+- Verified:
+  - code integration only; no tests and no deploy in this session
+- Risks / follow-up:
+  - enrichment currently updates only existing active tasks; it does not create tasks (intentional)
+  - matching is conservative by design and may skip ambiguous captures; MCP-originated capture enrichment remains TODO
+
+## 2026-04-18 Europe/Berlin - Codex
+
+- Summary: Added a cross-platform planner action API layer so future Android/iOS (and web thin clients) can execute the same server/domain action contract as Telegram, with Firebase-authenticated client access.
+- Changed:
+  - `api/planner-client-actions.js` — new `POST /api/planner-client-actions` endpoint (Firebase bearer auth, action validation, shared action execution, optional state response)
+  - `api/_lib/planner-actions-runtime.js` — new shared runtime helper for body parsing, flag parsing, adapter capture, and `executePlannerAction` orchestration
+  - `api/planner-actions.js` — refactored to reuse shared runtime helper (secret-based server-to-server path preserved)
+  - `api/_lib/planner-contract.js` — expanded allowed action set (`show_completed`, `panic_task`, `unset_vital`) to match executor capabilities
+  - `EXECUTION_PLAN.md` — marked cross-platform boundary item done and added notes about new client/server action endpoints
+  - `SESSION_HANDOFF.md` — updated Telegram route-executor status and documented new planner action API surfaces
+- Verified:
+  - code integration only; no tests and no deploy in this session
+- Risks / follow-up:
+  - web UI still has local direct task mutations; to complete thin-client migration, progressively move those paths behind planner action API calls
+  - client endpoint currently accepts explicit `userId` only when it matches auth uid; multi-user admin scopes are intentionally not supported yet
+
+## 2026-04-15 Europe/Berlin - Codex
+
+- Summary: Added web captures end-to-end (UI + API) as append-only brain-dump intake into canonical `Users/{uid}/captures` storage, and aligned the endpoint with existing capture contract.
+- Changed:
+  - `src/App.js` — added `Выгрузить из головы` action and modal wiring
+  - `src/App.css` — added launch-button styles for capture action in header
+  - `src/CaptureComposer.js` + `src/CaptureComposer.css` — new capture modal UI and interaction states
+  - `api/captures.js` — new `POST /api/captures` endpoint with payload validation
+  - `api/_lib/capture-store.js` — append helper now reuses `writeCapture(...)` contract from planner-store
+  - `EXECUTION_PLAN.md` — marked web append-only capture intake as done
+  - `SESSION_HANDOFF.md` — recorded web capture intake in memory groundwork
+- Verified:
+  - code integration only; no tests and no deploy in this session
+- Risks / follow-up:
+  - endpoint currently uses `PLANNER_DEFAULT_USER_ID`; add authenticated user resolution when auth/session layer is exposed server-side
+  - extraction is still asynchronous/not wired as immediate response in `/api/captures`
+
 ## 2026-04-15 Europe/Berlin - Codex
 
 - Summary: Added a portable multi-machine / multi-agent repo wrapper so the project can be developed comfortably from both home and office without depending on one hardcoded Mac path.
@@ -652,3 +733,69 @@ Entry template:
 - Risks / follow-up:
   - slash commands and callback-button flows still duplicate part of the old webhook behavior
   - there is still no automated behavioral Telegram test, so this is verified structurally/build-wise rather than by end-to-end bot replay
+
+## 2026-04-18 20:10 Europe/Berlin - Codex
+
+- Summary: Closed the next memory-roadmap gap: capture suggestions are now replay-safe against already-active tasks, and `/today` now explicitly warns about important commitments that have no live next step for too long.
+- Changed:
+  - `api/captures.js` — added active-task aware suggestion filtering (`filterSuggestionsAgainstActiveTasks`) so repeated extraction runs stop proposing duplicates that already exist in active tasks
+  - `api/captures.js` — response now includes `extractionReplayed` to expose when extraction came from an already-processed capture
+  - `api/_lib/commitment-store.js` — added `getCommitmentsNeedingLiveTask(...)` to detect active high-cost commitments with no linked active task past `needsTaskIfSilentDays`
+  - `api/_lib/planner-action-executor.js` — `show_today` now calls that commitment-gap detector and sends an explicit follow-up message when such obligations exist
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md` — marked/recorded the two roadmap points as landed
+- Verified:
+  - not run (by request in this session: no extra validation pass unless explicitly asked)
+- Risks / follow-up:
+  - commitment surfacing currently only runs on `show_today`; it may need expansion to morning/evening nudge jobs later
+  - suggestion de-duplication currently uses text similarity heuristics, so edge cases with very short/ambiguous task text may still need tuning
+
+## 2026-04-18 20:45 Europe/Berlin - Codex
+
+- Summary: Reworked Angel Lab output UX to “one main task + optional steps”, and updated Telegram `/today` so “important now” is always explicit (not only when a stale-commitment alert triggers).
+- Changed:
+  - `src/App.js` — Angel Lab save/result shaping now creates one `main` suggestion plus `step` suggestions; added handlers for toggling optional steps and adding either main-only or main+selected-steps
+  - `src/App.js` — `handleAddTask()` now accepts optional `subtasks` array on creation
+  - `src/AngelLabScreen.js` — replaced per-row “add” UX with:
+    - main task card
+    - optional step checkboxes
+    - two explicit actions: “Добавить только задачу” / “Добавить с шагами”
+  - `src/AngelLabScreen.css` — added styles for main card, step checklist, and dual action buttons
+  - `api/_lib/planner-action-executor.js` — `/today` now always sends “⭐ Важное сейчас” and then:
+    - stale important commitment warning when needed, or
+    - explicit “всё под контролем” message when no gap is detected
+- Verified:
+  - not run (per current session rule: no extra validation/test pass unless explicitly requested)
+- Risks / follow-up:
+  - the “important now” block in Telegram is intentionally verbose now; if it feels noisy in real use, it can be condensed into one combined digest message
+
+## 2026-04-18 21:05 Europe/Berlin - Codex
+
+- Summary: Fixed two UX regressions from the first rollout: Angel Lab main-vs-steps confusion and duplicate-feeling wording in `/today`.
+- Changed:
+  - `src/App.js` — added suggestion normalization helpers to keep Angel suggestions anchored to the user dump, choose a stable main suggestion, and filter near-duplicate step suggestions against main task text
+  - `api/_lib/planner-action-executor.js` — when “important now” matches the same top tasks already shown above, bot now sends a short reference (“это пункты 1 и 2 из списка выше”) instead of repeating task names
+- Verified:
+  - not run (per current session rule: no extra validation/test pass unless explicitly requested)
+- Risks / follow-up:
+  - suggestion quality still depends on upstream extraction candidates; if creative drift remains in edge cases, next step is to add explicit “strict mode” knob for Angel extraction prompt
+
+## 2026-04-18 21:20 Europe/Berlin - Codex
+
+- Summary: Applied a second pass after live user screenshots: recovered step generation when the model returns too few candidates, and de-cluttered `/today` by removing the extra “all good” status line.
+- Changed:
+  - `src/App.js` — added `buildAngelLabStepFallbackFromDump(...)` and merged fallback clauses into step suggestions when server/model output is sparse
+  - `api/_lib/planner-action-executor.js` — kept “important now” compact and removed the additional green confirmation message when no commitment gap exists
+- Verified:
+  - not run (per current session rule: no extra validation/test pass unless explicitly requested)
+
+## 2026-04-18 21:55 Europe/Berlin - Codex
+
+- Summary: Switched Angel Lab from single-card mode back to multi-task cards with per-task optional subtasks, and removed duplicate-feeling “important now” repeat in Telegram when it mirrors the top list.
+- Changed:
+  - `src/App.js` — implemented task-card builder pipeline (`buildAngelLabTaskCards`) from dump + suggestions, with deterministic split by action starters and task/step separation by keyword overlap
+  - `src/App.js` — replaced global main/steps handlers with per-card actions: add task only, add task with selected steps, toggle step, dismiss card
+  - `src/AngelLabScreen.js` — UI now renders multiple task cards, each with its own optional steps and controls
+  - `src/AngelLabScreen.css` — added card-list and dismiss-button styles for multi-card mode
+  - `api/_lib/planner-action-executor.js` — `show_today` now suppresses the extra “important now” block when it duplicates the same top tasks already listed in the main digest
+- Verified:
+  - not run (per current session rule: no extra validation/test pass unless explicitly requested)

@@ -1,0 +1,364 @@
+.angel-lab-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: radial-gradient(circle at 50% 20%, rgba(255, 222, 99, 0.18), rgba(5, 5, 9, 0.96) 55%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.angel-lab-shell {
+  width: min(880px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  border: 2px solid #3f3f46;
+  background: rgba(9, 9, 11, 0.88);
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.6);
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+  position: relative;
+}
+
+.angel-lab-close {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 38px;
+  height: 38px;
+  border: 2px solid #52525b;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4f4f5;
+  cursor: pointer;
+}
+
+.angel-lab-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.angel-lab-hero {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.angel-lab-image {
+  width: min(330px, 72vw);
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 22px rgba(248, 223, 120, 0.24));
+}
+
+.angel-lab-mic {
+  border: 2px solid #facc15;
+  background: rgba(250, 204, 21, 0.1);
+  color: #fde68a;
+  min-height: 38px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.angel-lab-mic.busy {
+  animation: angel-pulse 1s ease-in-out infinite;
+}
+
+.angel-lab-title {
+  margin: 0;
+  color: #fef08a;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.angel-lab-subtitle {
+  margin: 0;
+  color: #e4e4e7;
+  font-size: 1rem;
+}
+
+.angel-lab-mic-note {
+  margin: 0;
+  color: #fde68a;
+  font-size: 0.9rem;
+}
+
+.angel-lab-textarea {
+  width: 100%;
+  min-height: 190px;
+  border: 2px solid #52525b;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fafafa;
+  padding: 12px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.angel-lab-textarea:focus {
+  outline: none;
+  border-color: #facc15;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.16);
+}
+
+.angel-lab-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.angel-lab-btn {
+  border: 2px solid #52525b;
+  min-height: 42px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.angel-lab-btn.secondary {
+  background: rgba(255, 255, 255, 0.04);
+  color: #fafafa;
+}
+
+.angel-lab-btn.primary {
+  background: rgba(250, 204, 21, 0.14);
+  border-color: #facc15;
+  color: #fde68a;
+}
+
+.angel-lab-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.angel-lab-status {
+  font-size: 0.95rem;
+  color: #d4d4d8;
+}
+
+.angel-lab-status.success {
+  color: #86efac;
+}
+
+.angel-lab-status.error {
+  color: #fca5a5;
+}
+
+.angel-lab-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.angel-lab-column {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.angel-lab-column-title {
+  margin: 0;
+  color: #fde68a;
+  font-size: 0.92rem;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.angel-lab-empty {
+  margin: 0;
+  color: #a1a1aa;
+  font-size: 0.92rem;
+}
+
+.angel-lab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.angel-lab-list-item {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px;
+  color: #f4f4f5;
+  font-size: 0.93rem;
+  line-height: 1.35;
+}
+
+.angel-lab-list-item.task {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.angel-lab-main-card {
+  border: 1px solid rgba(250, 204, 21, 0.38);
+  background: rgba(250, 204, 21, 0.08);
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.angel-lab-main-label {
+  color: #fef08a;
+  font-size: 0.82rem;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.angel-lab-main-text {
+  color: #f8fafc;
+  font-size: 0.96rem;
+  line-height: 1.4;
+}
+
+.angel-lab-step-summary {
+  color: #86efac;
+  font-size: 0.8rem;
+}
+
+.angel-lab-main-badge {
+  width: fit-content;
+  border: 1px solid #16a34a;
+  background: rgba(22, 163, 74, 0.16);
+  color: #86efac;
+  font-size: 0.78rem;
+  padding: 2px 8px;
+}
+
+.angel-lab-suggestion-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.angel-lab-task-card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.angel-lab-task-card {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.angel-lab-task-card.is-added {
+  border-color: rgba(22, 163, 74, 0.4);
+}
+
+.angel-lab-dismiss-btn {
+  border: 1px solid #71717a;
+  background: rgba(255, 255, 255, 0.03);
+  color: #d4d4d8;
+  min-height: 30px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.angel-lab-dismiss-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.angel-lab-step-list {
+  gap: 6px;
+}
+
+.angel-lab-step-empty {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.angel-lab-step-item.added {
+  border-color: rgba(22, 163, 74, 0.4);
+}
+
+.angel-lab-step-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.angel-lab-step-row input[type="checkbox"] {
+  margin-top: 2px;
+  accent-color: #facc15;
+}
+
+.angel-lab-add-btn {
+  border: 1px solid #facc15;
+  background: rgba(250, 204, 21, 0.14);
+  color: #fde68a;
+  min-height: 30px;
+  padding: 4px 8px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.angel-lab-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.angel-lab-add-btn.added {
+  border-color: #16a34a;
+  background: rgba(22, 163, 74, 0.16);
+  color: #86efac;
+}
+
+.angel-lab-processing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fde68a;
+  font-size: 0.94rem;
+}
+
+.angel-lab-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #facc15;
+  animation: angel-pulse 1s ease-in-out infinite;
+}
+
+@keyframes angel-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.35); }
+  70% { box-shadow: 0 0 0 10px rgba(250, 204, 21, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+}
+
+@media (max-width: 600px) {
+  .angel-lab-shell {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .angel-lab-title {
+    font-size: 0.86rem;
+  }
+
+  .angel-lab-actions {
+    justify-content: stretch;
+  }
+
+  .angel-lab-btn {
+    flex: 1 1 120px;
+  }
+
+  .angel-lab-columns {
+    grid-template-columns: 1fr;
+  }
+}

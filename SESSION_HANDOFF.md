@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md
 
-Last updated: 2026-04-15
+Last updated: 2026-04-19
 
 This file exists so the project can survive context loss and switching between Codex, Claude, or another coding agent.
 
@@ -27,6 +27,7 @@ Companion file:
 - As of 2026-04-15, the repo has a dedicated execution tracker in `EXECUTION_PLAN.md`.
 - As of 2026-04-15, foundational storage boundaries for the angel layer are documented in `ANGEL_ARCHITECTURE.md`.
 - As of 2026-04-15, Telegram plain-text intake creates append-only `Users/{uid}/captures/{captureId}` documents for open-ended text / new-task text before continuing normal intent handling.
+- As of 2026-04-15, web planner intake also supports append-only captures via `POST /api/captures`, writing into the same `Users/{uid}/captures/{captureId}` schema.
 - As of 2026-04-15, those Telegram captures are immediately post-processed by a first-pass heuristic extractor into:
   - `commitments`
   - `candidateTasks`
@@ -42,7 +43,14 @@ Companion file:
 - As of 2026-04-15, Telegram capture creation is idempotent by Telegram message/update identity, so webhook retries should not inflate commitment counters.
 - As of 2026-04-15, the extractor no longer fabricates fallback commitments from arbitrary unmatched text.
 - As of 2026-04-15, live plain-text Telegram now runs through `planner-agent-router -> telegram-task-memory -> planner-action-executor`, and that path attaches `lifeArea` and `commitmentIds` to canonical task docs.
-- Slash commands and callback-button flows in `api/telegram-webhook.js` still use local handlers; only plain-text Telegram is on the shared route/executor path today.
+- As of 2026-04-16/18, Telegram plain text, slash commands, and callback-button flows all execute through the shared `route -> planner-action-executor` path (transport-only handlers remain for `/start` and `/calendar`).
+- As of 2026-04-18, first-party authenticated clients can use `POST /api/planner-client-actions` (Firebase bearer token) to run the same server-side planner actions, with optional returned planner state for mobile/web thin clients.
+- As of 2026-04-18, server-to-server automation keeps using `POST /api/planner-actions` (secret auth), now backed by the same runtime helper as client actions.
+- As of 2026-04-18, `POST /api/captures` now filters returned task suggestions against currently active planner tasks, so replaying/repeating extraction does not keep surfacing already-live duplicates.
+- As of 2026-04-18, `processCapture` now also applies a conservative safe-upsert pass over existing active tasks for web capture flow, enriching hints (`urgency`, `resistance`, `isVital`, `deadlineAt`, `lifeArea`, `commitmentIds`) through `mutatePlanner` with stale-write protection.
+- As of 2026-04-18, `/today` now can surface high-cost commitments that have no active linked next step for too long (`needsTaskIfSilentDays` rule).
+- As of 2026-04-19, Angel Lab `create` cards auto-preselect up to 1-2 highest-confidence subtasks by default (beta); quick rollback switch is env `ANGEL_LAB_CREATE_AUTO_PRESELECT=0`.
+- As of 2026-04-19, Angel Lab default mode is `simple` (brain-dump to new create-cards only, no merge logic); optional smart mode remains available via env `ANGEL_LAB_MODE=smart`.
 - This is only the first ingestion slice:
   - no daily angel decision job yet
   - task enrichment exists only for Telegram task create/update flows, not for web or MCP capture paths yet
@@ -52,6 +60,7 @@ Companion file:
 
 - The project is actively used by a real user, not just as a prototype.
 - Stability matters more than adding flashy features.
+- Cross-platform direction is now explicit: future Android and iOS clients are planned, so business logic must stay in shared server/domain layers, not in web-only React UI handlers.
 - Data loss already happened once because stale local web state overwrote newer Firestore data.
 - Firestore still contains two task representations:
   - legacy array field `Users/<uid>.tasks` kept only as rollback safety
@@ -109,7 +118,7 @@ Important:
 
 1. Telegram NLP still needs real-world testing.
    - The bot now has more context, but natural language can still misfire.
-   - Live plain-text Telegram now goes through `planner-agent-router -> telegram-task-memory -> planner-action-executor`, but slash commands and callback-button flows still remain in local webhook handlers.
+   - Telegram flows now share one action-executor path, but intent quality still needs ongoing prompt/routing tuning with real messages.
 
 2. Cron nudges are still on Vercel.
    - Timing is not trustworthy to the exact minute.

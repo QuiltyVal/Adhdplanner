@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>ADHD Planner · Board</title>
+<meta name="theme-color" content="#F2ECDC" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================
+     ADHD Planner — scrapbook / paper, mobile-first
+     Same tokens as the login page.
+  ========================================================== */
+  :root{
+    --paper:       #F2ECDC;
+    --paper-card:  #FCF7E7;
+    --paper-warm:  #F7ECC9;
+    --paper-dark:  #E7DEC5;
+    --ink:         #1C1A15;
+    --ink-soft:    #4A453A;
+    --ink-muted:   #7A7366;
+    --line:        #1C1A1520;
+    --line-strong: #1C1A1540;
+
+    --tape-pink:   #F2A5B3;
+    --tape-blue:   #98BFD9;
+    --tape-yellow: #F2D27A;
+    --tape-mint:   #A9D3B4;
+
+    --marker-red:  #E63946;
+    --marker-blue: #2E58FC;
+    --marker-yel:  #F9E03B;
+    --marker-grn:  #1F7A3A;
+
+    --serif: "Instrument Serif", Georgia, serif;
+    --sans:  "Inter", system-ui, -apple-system, sans-serif;
+    --mono:  "JetBrains Mono", ui-monospace, monospace;
+    --hand:  "Caveat", cursive;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    min-height:100svh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    background-image:
+      radial-gradient(900px 700px at 10% 0%, #00000010, transparent 60%),
+      radial-gradient(900px 700px at 100% 100%, #00000018, transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.11  0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* ======= Phone frame (demo) ======= */
+  .stage{
+    min-height:100svh;
+    display:flex; align-items:flex-start; justify-content:center;
+    padding: 28px 16px 48px;
+  }
+  .phone{
+    width: 390px; max-width: 100%;
+    background: var(--paper);
+    border: 1.25px solid var(--ink);
+    border-radius: 36px;
+    overflow: hidden;
+    position: relative;
+    box-shadow:
+      0 1px 0 #fff6 inset,
+      0 20px 0 -14px #0002,
+      0 40px 60px -30px #0003;
+  }
+
+  /* status bar */
+  .status{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 12px 22px 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink);
+    letter-spacing:.04em;
+  }
+  .status .dots{ display:flex; gap:3px; }
+  .status .dots i{ width:3px; height:3px; background: var(--ink); border-radius:50%; display:block; }
+
+  /* ======= HEADER with mascots ======= */
+  .header{
+    position: relative;
+    padding: 4px 18px 14px;
+  }
+  .header::after{
+    content:""; position:absolute; left:18px; right:18px; bottom:0;
+    border-bottom: 1px dashed var(--line-strong);
+  }
+
+  .brandrow{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    gap:10px;
+  }
+  .brand{
+    font-family: var(--mono); font-size:11px; letter-spacing:.18em;
+    color: var(--ink-soft); text-transform:uppercase;
+    display:flex; align-items:center; gap:8px;
+  }
+  .brand .mark{
+    width: 18px; height: 18px; border:1.25px solid var(--ink);
+    display:inline-flex; align-items:center; justify-content:center;
+    font-family: var(--serif); font-style: italic; font-size:12px; line-height:1;
+  }
+  .brand b{ font-weight:600; color: var(--ink); letter-spacing:.14em; }
+
+  .date{
+    font-family: var(--mono); font-size:10px; letter-spacing:.18em;
+    color: var(--ink-muted); text-transform:uppercase;
+  }
+
+  .hello{
+    margin-top: 16px;
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap: 10px;
+  }
+  .hello h1{
+    font-family: var(--serif); font-style: italic; font-weight:400;
+    font-size: 44px; line-height:.95; letter-spacing:-.015em;
+    margin: 0; color: var(--ink);
+  }
+  .hello h1 .plain{ font-style: normal; }
+  .hello .bolts{
+    font-family: var(--mono); font-size: 12px;
+    color: var(--marker-red); letter-spacing:.05em;
+    white-space: nowrap; padding-bottom: 6px;
+  }
+  .hello .bolts b{ color: var(--ink); font-weight:600; }
+
+  /* Mascots — anchor the whole screen */
+  .mascots{
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .mascot{
+    position:absolute;
+    width: 82px; height: 82px;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events: auto;
+    cursor: pointer;
+    transition: transform .25s ease;
+  }
+  .mascot img{
+    width: 100%; height: 100%;
+    object-fit: contain;
+    image-rendering: -webkit-optimize-contrast;
+    filter: drop-shadow(0 2px 0 rgba(0,0,0,.08));
+  }
+  .mascot.angel{
+    top: 46px; left: -6px;
+    transform: rotate(-6deg);
+  }
+  .mascot.devil{
+    top: 46px; right: -6px;
+    transform: rotate(6deg);
+  }
+  .mascot.angel:hover{ transform: rotate(-3deg) translateY(-2px); }
+  .mascot.devil:hover{ transform: rotate(3deg)  translateY(-2px); }
+  /* Label under each mascot */
+  .mascot .whisper{
+    position:absolute;
+    bottom:-14px; left:50%; transform:translateX(-50%) rotate(-3deg);
+    font-family: var(--hand); font-size:16px; line-height:1;
+    color: var(--ink-soft);
+    white-space:nowrap;
+    pointer-events:none;
+  }
+  .mascot.devil .whisper{ transform:translateX(-50%) rotate(3deg); color: var(--marker-red); }
+
+  /* reserve vertical space under mascots so the hello row doesn't collide */
+  .header .hello{ margin-top: 110px; padding: 0 6px; }
+
+  /* ======= TODAY MISSION (hero card) ======= */
+  .mission{
+    margin: 18px 18px 22px;
+    position: relative;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 4px;
+    padding: 22px 20px 20px;
+    box-shadow: 6px 6px 0 -1px #1c1a1518;
+    transform: rotate(-.35deg);
+  }
+  .mission .tape{
+    position:absolute; top:-10px; left: 40px;
+    width: 110px; height: 22px;
+    background: var(--tape-pink);
+    transform: rotate(-3deg);
+    opacity:.95;
+    mix-blend-mode: multiply;
+    box-shadow: 0 1px 0 #00000010;
+  }
+  .mission .tape::before, .mission .tape::after{
+    content:""; position:absolute; top:0; bottom:0; width:6px;
+    background: repeating-linear-gradient( 90deg, transparent 0 2px, #0000000d 2px 4px);
+  }
+  .mission .tape::before{ left:0; } .mission .tape::after{ right:0; }
+
+  .mission .kicker{
+    font-family: var(--mono); font-size:10px; letter-spacing:.22em;
+    color: var(--ink-soft); text-transform:uppercase;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .mission .kicker .cta{
+    font-family: var(--mono); font-size:10px; letter-spacing:.18em;
+    color: var(--marker-red);
+  }
+  .mission h2{
+    font-family: var(--serif); font-style: italic; font-weight:400;
+    font-size: 34px; line-height:1.02; letter-spacing:-.015em;
+    margin: 10px 0 10px;
+  }
+  .mission h2 .plain{ font-style: normal; }
+  .mission .caption{
+    font-family: var(--hand); font-size: 20px; line-height:1.05;
+    color: var(--ink-soft); transform: rotate(-.5deg);
+    margin-top: 2px;
+  }
+  .mission .meta{
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px dashed var(--line-strong);
+    display:flex; justify-content:space-between; align-items:center;
+    font-family: var(--mono); font-size:11px; color: var(--ink-soft);
+    letter-spacing:.08em;
+  }
+  .mission .meta b{ color: var(--ink); font-weight:600; }
+  .mission .meta .arr{ font-family: var(--serif); font-style:italic; font-size: 18px; color: var(--ink); }
+
+  /* ======= INDEX TABS ======= */
+  .tabs{
+    margin: 0 18px 10px;
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--line-strong);
+    padding-bottom: 8px;
+  }
+  .tab{
+    font-family: var(--mono); font-size: 11px; letter-spacing:.12em;
+    color: var(--ink-muted); text-transform: uppercase;
+    padding: 4px 0;
+    background: transparent; border: 0;
+    cursor: pointer;
+  }
+  .tab.active{
+    color: var(--ink);
+    border-bottom: 2px solid var(--marker-red);
+    padding-bottom: 6px;
+    margin-bottom: -9px;
+  }
+  .tab.active .num{ color: var(--ink); }
+  .tab .num{
+    font-family: var(--serif); font-style: italic; font-size: 15px;
+    color: var(--ink-muted);
+    margin-left: 4px;
+    letter-spacing: 0;
+  }
+
+  /* subtabs — very light */
+  .sub{
+    margin: 10px 18px 6px;
+    display:flex; gap: 16px;
+    font-family: var(--mono); font-size:10px; letter-spacing:.18em;
+    color: var(--ink-muted); text-transform:uppercase;
+  }
+  .sub .on{ color: var(--ink); }
+  .sub .on::after{
+    content:""; display:block; height:1px; background: var(--ink);
+    margin-top: 3px;
+  }
+
+  /* ======= TASK CARDS ======= */
+  .list{
+    padding: 6px 18px 24px;
+    display:flex; flex-direction:column; gap: 14px;
+  }
+
+  .card{
+    position: relative;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    padding: 16px 16px 14px;
+    box-shadow: 4px 4px 0 -1px #1c1a1518;
+  }
+  .card.rot-a{ transform: rotate(-.3deg); }
+  .card.rot-b{ transform: rotate(.25deg); }
+
+  .card .idx{
+    font-family: var(--mono); font-size: 10px; letter-spacing:.2em;
+    color: var(--ink-muted); text-transform:uppercase;
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom: 8px;
+  }
+  .card .idx .chip{
+    font-family: var(--mono); font-size: 10px; letter-spacing:.14em;
+    padding: 2px 8px 1px;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+    color: var(--ink);
+    text-transform: uppercase;
+    border-radius: 2px;
+  }
+  .card .idx .chip.hot{ background: var(--marker-red); color: #fff; border-color: var(--marker-red); }
+
+  .card h3{
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 24px; line-height: 1.08; letter-spacing:-.01em;
+    margin: 0 0 8px;
+    color: var(--ink);
+  }
+  .card h3 .plain{ font-style: normal; }
+
+  .card .foot{
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px dashed var(--line-strong);
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em;
+    color: var(--ink-soft); text-transform: uppercase;
+  }
+  .card .foot .pulse{
+    display:flex; align-items:center; gap:8px;
+  }
+  .card .foot .bar{
+    width: 78px; height: 6px; background: var(--paper-dark);
+    border: 1px solid var(--ink); border-radius: 2px; overflow:hidden;
+  }
+  .card .foot .bar i{
+    display:block; height:100%; background: var(--marker-grn);
+  }
+  .card .foot .pct{ color: var(--ink); font-weight: 600; }
+
+  .card .note{
+    position:absolute; right: -4px; bottom: -14px;
+    font-family: var(--hand); font-size: 17px; color: var(--marker-blue);
+    transform: rotate(-3deg);
+    background: var(--paper);
+    padding: 0 4px;
+  }
+  .card .pin{
+    position:absolute; left: 12px; top: -8px;
+    width: 50px; height: 14px; background: var(--tape-blue);
+    transform: rotate(-2deg); mix-blend-mode: multiply; opacity:.9;
+  }
+  .card.b .pin{ background: var(--tape-yellow); transform: rotate(2deg); left:auto; right: 18px; }
+
+  /* cold card */
+  .card.cold{ background: var(--paper); }
+  .card.cold .idx .chip.temp{ background: var(--tape-blue); color: var(--ink); border-color: var(--ink); }
+
+  /* ======= FOOTER bar (quick add + stats) ======= */
+  .footbar{
+    position: sticky; bottom: 0;
+    padding: 10px 16px 14px;
+    background:
+      linear-gradient(180deg, transparent, var(--paper) 40%);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+  }
+  .quickadd{
+    position: relative;
+    display:flex; align-items:center; gap: 10px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 4px;
+    padding: 10px 12px;
+    box-shadow: 3px 3px 0 -1px #1c1a1518;
+  }
+  .quickadd::before{
+    content:"+";
+    font-family: var(--serif); font-style: italic;
+    font-size: 22px; line-height:1; color: var(--ink);
+    padding-right: 6px; border-right: 1px solid var(--line-strong);
+  }
+  .quickadd input{
+    flex: 1; border: 0; background: transparent;
+    font-family: var(--sans); font-size: 14px; color: var(--ink);
+    outline: none;
+  }
+  .quickadd input::placeholder{
+    color: var(--ink-muted);
+    font-family: var(--hand); font-size: 17px;
+  }
+  .quickadd .mic{
+    font-family: var(--mono); font-size: 11px; letter-spacing:.1em;
+    color: var(--marker-red);
+    border-left: 1px solid var(--line-strong); padding-left: 10px;
+  }
+  .stats{
+    display:flex; align-items:center; gap: 6px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-family: var(--mono); font-size: 11px; letter-spacing:.06em;
+    color: var(--ink);
+    box-shadow: 3px 3px 0 -1px #1c1a1518;
+  }
+  .stats .z{ color: var(--marker-red); font-weight: 700; }
+
+  /* ======= Tiny utilities ======= */
+  .sr{ position:absolute; left:-9999px; }
+
+  /* ======= motion ======= */
+  @media (prefers-reduced-motion: reduce){
+    *{ animation: none !important; transition: none !important; }
+  }
+
+  /* Slight pulse for TODAY MISSION CTA */
+  @keyframes softpulse {
+    0%,100%{ opacity: .75; }
+    50%{    opacity: 1; }
+  }
+  .mission .kicker .cta{ animation: softpulse 2.4s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="phone" role="application" aria-label="ADHD Planner — мобильный макет, доска">
+
+    <!-- status -->
+    <div class="status">
+      <span>9:41</span>
+      <span class="dots"><i></i><i></i><i></i></span>
+      <span>100%</span>
+    </div>
+
+    <!-- header -->
+    <div class="header">
+      <div class="brandrow">
+        <div class="brand">
+          <span class="mark">a</span>
+          <b>ADHD&nbsp;PLANNER</b>
+        </div>
+        <div class="date">Пт · 17 АПР · №024</div>
+      </div>
+
+      <!-- mascots float on top of header -->
+      <div class="mascots" aria-hidden="false">
+        <button class="mascot angel" aria-label="Ангел — помощник. Разберёт твой брейн-дамп на задачи.">
+          <img src="mascots/angel.png" alt="" />
+          <span class="whisper">я здесь ✿</span>
+        </button>
+        <button class="mascot devil" aria-label="Чёртик — провокатор. Работает с Чистилищем и Кладбищем.">
+          <img src="mascots/devil.png" alt="" />
+          <span class="whisper">ну-ну…</span>
+        </button>
+      </div>
+
+      <div class="hello">
+        <h1>Привет,<br/><span class="plain">Валентин</span><span style="font-style:italic;">а</span></h1>
+        <div class="bolts">⚡ <b>768</b></div>
+      </div>
+    </div>
+
+    <!-- TODAY MISSION -->
+    <section class="mission" role="button" tabindex="0" aria-label="Today mission. Нажми, чтобы войти в режим фокуса.">
+      <div class="tape" aria-hidden="true"></div>
+      <div class="kicker">
+        <span>◦ TODAY · MISSION</span>
+        <span class="cta">↵ TAP TO ENTER FOCUS</span>
+      </div>
+      <h2><span class="plain">Записать</span> подкаст<br/>про&nbsp;паралич.</h2>
+      <div class="caption">один уродливый первый шаг.</div>
+      <div class="meta">
+        <span>пульс · <b>62%</b></span>
+        <span>срочно · <b>HIGH</b></span>
+        <span class="arr">→</span>
+      </div>
+    </section>
+
+    <!-- INDEX TABS -->
+    <nav class="tabs" aria-label="Разделы доски">
+      <button class="tab active">В процессе<span class="num">12</span></button>
+      <button class="tab">Рай<span class="num">41</span></button>
+      <button class="tab">Кладбище<span class="num">07</span></button>
+      <button class="tab">Прогресс</button>
+    </nav>
+
+    <div class="sub" role="tablist" aria-label="Подразделы">
+      <span class="on">в фокусе</span>
+      <span>на фоне</span>
+      <span>чистилище</span>
+    </div>
+
+    <!-- TASK LIST — only two cards, breathing room on purpose -->
+    <div class="list">
+
+      <article class="card rot-a">
+        <span class="pin" aria-hidden="true"></span>
+        <div class="idx">
+          <span>№ 01 · в фокусе</span>
+          <span class="chip hot">HOT</span>
+        </div>
+        <h3><span class="plain">Доделать</span> слайды<br/>для созвона в&nbsp;17:00.</h3>
+        <div class="foot">
+          <div class="pulse" aria-label="Пульс задачи 62%">
+            пульс
+            <span class="bar"><i style="width:62%"></i></span>
+            <span class="pct">62%</span>
+          </div>
+          <span>⏱ 25 мин</span>
+        </div>
+        <span class="note">страшно, но надо</span>
+      </article>
+
+      <article class="card rot-b cold b">
+        <span class="pin" aria-hidden="true"></span>
+        <div class="idx">
+          <span>№ 02 · в фокусе</span>
+          <span class="chip">∆ 3 дня</span>
+        </div>
+        <h3><span class="plain">Написать</span> маме<br/>про&nbsp;выходные.</h3>
+        <div class="foot">
+          <div class="pulse" aria-label="Пульс задачи 10%">
+            пульс
+            <span class="bar"><i style="width:10%; background: var(--marker-yel);"></i></span>
+            <span class="pct">10%</span>
+          </div>
+          <span>⏱ 2 мин</span>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- FOOTER: quick add + score -->
+    <div class="footbar">
+      <label class="quickadd">
+        <span class="sr">Быстро добавить задачу</span>
+        <input type="text" placeholder="закинь мысль… ангел разложит" />
+        <span class="mic">● REC</span>
+      </label>
+      <div class="stats" aria-label="Очки за сегодня">
+        <span class="z">⚡</span>
+        <b>+12</b>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Tabs click feedback (demo only)
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+
+  // Mission tap → simulate entering focus
+  const mission = document.querySelector('.mission');
+  mission.addEventListener('click', () => {
+    mission.style.transform = 'rotate(-.35deg) scale(.985)';
+    setTimeout(() => { mission.style.transform = ''; }, 180);
+  });
+  mission.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); mission.click(); }
+  });
+
+  // Mascots whisper on click (placeholder)
+  document.querySelectorAll('.mascot').forEach(m => {
+    m.addEventListener('click', () => {
+      m.animate(
+        [{ transform: m.classList.contains('angel') ? 'rotate(-10deg)' : 'rotate(10deg)' },
+         { transform: m.classList.contains('angel') ? 'rotate(-6deg)'  : 'rotate(6deg)'  }],
+        { duration: 260, easing: 'ease-out' }
+      );
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 const { getDb, admin } = require("./firebase-admin");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const IMPORTANT_FAILURE_COSTS = new Set(["high", "catastrophic"]);
 
 function commitmentsCol(userId) {
   return getDb().collection("Users").doc(userId).collection("commitments");
@@ -21,6 +22,25 @@ function normalizeStringList(values = []) {
       .map((value) => String(value || "").trim())
       .filter(Boolean),
   )];
+}
+
+function toMillis(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (value && typeof value.toMillis === "function") {
+    const millis = value.toMillis();
+    return Number.isFinite(millis) ? millis : 0;
+  }
+  if (value && typeof value.seconds === "number") {
+    return Number(value.seconds) * 1000;
+  }
+  return 0;
+}
+
+function getFailureCostRank(failureCost = "medium") {
+  if (failureCost === "catastrophic") return 4;
+  if (failureCost === "high") return 3;
+  if (failureCost === "medium") return 2;
+  return 1;
 }
 
 function inferPressureStyle(failureCost = "medium") {
@@ -163,7 +183,82 @@ async function upsertCommitmentsFromExtraction(userId, extraction = {}, options 
   return results;
 }
 
+function collectActiveCommitmentIds(tasks = []) {
+  const linked = new Set();
+
+  for (const task of Array.isArray(tasks) ? tasks : []) {
+    if (!task || task.status !== "active") continue;
+    for (const id of normalizeStringList(task.commitmentIds)) {
+      linked.add(id);
+    }
+  }
+
+  return linked;
+}
+
+async function getCommitmentsNeedingLiveTask(userId, activeTasks = [], options = {}) {
+  const now = toMillis(options.now) || Date.now();
+  const maxCount =
+    Number.isInteger(options.maxCount) && options.maxCount > 0
+      ? options.maxCount
+      : 2;
+  const linkedCommitmentIds = collectActiveCommitmentIds(activeTasks);
+
+  const snapshot = await commitmentsCol(userId)
+    .where("state", "==", "active")
+    .get();
+
+  const candidates = [];
+  snapshot.forEach((doc) => {
+    const commitment = doc.data() || {};
+    const id = normalizeText(commitment.id || doc.id);
+    if (!id || linkedCommitmentIds.has(id)) return;
+
+    const failureCost = normalizeText(commitment.failureCost || "medium").toLowerCase() || "medium";
+    if (!IMPORTANT_FAILURE_COSTS.has(failureCost)) return;
+
+    const needsTaskIfSilentDays =
+      typeof commitment.needsTaskIfSilentDays === "number" && commitment.needsTaskIfSilentDays > 0
+        ? commitment.needsTaskIfSilentDays
+        : inferNeedsTaskIfSilentDays(failureCost);
+
+    const lastSignalAt = Math.max(
+      toMillis(commitment.lastTouchedAt),
+      toMillis(commitment.lastMentionedAt),
+      toMillis(commitment.updatedAt),
+      toMillis(commitment.createdAt),
+    ) || now;
+
+    const silentForDays = Math.floor(Math.max(0, now - lastSignalAt) / DAY_MS);
+    if (silentForDays < needsTaskIfSilentDays) return;
+
+    candidates.push({
+      id,
+      title: normalizeText(commitment.title || id),
+      kind: normalizeText(commitment.kind || "unknown").toLowerCase() || "unknown",
+      failureCost,
+      needsTaskIfSilentDays,
+      silentForDays,
+      overdueDays: silentForDays - needsTaskIfSilentDays,
+      lastSignalAt,
+    });
+  });
+
+  return candidates
+    .sort((left, right) => {
+      const byFailureCost = getFailureCostRank(right.failureCost) - getFailureCostRank(left.failureCost);
+      if (byFailureCost !== 0) return byFailureCost;
+
+      const byOverdue = right.overdueDays - left.overdueDays;
+      if (byOverdue !== 0) return byOverdue;
+
+      return left.lastSignalAt - right.lastSignalAt;
+    })
+    .slice(0, maxCount);
+}
+
 module.exports = {
+  getCommitmentsNeedingLiveTask,
   getCommitmentsByIds,
   upsertCommitmentsFromExtraction,
 };

@@ -14,6 +14,7 @@ const {
   createCalendarEvent,
   hasGoogleCalendarConnection,
 } = require("./google-calendar");
+const { getCommitmentsNeedingLiveTask } = require("./commitment-store");
 
 function normalizeTaskText(text = "") {
   return String(text).trim().toLowerCase().replace(/\s+/g, " ");
@@ -302,6 +303,77 @@ function buildPanicText(task) {
   return lines.join("\n");
 }
 
+function formatDays(value = 0) {
+  const days = Math.max(0, Math.floor(Number(value) || 0));
+  if (days === 1) return "1 день";
+  if (days >= 2 && days <= 4) return `${days} дня`;
+  return `${days} дней`;
+}
+
+function isImportantNowTask(task = {}) {
+  if (!task || task.status !== "active") return false;
+  if (task.isVital) return true;
+  if (task.urgency === "high") return true;
+  if (task.deadlineAt) return true;
+  return false;
+}
+
+function buildImportantNowText(tasks = []) {
+  const shortlist = Array.isArray(tasks) ? tasks.filter(Boolean).slice(0, 2) : [];
+  if (!shortlist.length) return "";
+
+  return [
+    "⭐ <b>Важное сейчас</b>",
+    "",
+    ...shortlist.map((task, index) => `${index + 1}. ${escapeHtml(task.text)}`),
+  ].join("\n");
+}
+
+function buildImportantNowReferenceText(importantCount = 0) {
+  const count = Math.max(0, Number(importantCount) || 0);
+  if (!count) return "";
+  if (count === 1) {
+    return [
+      "⭐ <b>Важное сейчас</b>",
+      "",
+      "Это пункт 1 из списка выше.",
+    ].join("\n");
+  }
+  if (count === 2) {
+    return [
+      "⭐ <b>Важное сейчас</b>",
+      "",
+      "Пункты 1 и 2 уже в списке выше.",
+    ].join("\n");
+  }
+  return [
+    "⭐ <b>Важное сейчас</b>",
+    "",
+    `Первые ${count} пункта уже в списке выше.`,
+  ].join("\n");
+}
+
+function buildCommitmentGapText(commitments = []) {
+  if (!Array.isArray(commitments) || commitments.length === 0) return "";
+
+  return [
+    commitments.length === 1
+      ? "⚠️ Есть важное обязательство без активного шага:"
+      : "⚠️ Есть важные обязательства без активного шага:",
+    ...commitments.map((commitment, index) => {
+      const overdue = Number(commitment.overdueDays) || 0;
+      const silent = Number(commitment.silentForDays) || 0;
+      const statusText = overdue > 0
+        ? `просрочено на ${formatDays(overdue)}`
+        : `без шага уже ${formatDays(silent)}`;
+
+      return `${index + 1}. ${escapeHtml(commitment.title)} — ${statusText}`;
+    }),
+    "",
+    "Напиши просто по-человечески, что делаем дальше, и я добавлю следующий шаг.",
+  ].join("\n");
+}
+
 async function sendTodayDigest(adapter, plannerData) {
   const activeTasks = plannerData.tasks.filter((task) => task.status === "active");
   const topTasks = sortTasksByPriority(activeTasks).slice(0, 3);
@@ -378,6 +450,7 @@ async function executePlannerAction({
         "/start",
         "/today",
         "/completed",
+        "/reopen [название]",
         "/panic",
         "/add текст",
       ].join("\n"),
@@ -400,6 +473,54 @@ async function executePlannerAction({
       source: "telegram",
       reason: "show_today",
     });
+
+    const activeTasks = Array.isArray(plannerData?.tasks)
+      ? plannerData.tasks.filter((task) => task?.status === "active")
+      : [];
+    const todayTopTasks = sortTasksByPriority(activeTasks).slice(0, 3);
+    const explicitImportant = sortTasksByPriority(activeTasks.filter((task) => isImportantNowTask(task)));
+    const importantNow = (explicitImportant.length > 0 ? explicitImportant : sortTasksByPriority(activeTasks)).slice(0, 2);
+    const repeatsTopPrefix = importantNow.every((task, index) => todayTopTasks[index]?.id === task.id);
+    if (importantNow.length > 0 && !repeatsTopPrefix) {
+      await adapter.sendText(buildImportantNowText(importantNow));
+    }
+
+    const commitmentsNeedingTask = await getCommitmentsNeedingLiveTask(userId, plannerData.tasks, {
+      maxCount: 2,
+    });
+    if (commitmentsNeedingTask.length > 0) {
+      await adapter.sendText(buildCommitmentGapText(commitmentsNeedingTask));
+    }
+    return;
+  }
+
+  if (route.type === "show_completed") {
+    const nonActiveTasks = await getNonActiveTasks(userId);
+    const completedTasks = nonActiveTasks
+      .filter((task) => task.status === "completed")
+      .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))
+      .slice(0, 5);
+
+    if (completedTasks.length === 0) {
+      await adapter.sendText("В раю пока пусто. Завершённых задач нет.");
+      return;
+    }
+
+    await adapter.sendText(
+      [
+        "☁️ <b>Последние завершённые задачи</b>",
+        "",
+        ...completedTasks.map((task, index) => `${index + 1}. ${escapeHtml(task.text)}`),
+        "",
+        "Если бот отправил что-то в рай по ошибке, жми кнопку возврата.",
+      ].join("\n"),
+    );
+
+    for (const task of completedTasks) {
+      await adapter.sendText(`☁️ <b>${escapeHtml(task.text)}</b>`, {
+        reply_markup: adapter.completedTaskKeyboard(task.id),
+      });
+    }
     return;
   }
 
@@ -420,6 +541,31 @@ async function executePlannerAction({
     }), {
       source: "telegram",
       reason: "show_panic",
+    });
+    return;
+  }
+
+  if (route.type === "panic_task") {
+    const task =
+      resolveTaskReference(plannerData, route.taskRef || route.taskText, ["active"]) ||
+      resolveContextTask(plannerData, { statuses: ["active"] }) ||
+      pickRescueTask(plannerData.tasks);
+
+    if (!task) {
+      await adapter.sendText("Сейчас нет активной задачи для panic mode.");
+      return;
+    }
+
+    await adapter.sendText(buildPanicText(task), {
+      reply_markup: adapter.taskKeyboard(task.id),
+    });
+
+    await mutatePlanner(userId, (current) => ({
+      ...current,
+      telegramContext: buildTelegramContext(task, "panic"),
+    }), {
+      source: "telegram",
+      reason: "show_panic_task",
     });
     return;
   }
@@ -651,6 +797,66 @@ async function executePlannerAction({
       chatId: String(chatId),
       taskId: reopenedTask.id,
       taskText: reopenedTask.text,
+    });
+    return;
+  }
+
+  if (route.type === "complete_task") {
+    const task =
+      resolveTaskReference(plannerData, route.taskRef || route.taskText, ["active"]) ||
+      resolveContextTask(plannerData, { statuses: ["active"] });
+
+    if (!task) {
+      await adapter.sendText("Не нашла активную задачу, которую нужно отправить в рай.");
+      return;
+    }
+
+    let completedTask = null;
+    await mutatePlanner(
+      userId,
+      (current) => {
+        const tasks = current.tasks.map((currentTask) => {
+          if (currentTask.id !== task.id) return currentTask;
+          completedTask = {
+            ...currentTask,
+            status: "completed",
+            isToday: false,
+            deadAt: null,
+            heatBase: 100,
+            heatCurrent: 100,
+            lastUpdated: Date.now(),
+          };
+          return completedTask;
+        });
+
+        return {
+          ...current,
+          tasks,
+          telegramContext: buildTelegramContext(completedTask || task, "complete"),
+        };
+      },
+      {
+        source: "telegram",
+        reason: "complete_task",
+      },
+    );
+
+    if (!completedTask) {
+      await adapter.sendText("Не смогла отправить задачу в рай.");
+      return;
+    }
+
+    await adapter.sendText(
+      `☁️ <b>${escapeHtml(completedTask.text)}</b> теперь в раю. Если это была ошибка, верни её кнопкой ниже.`,
+      { reply_markup: adapter.completedTaskKeyboard(completedTask.id) },
+    );
+
+    await logAction(log, {
+      kind: "action",
+      action: "complete_task",
+      chatId: String(chatId),
+      taskId: completedTask.id,
+      taskText: completedTask.text,
     });
     return;
   }
@@ -915,6 +1121,65 @@ async function executePlannerAction({
     await logAction(log, {
       kind: "action",
       action: "set_vital_from_text",
+      chatId: String(chatId),
+      taskId: updatedTask.id,
+      taskText: updatedTask.text,
+    });
+    return;
+  }
+
+  if (route.type === "unset_vital") {
+    const task = resolveTaskReference(plannerData, route.taskRef || route.taskText, ["active"]);
+    if (!task) {
+      await adapter.sendText("Не нашла активную задачу, с которой нужно снять критичный приоритет.");
+      return;
+    }
+
+    if (!task.isVital) {
+      await adapter.sendText(`⚪ <b>${escapeHtml(task.text)}</b> уже без критичного приоритета.`, {
+        reply_markup: adapter.taskKeyboard(task.id),
+      });
+      return;
+    }
+
+    let updatedTask = null;
+    await mutatePlanner(
+      userId,
+      (current) => {
+        const tasks = current.tasks.map((currentTask) => {
+          if (currentTask.id !== task.id) return currentTask;
+          updatedTask = {
+            ...currentTask,
+            isVital: false,
+            lastUpdated: Date.now(),
+          };
+          return updatedTask;
+        });
+
+        return {
+          ...current,
+          tasks,
+          telegramContext: buildTelegramContext(updatedTask || task, "unset_vital"),
+        };
+      },
+      {
+        source: "telegram",
+        reason: "unset_vital_from_text",
+      },
+    );
+
+    if (!updatedTask) {
+      await adapter.sendText("Не смогла снять критичный приоритет.");
+      return;
+    }
+
+    await adapter.sendText(`⚪ Сняла критичный приоритет: <b>${escapeHtml(updatedTask.text)}</b>`, {
+      reply_markup: adapter.taskKeyboard(updatedTask.id),
+    });
+
+    await logAction(log, {
+      kind: "action",
+      action: "unset_vital_from_text",
       chatId: String(chatId),
       taskId: updatedTask.id,
       taskText: updatedTask.text,

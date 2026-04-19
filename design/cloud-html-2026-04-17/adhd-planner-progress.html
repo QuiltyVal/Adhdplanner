@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>ADHD Planner · Прогресс</title>
+<meta name="theme-color" content="#F2ECDC" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================
+     ADHD Planner — Прогресс
+     Index/catalog vibe: a paper almanac spread.
+  ========================================================== */
+  :root{
+    --paper:       #F2ECDC;
+    --paper-card:  #FCF7E7;
+    --paper-soft:  #F6EFD9;
+    --paper-warm:  #F7ECC9;
+    --paper-dark:  #E7DEC5;
+    --ink:         #1C1A15;
+    --ink-soft:    #4A453A;
+    --ink-muted:   #7A7366;
+    --line:        #1C1A1520;
+    --line-strong: #1C1A1540;
+
+    --tape-pink:   #F2A5B3;
+    --tape-blue:   #98BFD9;
+    --tape-yellow: #F2D27A;
+    --tape-mint:   #A9D3B4;
+
+    --marker-red:  #E63946;
+    --marker-blue: #2E58FC;
+    --marker-yel:  #F9E03B;
+    --marker-grn:  #1F7A3A;
+    --marker-gold: #B58A2B;
+
+    --serif: "Instrument Serif", Georgia, serif;
+    --sans:  "Inter", system-ui, -apple-system, sans-serif;
+    --mono:  "JetBrains Mono", ui-monospace, monospace;
+    --hand:  "Caveat", cursive;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    min-height:100svh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    background-image:
+      radial-gradient(900px 700px at 10% 0%, #00000010, transparent 60%),
+      radial-gradient(900px 700px at 100% 100%, #00000018, transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.11  0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  .stage{
+    min-height:100svh;
+    display:flex; align-items:flex-start; justify-content:center;
+    padding: 28px 16px 48px;
+  }
+  .phone{
+    width: 390px; max-width: 100%;
+    background: var(--paper);
+    border: 1.25px solid var(--ink);
+    border-radius: 36px;
+    overflow: hidden;
+    position: relative;
+    box-shadow:
+      0 1px 0 #fff6 inset,
+      0 20px 0 -14px #0002,
+      0 40px 60px -30px #0003;
+  }
+
+  .status{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 12px 22px 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink);
+    letter-spacing:.04em;
+  }
+  .status .dots{ display:flex; gap:3px; }
+  .status .dots i{ width:3px; height:3px; background: var(--ink); border-radius:50%; display:block; }
+
+  /* ======= HEADER ======= */
+  .top{
+    position: relative;
+    padding: 4px 18px 14px;
+  }
+  .top::after{
+    content:""; position:absolute; left:18px; right:18px; bottom:0;
+    border-bottom: 1px dashed var(--line-strong);
+  }
+  .brandrow{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family: var(--mono); font-size:11px; letter-spacing:.18em;
+    color: var(--ink-soft); text-transform:uppercase;
+  }
+  .brandrow .back{
+    display:inline-flex; align-items:center; gap:6px;
+    background: transparent; border: 0;
+    font: inherit; color: inherit; cursor: pointer; padding: 0;
+  }
+  .brandrow .back .arr{
+    font-family: var(--serif); font-style: italic; font-size: 20px; line-height: 1;
+    color: var(--ink);
+  }
+  .brandrow .date{ color: var(--ink-muted); }
+
+  .title-row{
+    margin-top: 14px;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 10px;
+  }
+  .title-row h1{
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 52px; line-height: .92; letter-spacing: -.02em;
+    margin: 0;
+  }
+  .title-row h1 .plain{ font-style: normal; }
+  .title-row .issue{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+    padding-bottom: 10px;
+    text-align: right;
+  }
+  .title-row .issue b{ color: var(--ink); font-weight: 600; }
+
+  /* ======= TABS ======= */
+  .tabs{
+    margin: 14px 18px 4px;
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--line-strong);
+    padding-bottom: 8px;
+  }
+  .tab{
+    font-family: var(--mono); font-size: 11px; letter-spacing:.12em;
+    color: var(--ink-muted); text-transform: uppercase;
+    padding: 4px 0;
+    background: transparent; border: 0;
+    cursor: pointer;
+  }
+  .tab.active{
+    color: var(--ink);
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 6px;
+    margin-bottom: -9px;
+  }
+  .tab .num{
+    font-family: var(--serif); font-style: italic; font-size: 15px;
+    color: var(--ink-muted); margin-left: 4px;
+  }
+  .tab.active .num{ color: var(--ink); }
+
+  /* ======= PERIOD switch ======= */
+  .period{
+    margin: 12px 18px 6px;
+    padding: 6px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    box-shadow: 3px 3px 0 -1px #1c1a1518;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .period button{
+    padding: 7px 4px;
+    background: transparent;
+    border: 0;
+    color: var(--ink-soft);
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .period button.on{
+    background: var(--ink); color: var(--paper);
+  }
+
+  /* ======= HERO STAT ======= */
+  .hero{
+    margin: 14px 18px 6px;
+    position: relative;
+    padding: 18px 18px 14px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 4px 4px 0 -1px #1c1a1520;
+    transform: rotate(-.25deg);
+  }
+  .hero .tape{
+    position:absolute; top:-10px; left: 34px;
+    width: 90px; height: 18px;
+    background: var(--tape-blue);
+    transform: rotate(-3deg);
+    opacity:.95; mix-blend-mode: multiply;
+  }
+  .hero .kicker{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .hero .kicker .trend{
+    color: var(--marker-grn); font-weight: 600;
+    font-family: var(--mono); font-size: 10px;
+  }
+  .hero .big{
+    margin-top: 6px;
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 76px; line-height: .9; letter-spacing: -.035em;
+    color: var(--ink);
+    display: flex; align-items: baseline; gap: 4px;
+  }
+  .hero .big .unit{
+    font-style: normal;
+    font-size: 26px;
+    color: var(--ink-soft);
+    letter-spacing: 0;
+    margin-left: 2px;
+  }
+  .hero .caption{
+    font-family: var(--hand); font-size: 19px;
+    color: var(--ink-soft);
+    transform: rotate(-.3deg);
+    margin-top: 2px;
+  }
+
+  /* ======= 4 STATS grid ======= */
+  .stats4{
+    margin: 12px 18px 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat{
+    position: relative;
+    padding: 12px 12px 10px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 3px 3px 0 -1px #1c1a1518;
+  }
+  .stat.r1{ transform: rotate(-.3deg); }
+  .stat.r2{ transform: rotate(.25deg); }
+  .stat.r3{ transform: rotate(.2deg); }
+  .stat.r4{ transform: rotate(-.25deg); }
+
+  .stat .lbl{
+    font-family: var(--mono); font-size: 9px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+  }
+  .stat .val{
+    font-family: var(--serif); font-style: italic;
+    font-size: 34px; line-height: 1; letter-spacing: -.02em;
+    margin-top: 2px;
+    color: var(--ink);
+    display: flex; align-items: baseline; gap: 4px;
+  }
+  .stat .val .u{
+    font-family: var(--sans); font-style: normal;
+    font-size: 13px; color: var(--ink-soft);
+  }
+  .stat .delta{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+    margin-top: 4px;
+  }
+  .stat .delta.up{ color: var(--marker-grn); }
+  .stat .delta.down{ color: var(--marker-red); }
+  .stat .note{
+    font-family: var(--hand); font-size: 15px; color: var(--ink-soft);
+    margin-top: 2px;
+    transform: rotate(-.3deg);
+  }
+
+  /* negative bolt emphasis */
+  .stat .val.neg{ color: var(--marker-red); }
+
+  /* ======= WEEK CHART (paper bars) ======= */
+  .week{
+    margin: 14px 18px 0;
+    padding: 14px 14px 10px;
+    background: var(--paper-soft);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 3px 3px 0 -1px #1c1a1518;
+    transform: rotate(.15deg);
+    position: relative;
+  }
+  .week .head{
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .week .head b{ color: var(--ink); font-weight: 600; }
+  .week .legend{
+    display: flex; gap: 10px;
+  }
+  .week .legend span{ display: inline-flex; align-items: center; gap: 4px; }
+  .week .legend i{ width: 10px; height: 10px; border: 1px solid var(--ink); display: inline-block; }
+  .week .legend .g{ background: var(--marker-grn); }
+  .week .legend .y{ background: var(--marker-yel); }
+  .week .legend .r{ background: var(--marker-red); }
+
+  .bars{
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    align-items: end;
+    height: 140px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--line-strong);
+    position: relative;
+  }
+  .bar{
+    position: relative;
+    display: flex; flex-direction: column-reverse;
+    gap: 2px;
+    align-items: stretch;
+  }
+  .bar i{
+    border: 1px solid var(--ink);
+    display: block;
+    box-shadow: 1px 1px 0 -.5px #1c1a1520;
+  }
+  .bar .g{ background: var(--marker-grn); }
+  .bar .y{ background: var(--marker-yel); }
+  .bar .r{ background: var(--marker-red); }
+
+  .bar .d{
+    position: absolute;
+    left: 50%; transform: translateX(-50%);
+    bottom: -20px;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-muted); letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .bar.today .d{ color: var(--ink); font-weight: 600; }
+  .bar.today i:last-child{
+    border-top: 2px solid var(--ink);
+  }
+  .bar.today::after{
+    content: "сегодня";
+    position: absolute; top: -16px; left: 50%;
+    transform: translateX(-50%) rotate(-3deg);
+    font-family: var(--hand); font-size: 14px;
+    color: var(--marker-red);
+    white-space: nowrap;
+  }
+
+  /* ======= ANGEL vs DEVIL scoreboard ======= */
+  .duel{
+    margin: 18px 18px 0;
+    padding: 14px 14px 12px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 3px 3px 0 -1px #1c1a1520;
+    position: relative;
+    transform: rotate(-.2deg);
+  }
+  .duel .head{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .duel .head b{ color: var(--ink); font-weight: 600; }
+
+  .duel .row{
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .duel .side{
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .duel .side img{
+    width: 56px; height: 56px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 0 rgba(0,0,0,.08));
+  }
+  .duel .side.angel img{ transform: rotate(-4deg); }
+  .duel .side.devil img{ transform: rotate(4deg); }
+  .duel .side .sc{
+    font-family: var(--serif); font-style: italic;
+    font-size: 26px; line-height: 1; color: var(--ink);
+    letter-spacing: -.02em;
+  }
+  .duel .side.angel .sc{ color: var(--marker-grn); }
+  .duel .side.devil .sc{ color: var(--marker-red); }
+  .duel .side .cap{
+    font-family: var(--mono); font-size: 9px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--ink-soft);
+  }
+
+  .duel .scale{
+    height: 20px;
+    border: 1.25px solid var(--ink);
+    background: var(--paper);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+  .duel .scale .g{
+    position: absolute; inset: 0 auto 0 0;
+    background: var(--marker-grn);
+    width: 72%;
+  }
+  .duel .scale .r{
+    position: absolute; inset: 0 0 0 auto;
+    background: var(--marker-red);
+    width: 28%;
+  }
+  .duel .scale .tick{
+    position: absolute; top: -3px; bottom: -3px;
+    left: 72%;
+    width: 2px; background: var(--ink);
+  }
+  .duel .scale .lbl{
+    position: absolute; bottom: -16px; left: 72%;
+    transform: translateX(-50%);
+    font-family: var(--hand); font-size: 14px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .duel .caption{
+    margin-top: 22px;
+    font-family: var(--hand); font-size: 18px;
+    color: var(--ink-soft);
+    text-align: center;
+    transform: rotate(-.3deg);
+  }
+
+  /* ======= TOP TASKS (list) ======= */
+  .top-label{
+    margin: 22px 18px 8px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .top-label::before, .top-label::after{
+    content:""; flex: 1; height: 1px; background: var(--line-strong);
+  }
+
+  .toplist{
+    padding: 0 18px 18px;
+    display: flex; flex-direction: column;
+  }
+  .toprow{
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--line-strong);
+  }
+  .toprow:last-child{ border-bottom: 0; }
+
+  .toprow .rank{
+    font-family: var(--serif); font-style: italic;
+    font-size: 24px; line-height: 1; color: var(--ink-muted);
+    width: 28px; text-align: right;
+    letter-spacing: -.02em;
+  }
+  .toprow .body{
+    display: flex; flex-direction: column;
+    min-width: 0;
+  }
+  .toprow .ttl{
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 18px; line-height: 1.1; letter-spacing: -.005em;
+    color: var(--ink);
+  }
+  .toprow .ttl .plain{ font-style: normal; }
+  .toprow .meta{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    color: var(--ink-muted); text-transform: uppercase;
+    margin-top: 1px;
+  }
+  .toprow .val{
+    font-family: var(--mono); font-size: 13px; letter-spacing: .04em;
+    color: var(--ink); font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  /* ======= FOOTNOTE / signature ======= */
+  .footnote{
+    margin: 4px 18px 0;
+    padding: 12px 0 22px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: .2em;
+    color: var(--ink-muted); text-transform: uppercase;
+    border-top: 1px solid var(--line-strong);
+    display: flex; justify-content: space-between;
+  }
+  .footnote b{ color: var(--ink); font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="phone" role="application" aria-label="ADHD Planner — Прогресс">
+
+    <div class="status">
+      <span>9:41</span>
+      <span class="dots"><i></i><i></i><i></i></span>
+      <span>100%</span>
+    </div>
+
+    <!-- HEADER -->
+    <div class="top">
+      <div class="brandrow">
+        <button class="back" aria-label="Назад">
+          <span class="arr">←</span>
+          <span>BOARD</span>
+        </button>
+        <span class="date">17 АПР · №024</span>
+      </div>
+
+      <div class="title-row">
+        <h1><span class="plain">Про-</span>гресс</h1>
+        <div class="issue">АЛЬМАНАХ<br/>нед. <b>16</b> / 2026</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <nav class="tabs" aria-label="Разделы">
+      <button class="tab">В процессе<span class="num">12</span></button>
+      <button class="tab">Рай<span class="num">41</span></button>
+      <button class="tab">Кладбище<span class="num">07</span></button>
+      <button class="tab active">Прогресс</button>
+    </nav>
+
+    <!-- PERIOD -->
+    <div class="period" role="tablist" aria-label="Период">
+      <button role="tab" aria-selected="false">день</button>
+      <button role="tab" aria-selected="true" class="on">неделя</button>
+      <button role="tab" aria-selected="false">месяц</button>
+      <button role="tab" aria-selected="false">всё</button>
+    </div>
+
+    <!-- HERO STAT -->
+    <section class="hero" aria-label="Главная метрика недели">
+      <span class="tape" aria-hidden="true"></span>
+      <div class="kicker">
+        <span>◦ время в фокусе · нед. 16</span>
+        <span class="trend">▲ +1ч 24м к пред.</span>
+      </div>
+      <div class="big">
+        <span>6</span><span class="unit">ч</span>
+        <span>42</span><span class="unit">м</span>
+      </div>
+      <div class="caption">не так, чтобы гимн, но это&nbsp;больше, чем&nbsp;почти&nbsp;всегда.</div>
+    </section>
+
+    <!-- 4 STAT CARDS -->
+    <div class="stats4">
+
+      <article class="stat r1">
+        <div class="lbl">◦ сделано</div>
+        <div class="val">11<span class="u">задач</span></div>
+        <div class="delta up">▲ +3 к пред.</div>
+      </article>
+
+      <article class="stat r2">
+        <div class="lbl">◦ умерло</div>
+        <div class="val">02<span class="u">задачи</span></div>
+        <div class="delta down">▼ &minus;1 к пред.</div>
+        <div class="note">чёртик в&nbsp;меньшинстве.</div>
+      </article>
+
+      <article class="stat r3">
+        <div class="lbl">◦ очки</div>
+        <div class="val">+142<span class="u">⚡</span></div>
+        <div class="delta up">▲ +26 к пред.</div>
+      </article>
+
+      <article class="stat r4">
+        <div class="lbl">◦ паник-мод</div>
+        <div class="val">4<span class="u">входа</span></div>
+        <div class="note">и 4&nbsp;выхода ☘</div>
+      </article>
+
+    </div>
+
+    <!-- WEEK CHART -->
+    <section class="week" aria-label="Неделя по дням">
+      <div class="head">
+        <span><b>неделя</b> · 11–17 апр</span>
+        <span class="legend">
+          <span><i class="g"></i>сдел.</span>
+          <span><i class="y"></i>в&nbsp;процес.</span>
+          <span><i class="r"></i>умер.</span>
+        </span>
+      </div>
+
+      <div class="bars" aria-hidden="true">
+        <div class="bar"><i class="g" style="height:18px"></i><i class="y" style="height:12px"></i><span class="d">пн</span></div>
+        <div class="bar"><i class="g" style="height:30px"></i><i class="y" style="height:10px"></i><i class="r" style="height:6px"></i><span class="d">вт</span></div>
+        <div class="bar"><i class="g" style="height:14px"></i><i class="y" style="height:18px"></i><span class="d">ср</span></div>
+        <div class="bar"><i class="g" style="height:44px"></i><i class="y" style="height:16px"></i><span class="d">чт</span></div>
+        <div class="bar"><i class="g" style="height:22px"></i><i class="y" style="height:8px"></i><i class="r" style="height:10px"></i><span class="d">пт</span></div>
+        <div class="bar"><i class="g" style="height:6px"></i><span class="d">сб</span></div>
+        <div class="bar today"><i class="g" style="height:38px"></i><i class="y" style="height:18px"></i><span class="d">вс</span></div>
+      </div>
+
+      <!-- tiny under-caption -->
+      <div style="margin-top:26px;font-family:var(--hand);font-size:17px;color:var(--ink-soft);transform:rotate(-.2deg);">
+        четверг был зверь. суббота&nbsp;— отдохнула. это&nbsp;тоже работа.
+      </div>
+    </section>
+
+    <!-- ANGEL vs DEVIL DUEL -->
+    <section class="duel" aria-label="Счёт ангела и чёртика">
+      <div class="head">◦ <b>баланс сил</b> · неделя</div>
+
+      <div class="row">
+        <div class="side angel">
+          <img src="mascots/angel.png" alt="" />
+          <span class="sc">+168</span>
+          <span class="cap">ангел</span>
+        </div>
+
+        <div class="scale" aria-hidden="true">
+          <span class="g"></span>
+          <span class="r"></span>
+          <span class="tick"></span>
+          <span class="lbl">72 / 28</span>
+        </div>
+
+        <div class="side devil">
+          <img src="mascots/devil.png" alt="" />
+          <span class="sc">−26</span>
+          <span class="cap">чёртик</span>
+        </div>
+      </div>
+
+      <div class="caption">ангел пока&nbsp;ведёт. чёртик не&nbsp;сдаётся.</div>
+    </section>
+
+    <!-- TOP TASKS -->
+    <div class="top-label">самые длинные задачи</div>
+    <div class="toplist">
+
+      <div class="toprow">
+        <span class="rank">01</span>
+        <div class="body">
+          <span class="ttl"><span class="plain">Дописать</span> главу про&nbsp;фокус</span>
+          <span class="meta">11 апр · 4 сессии</span>
+        </div>
+        <span class="val">2ч 40м</span>
+      </div>
+
+      <div class="toprow">
+        <span class="rank">02</span>
+        <div class="body">
+          <span class="ttl"><span class="plain">Перезагрузить</span> сайт</span>
+          <span class="meta">06 апр · 2 сессии</span>
+        </div>
+        <span class="val">1ч 55м</span>
+      </div>
+
+      <div class="toprow">
+        <span class="rank">03</span>
+        <div class="body">
+          <span class="ttl"><span class="plain">Собеседование</span> с&nbsp;командой</span>
+          <span class="meta">17 апр · 1 сессия</span>
+        </div>
+        <span class="val">1ч 10м</span>
+      </div>
+
+      <div class="toprow">
+        <span class="rank">04</span>
+        <div class="body">
+          <span class="ttl"><span class="plain">Починить</span> сон</span>
+          <span class="meta">всю неделю</span>
+        </div>
+        <span class="val">7×15м</span>
+      </div>
+
+    </div>
+
+    <!-- FOOTNOTE -->
+    <div class="footnote">
+      <span>◦ adhd planner · almanac</span>
+      <span><b>№024</b> · 17.04.26</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+
+  document.querySelectorAll('.period button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.period button').forEach(x => {
+        x.classList.remove('on');
+        x.setAttribute('aria-selected', 'false');
+      });
+      b.classList.add('on');
+      b.setAttribute('aria-selected', 'true');
+    });
+  });
+</script>
+</body>
+</html>

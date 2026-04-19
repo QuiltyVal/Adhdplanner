@@ -1,0 +1,260 @@
+.capture-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.capture-modal {
+  width: min(780px, 100%);
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.capture-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.capture-kicker {
+  color: #fca5a5;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.capture-title {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 1.02rem;
+  line-height: 1.6;
+  color: #fff3b0;
+}
+
+.capture-description {
+  margin-top: 10px;
+  color: #d1d5db;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  max-width: 58ch;
+}
+
+.capture-close-btn {
+  width: 42px;
+  height: 42px;
+  border: 2px solid #333;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f9fafb;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 #000;
+  font-size: 1.2rem;
+  flex: 0 0 auto;
+}
+
+.capture-close-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.capture-textarea {
+  width: 100%;
+  min-height: 260px;
+  resize: vertical;
+  border: 2px solid #333;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f9fafb;
+  padding: 16px;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.capture-textarea::placeholder {
+  color: #9ca3af;
+}
+
+.capture-textarea:focus {
+  outline: none;
+  border-color: #a0d6ff;
+  box-shadow: 0 0 0 3px rgba(160, 214, 255, 0.15);
+}
+
+.capture-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.capture-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.capture-metric-field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.92rem;
+  color: #d1d5db;
+}
+
+.capture-metric-field select {
+  min-height: 38px;
+  border: 2px solid #333;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f9fafb;
+  padding: 6px 10px;
+}
+
+.capture-secondary-btn,
+.capture-primary-btn {
+  min-height: 44px;
+  border: 2px solid #333;
+  padding: 10px 16px;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 #000;
+}
+
+.capture-secondary-btn {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f9fafb;
+}
+
+.capture-primary-btn {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.18), rgba(138, 28, 28, 0.22));
+  color: #fff3b0;
+  border-color: #fbbf24;
+}
+
+.capture-secondary-btn:disabled,
+.capture-primary-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.capture-status {
+  padding-top: 4px;
+  font-size: 0.95rem;
+  color: #d1d5db;
+}
+
+.capture-status.success {
+  color: #86efac;
+}
+
+.capture-status.error {
+  color: #fca5a5;
+}
+
+.capture-journal {
+  display: grid;
+  gap: 10px;
+}
+
+.capture-journal-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.86rem;
+  color: #9ca3af;
+}
+
+.capture-journal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.capture-journal-item {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.capture-journal-text {
+  color: #e5e7eb;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.capture-journal-toggle {
+  justify-self: start;
+  min-height: 34px;
+  border: 1px solid #4b5563;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e5e7eb;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.capture-journal-toggle.on {
+  border-color: #16a34a;
+  color: #86efac;
+}
+
+[data-theme="light"] .capture-overlay {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+[data-theme="light"] .capture-textarea {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111827;
+}
+
+[data-theme="light"] .capture-description,
+[data-theme="light"] .capture-status,
+[data-theme="light"] .capture-secondary-btn {
+  color: #334155;
+}
+
+[data-theme="light"] .capture-metric-field select {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111827;
+}
+
+@media (max-width: 600px) {
+  .capture-modal {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .capture-title {
+    font-size: 0.9rem;
+  }
+
+  .capture-description {
+    font-size: 0.98rem;
+  }
+
+  .capture-textarea {
+    min-height: 220px;
+    font-size: 1rem;
+  }
+
+  .capture-actions {
+    justify-content: stretch;
+  }
+
+  .capture-metrics-row {
+    grid-template-columns: 1fr;
+  }
+
+  .capture-secondary-btn,
+  .capture-primary-btn {
+    flex: 1 1 140px;
+  }
+}

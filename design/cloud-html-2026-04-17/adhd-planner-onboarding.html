@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>ADHD Planner · Знакомство</title>
+<meta name="theme-color" content="#F2ECDC" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================
+     ADHD Planner — Onboarding (meet the mascots)
+     Same scrapbook tokens.
+  ========================================================== */
+  :root{
+    --paper:       #F2ECDC;
+    --paper-card:  #FCF7E7;
+    --paper-soft:  #F6EFD9;
+    --paper-warm:  #F7ECC9;
+    --paper-dark:  #E7DEC5;
+    --ink:         #1C1A15;
+    --ink-soft:    #4A453A;
+    --ink-muted:   #7A7366;
+    --line:        #1C1A1520;
+    --line-strong: #1C1A1540;
+
+    --tape-pink:   #F2A5B3;
+    --tape-blue:   #98BFD9;
+    --tape-yellow: #F2D27A;
+    --tape-mint:   #A9D3B4;
+    --tape-gold:   #E8C56A;
+
+    --marker-red:  #E63946;
+    --marker-blue: #2E58FC;
+    --marker-yel:  #F9E03B;
+    --marker-grn:  #1F7A3A;
+    --marker-gold: #B58A2B;
+
+    --serif: "Instrument Serif", Georgia, serif;
+    --sans:  "Inter", system-ui, -apple-system, sans-serif;
+    --mono:  "JetBrains Mono", ui-monospace, monospace;
+    --hand:  "Caveat", cursive;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    min-height:100svh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    background-image:
+      radial-gradient(900px 700px at 20% 0%, #FFE9A860, transparent 60%),
+      radial-gradient(900px 700px at 100% 100%, #E638461A, transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.11  0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  .stage{
+    min-height:100svh;
+    display:flex; align-items:flex-start; justify-content:center;
+    padding: 28px 16px 48px;
+  }
+  .phone{
+    width: 390px; max-width: 100%;
+    background: var(--paper);
+    border: 1.25px solid var(--ink);
+    border-radius: 36px;
+    overflow: hidden;
+    position: relative;
+    box-shadow:
+      0 1px 0 #fff6 inset,
+      0 20px 0 -14px #0002,
+      0 40px 60px -30px #0003;
+    display: flex; flex-direction: column;
+    min-height: 760px;
+  }
+
+  /* status */
+  .status{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 12px 22px 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink);
+    letter-spacing:.04em;
+  }
+  .status .dots{ display:flex; gap:3px; }
+  .status .dots i{ width:3px; height:3px; background: var(--ink); border-radius:50%; display:block; }
+
+  /* ======= HEADER: progress dots ======= */
+  .top{
+    padding: 4px 20px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+  }
+  .top .brand b{ color: var(--ink); font-weight: 600; letter-spacing: .18em; }
+  .progress{
+    display: flex; gap: 6px; align-items: center;
+  }
+  .progress i{
+    width: 20px; height: 4px;
+    background: var(--paper-dark);
+    border: 1px solid var(--ink);
+    border-radius: 2px;
+    display: inline-block;
+  }
+  .progress i.on{ background: var(--ink); }
+  .skip{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+    color: var(--ink-muted); text-transform: uppercase;
+    background: transparent; border: 0; cursor: pointer; padding: 0;
+  }
+
+  /* ======= KICKER ======= */
+  .kicker{
+    margin: 4px 22px 0;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--marker-red); text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .kicker .dot{ width:6px;height:6px;background:var(--marker-red);border-radius:50%; }
+
+  /* ======= TITLE ======= */
+  .title{
+    margin: 6px 22px 0;
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 48px; line-height: .98; letter-spacing: -.02em;
+    color: var(--ink);
+  }
+  .title .plain{ font-style: normal; }
+  .title .amp{
+    font-style: italic; color: var(--marker-red);
+    display: inline-block; transform: rotate(-5deg);
+    padding: 0 4px;
+  }
+  .lead{
+    margin: 10px 22px 0;
+    font-family: var(--hand); font-size: 20px; line-height: 1.15;
+    color: var(--ink-soft);
+    transform: rotate(-.2deg);
+  }
+
+  /* ======= MASCOTS STAGE ======= */
+  .cast{
+    position: relative;
+    margin: 22px 18px 0;
+    flex: 1;
+    min-height: 400px;
+  }
+
+  /* shared card styling for each mascot */
+  .char{
+    position: absolute;
+    width: 192px;
+    padding: 12px 12px 10px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 4px 4px 0 -1px #1c1a1520;
+  }
+  .char.angel{
+    left: 0; top: 8px;
+    transform: rotate(-2.2deg);
+  }
+  .char.devil{
+    right: 0; top: 164px;
+    transform: rotate(2.4deg);
+  }
+  .char .tape{
+    position: absolute; top: -10px; left: 30px;
+    width: 60px; height: 16px; opacity: .95;
+    mix-blend-mode: multiply;
+  }
+  .char.angel .tape{ background: var(--tape-gold); transform: rotate(-3deg); }
+  .char.devil  .tape{ background: var(--marker-red); transform: rotate(3deg); left: auto; right: 30px; opacity: .85; }
+
+  .char .portrait{
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--paper-soft);
+    border: 1.25px solid var(--ink);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+  }
+  .char .portrait::after{
+    /* soft halo/inner glow — different per mascot */
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(closest-side, transparent 40%, #0000000f 100%);
+    pointer-events: none;
+  }
+  .char.angel .portrait{ background: #FFF5D8; }
+  .char.devil  .portrait{ background: #F4E5CD; }
+  .char .portrait img{
+    width: 86%; height: 86%;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 0 rgba(0,0,0,.08));
+  }
+  .char.angel .portrait img{ transform: rotate(-3deg); }
+  .char.devil  .portrait img{ transform: rotate(3deg); }
+
+  .char .name{
+    margin-top: 8px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .char .name h3{
+    margin: 0;
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 22px; line-height: 1; letter-spacing: -.01em;
+    color: var(--ink);
+  }
+  .char .name .role{
+    font-family: var(--mono); font-size: 9px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+  }
+  .char.angel .name .role{ color: var(--marker-grn); }
+  .char.devil  .name .role{ color: var(--marker-red); }
+
+  .char .desc{
+    margin-top: 4px;
+    font-family: var(--hand); font-size: 16px; line-height: 1.1;
+    color: var(--ink-soft);
+  }
+
+  /* Speech bubble */
+  .bubble{
+    position: absolute;
+    max-width: 200px;
+    background: var(--paper);
+    border: 1.25px solid var(--ink);
+    border-radius: 16px;
+    padding: 10px 12px;
+    font-family: var(--hand); font-size: 17px; line-height: 1.1;
+    color: var(--ink);
+    box-shadow: 3px 3px 0 -1px #1c1a1518;
+  }
+  .bubble.angel{
+    right: 6px; top: 26px;
+    transform: rotate(2deg);
+  }
+  .bubble.devil{
+    left: 8px; top: 188px;
+    transform: rotate(-2deg);
+  }
+  .bubble::after{
+    content:""; position: absolute;
+    width: 12px; height: 12px;
+    background: var(--paper);
+    border-right: 1.25px solid var(--ink);
+    border-bottom: 1.25px solid var(--ink);
+    transform: rotate(45deg);
+  }
+  .bubble.angel::after{ left: -7px; top: 32px; transform: rotate(135deg); }
+  .bubble.devil::after{ right: -7px; top: 32px; }
+  .bubble b{
+    font-family: var(--hand); font-weight: 700;
+  }
+  .bubble.angel b{ color: var(--marker-grn); }
+  .bubble.devil b{ color: var(--marker-red); }
+
+  /* arrow / connector — "&" between them */
+  .connector{
+    position: absolute;
+    left: 50%; top: 150px;
+    transform: translate(-50%, 0) rotate(-6deg);
+    font-family: var(--serif); font-style: italic;
+    font-size: 80px; line-height: 1;
+    color: var(--ink-muted);
+    opacity: .4;
+    pointer-events: none;
+  }
+
+  /* ======= Bottom note + actions ======= */
+  .tagline{
+    margin: 10px 22px 0;
+    font-family: var(--hand); font-size: 21px; line-height: 1.1;
+    color: var(--ink);
+    transform: rotate(-.2deg);
+  }
+  .tagline b{ font-family: var(--hand); font-weight: 700; color: var(--marker-red); }
+
+  .roadmap{
+    margin: 12px 22px 0;
+    padding-top: 10px;
+    border-top: 1px dashed var(--line-strong);
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+    color: var(--ink-muted); text-transform: uppercase;
+  }
+  .roadmap .on{ color: var(--ink); font-weight: 600; border-bottom: 1px solid var(--ink); padding-bottom: 1px; }
+
+  .actions{
+    margin-top: auto;
+    padding: 16px 18px 18px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: center;
+  }
+  .hint{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+    color: var(--ink-soft); text-transform: uppercase;
+    padding: 0 4px;
+  }
+  .hint b{ color: var(--ink); font-weight: 600; }
+  .next{
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--ink); color: var(--paper);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    padding: 14px 14px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 -1px #1c1a1520;
+  }
+  .next .arr{ font-family: var(--serif); font-style: italic; font-size: 18px; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="phone" role="application" aria-label="ADHD Planner — Знакомство">
+
+    <div class="status">
+      <span>9:41</span>
+      <span class="dots"><i></i><i></i><i></i></span>
+      <span>100%</span>
+    </div>
+
+    <!-- TOP: brand + progress dots + skip -->
+    <div class="top">
+      <span class="brand"><b>ADHD · PLANNER</b></span>
+      <span class="progress" aria-label="Шаг 1 из 4">
+        <i class="on"></i><i></i><i></i><i></i>
+      </span>
+      <button class="skip" aria-label="Пропустить знакомство">пропустить</button>
+    </div>
+
+    <!-- KICKER -->
+    <div class="kicker"><span class="dot"></span>шаг 01 · знакомство</div>
+
+    <!-- TITLE -->
+    <h1 class="title">
+      <span class="plain">Это</span> ангел.<br/>
+      <span class="plain">Это</span> чёртик.<span class="amp">&</span>
+    </h1>
+    <div class="lead">они будут жить&nbsp;с&nbsp;тобой в&nbsp;приложении. оба помогают. по-разному.</div>
+
+    <!-- CAST (mascots + speech bubbles) -->
+    <div class="cast" aria-label="Ангел и чёртик">
+
+      <div class="connector" aria-hidden="true">&amp;</div>
+
+      <!-- ANGEL card -->
+      <article class="char angel" aria-label="Ангел">
+        <span class="tape" aria-hidden="true"></span>
+        <div class="portrait">
+          <img src="mascots/angel.png" alt="" />
+        </div>
+        <div class="name">
+          <h3>Ангел</h3>
+          <span class="role">наставница</span>
+        </div>
+        <div class="desc">слушает брейн-дамп и&nbsp;бережно раскладывает&nbsp;всё на&nbsp;шаги.</div>
+      </article>
+
+      <div class="bubble angel" aria-label="Ангел говорит">
+        привет. можно плохо — я&nbsp;<b>подхвачу</b>.
+      </div>
+
+      <!-- DEVIL card -->
+      <article class="char devil" aria-label="Чёртик">
+        <span class="tape" aria-hidden="true"></span>
+        <div class="portrait">
+          <img src="mascots/devil.png" alt="" />
+        </div>
+        <div class="name">
+          <h3>Чёртик</h3>
+          <span class="role">провокатор</span>
+        </div>
+        <div class="desc">спрашивает&nbsp;«а&nbsp;зачем?», хоронит&nbsp;мёртвые задачи, считает&nbsp;минус-очки.</div>
+      </article>
+
+      <div class="bubble devil" aria-label="Чёртик говорит">
+        я не&nbsp;враг. я&nbsp;— <b>вопросы</b>, которых ты&nbsp;избегаешь.
+      </div>
+    </div>
+
+    <!-- Tagline -->
+    <div class="tagline">вместе они вытаскивают тебя&nbsp;из&nbsp;паралича — <b>каждый&nbsp;своим&nbsp;способом</b>.</div>
+
+    <!-- tiny roadmap -->
+    <div class="roadmap" aria-label="Что дальше">
+      <span class="on">01 знакомство</span>
+      <span>02 брейн-дамп</span>
+      <span>03 пульс</span>
+      <span>04 пинки</span>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="actions">
+      <div class="hint">шаг <b>1 / 4</b></div>
+      <button class="next" aria-label="Перейти к брейн-дампу">
+        познакомиться ближе <span class="arr">→</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Progress dots — demo click advances
+  const dots = document.querySelectorAll('.progress i');
+  const roadmap = document.querySelectorAll('.roadmap span');
+  const hint = document.querySelector('.hint');
+  const next = document.querySelector('.next');
+
+  let step = 0;
+  function setStep(i) {
+    step = Math.min(i, dots.length - 1);
+    dots.forEach((d, idx) => d.classList.toggle('on', idx <= step));
+    roadmap.forEach((r, idx) => r.classList.toggle('on', idx === step));
+    if (hint) hint.innerHTML = `шаг <b>${step + 1} / ${dots.length}</b>`;
+    if (step === dots.length - 1) next.innerHTML = 'в приложение <span class="arr">→</span>';
+  }
+
+  next?.addEventListener('click', () => {
+    if (step < dots.length - 1) setStep(step + 1);
+    else {
+      next.innerHTML = 'загружаем…';
+    }
+  });
+</script>
+</body>
+</html>

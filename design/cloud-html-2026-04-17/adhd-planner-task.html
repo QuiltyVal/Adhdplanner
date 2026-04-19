@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>ADHD Planner · Задача</title>
+<meta name="theme-color" content="#F2ECDC" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================
+     ADHD Planner — Task detail
+     Same scrapbook tokens as other screens. Long scroll, mobile.
+  ========================================================== */
+  :root{
+    --paper:       #F2ECDC;
+    --paper-card:  #FCF7E7;
+    --paper-soft:  #F6EFD9;
+    --paper-warm:  #F7ECC9;
+    --paper-dark:  #E7DEC5;
+    --ink:         #1C1A15;
+    --ink-soft:    #4A453A;
+    --ink-muted:   #7A7366;
+    --line:        #1C1A1520;
+    --line-strong: #1C1A1540;
+
+    --tape-pink:   #F2A5B3;
+    --tape-blue:   #98BFD9;
+    --tape-yellow: #F2D27A;
+    --tape-mint:   #A9D3B4;
+
+    --marker-red:  #E63946;
+    --marker-blue: #2E58FC;
+    --marker-yel:  #F9E03B;
+    --marker-grn:  #1F7A3A;
+    --marker-gold: #B58A2B;
+
+    --serif: "Instrument Serif", Georgia, serif;
+    --sans:  "Inter", system-ui, -apple-system, sans-serif;
+    --mono:  "JetBrains Mono", ui-monospace, monospace;
+    --hand:  "Caveat", cursive;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    min-height:100svh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    background-image:
+      radial-gradient(900px 700px at 10% 0%, #00000010, transparent 60%),
+      radial-gradient(900px 700px at 100% 100%, #00000018, transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.11  0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  .stage{
+    min-height:100svh;
+    display:flex; align-items:flex-start; justify-content:center;
+    padding: 28px 16px 48px;
+  }
+  .phone{
+    width: 390px; max-width: 100%;
+    background: var(--paper);
+    border: 1.25px solid var(--ink);
+    border-radius: 36px;
+    overflow: hidden;
+    position: relative;
+    box-shadow:
+      0 1px 0 #fff6 inset,
+      0 20px 0 -14px #0002,
+      0 40px 60px -30px #0003;
+  }
+
+  .status{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 12px 22px 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink);
+    letter-spacing:.04em;
+  }
+  .status .dots{ display:flex; gap:3px; }
+  .status .dots i{ width:3px; height:3px; background: var(--ink); border-radius:50%; display:block; }
+
+  /* ======= HEADER ======= */
+  .top{
+    position: relative;
+    padding: 4px 18px 12px;
+  }
+  .top::after{
+    content:""; position:absolute; left:18px; right:18px; bottom:0;
+    border-bottom: 1px dashed var(--line-strong);
+  }
+  .brandrow{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family: var(--mono); font-size:11px; letter-spacing:.18em;
+    color: var(--ink-soft); text-transform:uppercase;
+  }
+  .brandrow .back{
+    display:inline-flex; align-items:center; gap:6px;
+    background: transparent; border: 0;
+    font: inherit; color: inherit; cursor: pointer; padding: 0;
+  }
+  .brandrow .back .arr{
+    font-family: var(--serif); font-style: italic; font-size: 20px; line-height: 1;
+    color: var(--ink);
+  }
+  .brandrow .right{ display:flex; gap: 14px; align-items: center; }
+  .brandrow .right button{
+    background: transparent; border: 0; padding: 0; cursor: pointer;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+    color: var(--ink-soft); text-transform: uppercase;
+  }
+  .brandrow .right button.edit{ color: var(--marker-blue); }
+
+  /* DOSSIER card — the task header */
+  .dossier{
+    margin: 14px 18px 0;
+    position: relative;
+    padding: 22px 18px 16px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 4px 4px 0 -1px #1c1a1520;
+    transform: rotate(-.25deg);
+  }
+  .dossier .tape{
+    position:absolute; top:-10px; left: 40px;
+    width: 110px; height: 20px;
+    background: var(--tape-pink);
+    transform: rotate(-3deg);
+    opacity:.95; mix-blend-mode: multiply;
+  }
+  .dossier .stamp{
+    position: absolute;
+    top: 14px; right: -4px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    padding: 4px 10px 3px;
+    background: var(--marker-red); color: var(--paper);
+    transform: rotate(6deg);
+    border-radius: 2px;
+    box-shadow: 2px 2px 0 -1px #00000030;
+    text-transform: uppercase;
+  }
+  .dossier .idx{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+  }
+  .dossier h1{
+    margin: 4px 0 6px;
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 34px; line-height: 1.02; letter-spacing: -.015em;
+    padding-right: 74px;
+  }
+  .dossier h1 .plain{ font-style: normal; }
+  .dossier .note{
+    font-family: var(--hand); font-size: 19px; color: var(--ink-soft);
+    transform: rotate(-.3deg);
+    margin-top: 2px;
+  }
+
+  .dossier .breadcrumb{
+    margin-top: 14px; padding-top: 10px;
+    border-top: 1px dashed var(--line-strong);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    color: var(--ink-muted); text-transform: uppercase;
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  }
+  .dossier .breadcrumb b{ color: var(--ink); font-weight: 600; }
+  .dossier .breadcrumb .sep{ color: var(--line-strong); }
+
+  /* ======= METRICS (pulse / urgency / scariness) ======= */
+  .metrics{
+    margin: 14px 18px 0;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+  }
+  .m{
+    position: relative;
+    padding: 12px 12px 10px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 3px 3px 0 -1px #1c1a1518;
+  }
+  .m.r1{ transform: rotate(-.3deg); }
+  .m.r2{ transform: rotate(.25deg); }
+  .m.r3{ transform: rotate(-.2deg); }
+
+  .m .lbl{
+    font-family: var(--mono); font-size: 9px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+  }
+  .m .val{
+    font-family: var(--serif); font-style: italic;
+    font-size: 28px; line-height: 1; color: var(--ink);
+    letter-spacing: -.02em;
+    margin-top: 2px;
+  }
+  .m .val .u{
+    font-family: var(--sans); font-style: normal;
+    font-size: 12px; color: var(--ink-soft);
+  }
+  .m .bar{
+    margin-top: 6px;
+    height: 6px;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    border-radius: 2px; overflow: hidden;
+  }
+  .m .bar i{ display:block; height:100%; }
+  .m .bar .g{ background: var(--marker-grn); }
+  .m .bar .r{ background: var(--marker-red); }
+  .m .bar .y{ background: var(--marker-yel); }
+
+  /* ======= SECTION LABEL ======= */
+  .slabel{
+    margin: 22px 18px 8px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .slabel::before, .slabel::after{
+    content:""; flex: 1; height: 1px; background: var(--line-strong);
+  }
+  .slabel b{ color: var(--ink); font-weight: 600; }
+
+  /* ======= SUBTASKS ======= */
+  .sub{
+    padding: 0 18px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .step{
+    position: relative;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    padding: 10px 12px 10px 44px;
+    box-shadow: 3px 3px 0 -1px #1c1a1518;
+    display: flex; align-items: center; gap: 8px;
+    min-height: 44px;
+  }
+  .step.r1{ transform: rotate(-.2deg); }
+  .step.r2{ transform: rotate(.2deg); }
+  .step.r3{ transform: rotate(-.15deg); }
+  .step.r4{ transform: rotate(.1deg); }
+
+  .step .box{
+    position: absolute; left: 10px; top: 10px;
+    width: 24px; height: 24px;
+    border: 1.25px solid var(--ink);
+    background: var(--paper);
+    border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-style: italic; font-size: 16px;
+    color: var(--ink); cursor: pointer;
+  }
+  .step.done .box{
+    background: var(--marker-grn); color: var(--paper);
+    font-family: var(--mono); font-size: 14px; font-style: normal;
+  }
+  .step.current .box{ background: var(--marker-yel); }
+
+  .step .text{
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 17px; line-height: 1.1; color: var(--ink);
+    flex: 1;
+  }
+  .step .text .plain{ font-style: normal; }
+  .step.done .text{
+    color: var(--ink-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--marker-red);
+  }
+  .step .t{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+    color: var(--ink-muted); text-transform: uppercase;
+  }
+  .step.current::before{
+    content: "";
+    position: absolute; left: -4px; top: 8px; bottom: 8px;
+    width: 3px; background: var(--marker-red);
+    border-radius: 2px;
+  }
+
+  .add-step{
+    margin-top: 4px;
+    padding: 10px 12px;
+    background: transparent;
+    border: 1.25px dashed var(--line-strong);
+    border-radius: 3px;
+    font-family: var(--hand); font-size: 18px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    text-align: left;
+  }
+  .add-step:hover{ color: var(--ink); border-color: var(--ink); }
+
+  /* ======= MASCOT NOTES ======= */
+  .mnotes{
+    margin: 18px 18px 0;
+    display: grid; gap: 10px;
+  }
+  .mnote{
+    position: relative;
+    padding: 12px 12px 12px 62px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 3px 3px 0 -1px #1c1a1518;
+    min-height: 64px;
+  }
+  .mnote.angel{ transform: rotate(-.3deg); }
+  .mnote.devil{ transform: rotate(.3deg); }
+  .mnote .avatar{
+    position: absolute;
+    left: 6px; top: 6px;
+    width: 48px; height: 48px;
+  }
+  .mnote .avatar img{
+    width: 100%; height: 100%; object-fit: contain;
+    filter: drop-shadow(0 2px 0 rgba(0,0,0,.08));
+  }
+  .mnote.angel .avatar img{ transform: rotate(-4deg); }
+  .mnote.devil .avatar img{ transform: rotate(4deg); }
+  .mnote .who{
+    font-family: var(--mono); font-size: 9px; letter-spacing: .2em;
+    color: var(--ink-soft); text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .mnote.angel .who{ color: var(--marker-grn); }
+  .mnote.devil .who{ color: var(--marker-red); }
+  .mnote .msg{
+    font-family: var(--hand); font-size: 19px; line-height: 1.1;
+    color: var(--ink);
+  }
+  .mnote .reply{
+    margin-top: 6px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+    color: var(--ink-soft);
+    background: transparent; border: 0; cursor: pointer;
+    padding: 0;
+    text-transform: uppercase;
+  }
+  .mnote .reply:hover{ color: var(--ink); }
+
+  /* ======= PINKS / reminders ======= */
+  .pinks{
+    margin: 0 18px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    padding: 12px 14px;
+    box-shadow: 3px 3px 0 -1px #1c1a1518;
+    transform: rotate(-.15deg);
+  }
+  .pinks .row{
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line-strong);
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    color: var(--ink);
+    text-transform: uppercase;
+  }
+  .pinks .row:last-child{ border-bottom: 0; }
+  .pinks .row .chan{
+    display: flex; align-items: center; gap: 10px;
+  }
+  .pinks .row .chan b{ color: var(--ink); font-weight: 600; letter-spacing: .12em; }
+  .pinks .row .chan .when{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+    color: var(--ink-muted); text-transform: lowercase;
+  }
+  .pinks .row .tag{
+    font-family: var(--mono); font-size: 9px; letter-spacing: .18em;
+    padding: 2px 6px 1px;
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    color: var(--ink-soft);
+  }
+  .pinks .row .tag.on{ background: var(--marker-grn); color: var(--paper); border-color: var(--ink); }
+  .pinks .addp{
+    margin-top: 6px;
+    font-family: var(--hand); font-size: 17px; color: var(--marker-blue);
+    background: transparent; border: 0; cursor: pointer; padding: 4px 0 0;
+  }
+
+  /* ======= HISTORY ======= */
+  .hist{
+    margin: 0 18px;
+    padding-left: 16px;
+    position: relative;
+  }
+  .hist::before{
+    content:""; position: absolute; left: 5px; top: 4px; bottom: 4px;
+    border-left: 1px dashed var(--line-strong);
+  }
+  .hist .ev{
+    position: relative;
+    padding: 8px 0 8px 4px;
+  }
+  .hist .ev::before{
+    content:""; position: absolute;
+    left: -14px; top: 14px;
+    width: 8px; height: 8px;
+    background: var(--paper);
+    border: 1.25px solid var(--ink);
+    border-radius: 50%;
+  }
+  .hist .ev.done::before{ background: var(--marker-grn); border-color: var(--marker-grn); }
+  .hist .ev.warn::before{ background: var(--marker-red); border-color: var(--marker-red); }
+  .hist .when{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+    color: var(--ink-muted); text-transform: uppercase;
+  }
+  .hist .what{
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 16px; line-height: 1.15; color: var(--ink);
+    margin-top: 1px;
+  }
+  .hist .what .plain{ font-style: normal; }
+
+  /* ======= FOOTER ACTIONS ======= */
+  .foot{
+    position: sticky; bottom: 0;
+    margin-top: 22px;
+    padding: 12px 16px 16px;
+    background: linear-gradient(180deg, transparent, var(--paper) 40%);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+  }
+  .menu{
+    width: 46px; height: 46px;
+    border: 1.25px solid var(--ink);
+    background: var(--paper-card);
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: var(--serif); font-style: italic; font-size: 24px;
+    line-height: 1; color: var(--ink);
+    box-shadow: 3px 3px 0 -1px #1c1a1520;
+  }
+  .focus{
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--ink); color: var(--paper);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    padding: 14px 14px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 -1px #1c1a1520;
+  }
+  .focus .arr{ font-family: var(--serif); font-style: italic; font-size: 18px; }
+
+  /* Detail menu (popover look, rendered inline for demo) */
+  .menu-pop{
+    display: none;
+    position: absolute; bottom: 60px; left: 16px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    padding: 4px;
+    box-shadow: 4px 4px 0 -1px #1c1a1520;
+    min-width: 220px;
+    z-index: 5;
+  }
+  .menu-pop.open{ display: block; }
+  .menu-pop button{
+    display: block; width: 100%;
+    padding: 10px 12px; text-align: left;
+    background: transparent; border: 0;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+    color: var(--ink); text-transform: uppercase;
+    cursor: pointer;
+  }
+  .menu-pop button:hover{ background: var(--paper); }
+  .menu-pop .danger{ color: var(--marker-red); }
+  .menu-pop hr{
+    border: 0; border-top: 1px dashed var(--line-strong);
+    margin: 2px 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="phone" role="application" aria-label="ADHD Planner — Задача">
+
+    <div class="status">
+      <span>9:41</span>
+      <span class="dots"><i></i><i></i><i></i></span>
+      <span>100%</span>
+    </div>
+
+    <!-- HEADER -->
+    <div class="top">
+      <div class="brandrow">
+        <button class="back" aria-label="Назад к доске">
+          <span class="arr">←</span>
+          <span>BOARD</span>
+        </button>
+        <div class="right">
+          <button aria-label="Поделиться">share</button>
+          <button class="edit" aria-label="Редактировать">✎ edit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOSSIER -->
+    <article class="dossier">
+      <span class="tape" aria-hidden="true"></span>
+      <span class="stamp">HOT</span>
+
+      <div class="idx">◦ задача · № 01</div>
+      <h1><span class="plain">Записать</span> подкаст про&nbsp;паралич.</h1>
+      <div class="note">один уродливый первый шаг.</div>
+
+      <div class="breadcrumb" aria-label="Статусы">
+        <span>в процессе</span>
+        <span class="sep">/</span>
+        <b>в фокусе</b>
+        <span class="sep">·</span>
+        <span>срок · <b>сегодня 17:00</b></span>
+        <span class="sep">·</span>
+        <span>⏱ <b>25 мин</b></span>
+      </div>
+    </article>
+
+    <!-- METRICS -->
+    <div class="metrics">
+      <article class="m r1" aria-label="Пульс 62%">
+        <div class="lbl">◦ пульс</div>
+        <div class="val">62<span class="u">%</span></div>
+        <div class="bar"><i class="g" style="width:62%"></i></div>
+      </article>
+
+      <article class="m r2" aria-label="Срочность высокая">
+        <div class="lbl">◦ срочно</div>
+        <div class="val">HI<span class="u">/4</span></div>
+        <div class="bar"><i class="r" style="width:85%"></i></div>
+      </article>
+
+      <article class="m r3" aria-label="Страшность 3 из 5">
+        <div class="lbl">◦ страшно</div>
+        <div class="val">3<span class="u">/5</span></div>
+        <div class="bar"><i class="y" style="width:60%"></i></div>
+      </article>
+    </div>
+
+    <!-- SUBTASKS -->
+    <div class="slabel"><b>шаги</b> · 2 из 4 сделано</div>
+    <div class="sub">
+
+      <div class="step done r1">
+        <button class="box" aria-label="Готово">✓</button>
+        <div class="text"><span class="plain">Открыть</span> Notion и&nbsp;новую страницу.</div>
+        <span class="t">2 мин</span>
+      </div>
+
+      <div class="step done r2">
+        <button class="box" aria-label="Готово">✓</button>
+        <div class="text"><span class="plain">Найти</span> 3 референса.</div>
+        <span class="t">8 мин</span>
+      </div>
+
+      <div class="step current r3">
+        <button class="box" aria-label="Текущий шаг">3</button>
+        <div class="text"><span class="plain">Написать</span> 3 корявых буллета.</div>
+        <span class="t">5 мин</span>
+      </div>
+
+      <div class="step r4">
+        <button class="box" aria-label="Дальше">4</button>
+        <div class="text"><span class="plain">Нажать</span> REC и&nbsp;говорить 2 мин.</div>
+        <span class="t">2 мин</span>
+      </div>
+
+      <button class="add-step" aria-label="Добавить шаг">+ добавить шажок…</button>
+    </div>
+
+    <!-- MASCOT NOTES -->
+    <div class="slabel">голоса</div>
+    <div class="mnotes">
+
+      <aside class="mnote angel" aria-label="Коммент ангела">
+        <div class="avatar"><img src="mascots/angel.png" alt="" /></div>
+        <div class="who">◦ ангел · 09:14</div>
+        <div class="msg">можно плохо. просто запиши первый буллет — и всё, остальное я&nbsp;за&nbsp;тобой&nbsp;подберу.</div>
+        <button class="reply">↵ ответить</button>
+      </aside>
+
+      <aside class="mnote devil" aria-label="Коммент чёртика">
+        <div class="avatar"><img src="mascots/devil.png" alt="" /></div>
+        <div class="who">◦ чёртик · 09:02</div>
+        <div class="msg">напомни, а зачем тебе этот подкаст? чтобы&nbsp;что? (не&nbsp;для отмазки — реально интересно.)</div>
+        <button class="reply">↵ ответить</button>
+      </aside>
+    </div>
+
+    <!-- PINKS / reminders -->
+    <div class="slabel"><b>пинки</b> · напоминания</div>
+    <div class="pinks">
+      <div class="row">
+        <div class="chan"><b>telegram</b><span class="when">за 30 мин до</span></div>
+        <span class="tag on">ON</span>
+      </div>
+      <div class="row">
+        <div class="chan"><b>push</b><span class="when">в 15:30 и в 16:45</span></div>
+        <span class="tag on">ON</span>
+      </div>
+      <div class="row">
+        <div class="chan"><b>email</b><span class="when">—</span></div>
+        <span class="tag">OFF</span>
+      </div>
+      <div class="row">
+        <div class="chan"><b>браузер</b><span class="when">в 16:30</span></div>
+        <span class="tag on">ON</span>
+      </div>
+      <button class="addp" aria-label="Добавить пинок">+ добавить пинок</button>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="slabel"><b>история</b> · журнал</div>
+    <div class="hist">
+      <div class="ev">
+        <div class="when">сегодня · 09:14</div>
+        <div class="what"><span class="plain">Шаг 2</span> отмечен&nbsp;выполненным.</div>
+      </div>
+      <div class="ev done">
+        <div class="when">сегодня · 08:52</div>
+        <div class="what"><span class="plain">Ангел</span> разбила брейн-дамп — <span class="plain">+4 шага.</span></div>
+      </div>
+      <div class="ev warn">
+        <div class="when">вчера · 22:10</div>
+        <div class="what"><span class="plain">Чёртик</span> предложил&nbsp;убить. ты отказалась.</div>
+      </div>
+      <div class="ev">
+        <div class="when">12 апр · 14:20</div>
+        <div class="what"><span class="plain">Создана</span> через брейн-дамп.</div>
+      </div>
+    </div>
+
+    <!-- FOOTER actions -->
+    <div class="foot">
+      <button class="menu" aria-label="Меню действий" id="menu-btn">⋯</button>
+      <button class="focus" aria-label="Войти в режим фокуса">
+        в фокус <span class="arr">→</span>
+      </button>
+
+      <!-- menu popover -->
+      <div class="menu-pop" id="menu-pop" role="menu" aria-label="Действия над задачей">
+        <button role="menuitem">← на фоне</button>
+        <button role="menuitem">→ чистилище</button>
+        <button role="menuitem">в рай · отметить сделано</button>
+        <hr/>
+        <button role="menuitem">✎ редактировать</button>
+        <button role="menuitem">📅 в google calendar</button>
+        <button role="menuitem">↗ поделиться</button>
+        <hr/>
+        <button role="menuitem" class="danger">× удалить навсегда</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Step checkbox toggle
+  document.querySelectorAll('.step .box').forEach(b => {
+    b.addEventListener('click', () => {
+      const step = b.closest('.step');
+      if (!step) return;
+      if (step.classList.contains('done')) {
+        step.classList.remove('done');
+        b.textContent = step.classList.contains('current') ? '3' : '4';
+      } else {
+        step.classList.remove('current');
+        step.classList.add('done');
+        b.textContent = '✓';
+      }
+    });
+  });
+
+  // Pinks toggle
+  document.querySelectorAll('.pinks .tag').forEach(t => {
+    t.addEventListener('click', () => {
+      t.classList.toggle('on');
+      t.textContent = t.classList.contains('on') ? 'ON' : 'OFF';
+    });
+  });
+
+  // Menu pop
+  const mbtn = document.getElementById('menu-btn');
+  const mpop = document.getElementById('menu-pop');
+  mbtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    mpop.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!mpop.contains(e.target) && e.target !== mbtn) mpop.classList.remove('open');
+  });
+
+  // Reply buttons (demo)
+  document.querySelectorAll('.mnote .reply').forEach(r => {
+    r.addEventListener('click', () => {
+      r.textContent = '↵ открываю чат…';
+      setTimeout(() => { r.textContent = '↵ ответить'; }, 1400);
+    });
+  });
+</script>
+</body>
+</html>

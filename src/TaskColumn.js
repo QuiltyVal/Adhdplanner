@@ -2,18 +2,28 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { sortTasksByOrder } from "./taskOrderUtils";
 import "./TaskColumn.css";
 
 function DraggableTask({ id, children }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
+  const { attributes, listeners, setNodeRef: setDraggableNodeRef, transform, isDragging } = useDraggable({ id });
+  const { isOver, setNodeRef: setDropNodeRef } = useDroppable({ id: `task-drop-${id}` });
+  const setTaskNodeRef = React.useCallback(
+    (node) => {
+      setDraggableNodeRef(node);
+      setDropNodeRef(node);
+    },
+    [setDraggableNodeRef, setDropNodeRef],
+  );
   return (
     <div
-      ref={setNodeRef}
+      ref={setTaskNodeRef}
       style={{
         transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.35 : 1,
         position: 'relative',
       }}
+      className={isOver ? "task-drop-over" : ""}
       {...attributes}
     >
       <div
@@ -109,6 +119,25 @@ function formatMs(ms) {
   return `${s}с`;
 }
 
+function getListPriorityScore(task) {
+  let score = 0;
+  if (task?.isVital) score += 500;
+  if (task?.urgency === "high") score += 300;
+  else if (task?.urgency === "medium") score += 160;
+  if (task?.isToday) score += 120;
+
+  const deadlineBadge = getDeadlineBadge(task?.deadlineAt || "");
+  if (deadlineBadge?.tone === "overdue") score += 280;
+  else if (deadlineBadge?.tone === "today") score += 240;
+  else if (deadlineBadge?.tone === "soon") score += 160;
+  else if (deadlineBadge?.tone === "watch") score += 90;
+
+  const heatPenalty = Math.max(0, 100 - Number(task?.heatCurrent || 0));
+  score += heatPenalty * 0.4;
+
+  return score;
+}
+
 export default function TaskColumn({
   type,
   tasks,
@@ -129,9 +158,14 @@ export default function TaskColumn({
   onSetUrgency,
   onSetResistance,
   onSetDeadline,
+  onTrashCompleted,
+  onCleanHeavenJunk,
+  onPurgeHeavenJunk,
+  onDeleteForever,
   highlightTaskId,
   calendarToken,
 }) {
+  const orderedTasks = sortTasksByOrder(tasks);
   const [newTaskText, setNewTaskText] = useState("");
   const [newSubtaskText, setNewSubtaskText] = useState({}); // {taskId: text}
   const [confirmTaskId, setConfirmTaskId] = useState(null);
@@ -199,11 +233,24 @@ export default function TaskColumn({
   };
 
   if (type === "heaven") {
+    const sortedTasks = orderedTasks;
     // ... heaven render ...
     return (
       <div className="task-column-container">
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "12px" }}>
+          {onCleanHeavenJunk && (
+            <button className="reopen-btn" onClick={onCleanHeavenJunk}>
+              🧹 Убрать тестовый мусор
+            </button>
+          )}
+          {onPurgeHeavenJunk && (
+            <button className="reopen-btn" onClick={onPurgeHeavenJunk}>
+              💥 В небытие (только тест-мусор)
+            </button>
+          )}
+        </div>
         <div className="tasks-grid">
-          {tasks.map(task => (
+          {sortedTasks.map(task => (
             <DraggableTask key={task.id} id={`task-${task.id}`}>
               <div className="heaven-cloud animated-fade-in">
                 <div className="cloud-icon">🕊️</div>
@@ -223,6 +270,16 @@ export default function TaskColumn({
                     ↩️ Вернуть в активные
                   </button>
                 )}
+                {onTrashCompleted && (
+                  <button className="reopen-btn" onClick={() => onTrashCompleted(task.id)}>
+                    🪦 В мусор
+                  </button>
+                )}
+                {onDeleteForever && (
+                  <button className="reopen-btn" onClick={() => onDeleteForever(task.id)}>
+                    💥 В небытие
+                  </button>
+                )}
               </div>
             </DraggableTask>
           ))}
@@ -233,6 +290,7 @@ export default function TaskColumn({
   }
 
   if (type === "cemetery") {
+    const sortedTasks = orderedTasks;
     const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
     const exhumationPhrases = [
       "Слушай, она тут уже давно лежит. Может, попробуем ещё раз — с минимальным пульсом?",
@@ -243,7 +301,7 @@ export default function TaskColumn({
     return (
       <div className="task-column-container">
         <div className="tasks-grid">
-          {tasks.map((task, i) => {
+          {sortedTasks.map((task, i) => {
             const deadAt = task.deadAt || ((/^\d{10,}$/.test(task.id)) ? Number(task.id) : null);
             const isOld = deadAt && (Date.now() - deadAt) > MONTH_MS;
             const phrase = exhumationPhrases[i % exhumationPhrases.length];
@@ -262,6 +320,11 @@ export default function TaskColumn({
                   <button className="resurrect-btn" onClick={() => onResurrect(task.id)}>
                     🔄 Воскресить
                   </button>
+                  {onDeleteForever && (
+                    <button className="reopen-btn" onClick={() => onDeleteForever(task.id)}>
+                      💥 В небытие
+                    </button>
+                  )}
                 </div>
               </DraggableTask>
             );
@@ -273,9 +336,15 @@ export default function TaskColumn({
   }
 
   // Active Zone logic
-  const hotTasks = tasks.filter(t => t.heatCurrent > 60);
-  const passiveTasks = tasks.filter(t => t.heatCurrent > 25 && t.heatCurrent <= 60);
-  const purgatoryTasks = tasks.filter(t => t.heatCurrent <= 25);
+  const prioritizedTasks = [...orderedTasks].sort((left, right) => {
+    const priorityDelta = getListPriorityScore(right) - getListPriorityScore(left);
+    if (priorityDelta !== 0) return priorityDelta;
+    return (left.position || 0) - (right.position || 0);
+  });
+
+  const hotTasks = prioritizedTasks.filter(t => t.heatCurrent > 60);
+  const passiveTasks = prioritizedTasks.filter(t => t.heatCurrent > 25 && t.heatCurrent <= 60);
+  const purgatoryTasks = prioritizedTasks.filter(t => t.heatCurrent <= 25);
 
   const renderTaskCard = (task, isPurgatory, heatColor) => (
     (() => {

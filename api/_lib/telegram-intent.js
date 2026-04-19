@@ -23,6 +23,7 @@ const ALLOWED_INTENTS = new Set([
   "set_today",
   "unset_today",
   "set_vital",
+  "unset_vital",
   "suggest_unpin",
   "show_today",
   "panic",
@@ -47,8 +48,8 @@ function extractQuotedSegments(text = "") {
 function inferTaskReference(text = "") {
   return String(text || "")
     .replace(/^(переведи|заверши|выполни|выполнить|открепи|сними|снять|верни|сделай|закрепи|пометь|запланируй|добавь|добавить|удали|удалить)\s+/i, "")
-    .replace(/\b(на|в)\s+сегодня\b/i, "")
-    .replace(/\b(критичн|выполненн|в\s+рай|сейчас|сегодня\s+в\s+раю)\b/gi, "")
+    .replace(/(?:^|\s)(на|в)\s+сегодня(?=\s|$)/giu, " ")
+    .replace(/(?:^|\s)(критичн|критичност|выполненн|в\s+рай|сейчас|сегодня\s+в\s+раю)(?=\s|$)/giu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -104,9 +105,18 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/\b(сними|откреп|убер|удали|снять)\b.*(сегодня|сегодняшн)/.test(normalized)) {
+  if (/(сними|откреп|убер|удали|снять).*(сегодня|сегодняшн)/u.test(normalized)) {
     return {
       intent: "unset_today",
+      task_ref: inferTaskReference(normalized) || quoted[0] || null,
+      subtask_text: null,
+      task_text: "",
+    };
+  }
+
+  if (/(сними|снять|убери|убрать|без|не).*(критич|критичност|жизненн|важн|срочн)/u.test(normalized)) {
+    return {
+      intent: "unset_vital",
       task_ref: inferTaskReference(normalized) || quoted[0] || null,
       subtask_text: null,
       task_text: "",
@@ -277,6 +287,7 @@ function buildSystemPrompt({ tasks, telegramContext, todayDate }) {
     "- set_today: закрепить задачу на сегодня",
     "- unset_today: открепить задачу от сегодня (сними, открепи, убери с сегодня)",
     "- set_vital: пометить задачу критичной/жизненно важной",
+    "- unset_vital: снять с задачи критичность/жизненную важность",
     "- suggest_unpin: пользователь спрашивает 'что открепить', 'предложи другое', 'покажи список'",
     "- show_today: показать что горит/главное сегодня",
     "- panic: паника — выбрать одну задачу и один шаг",
@@ -364,11 +375,6 @@ function normalizeIntent(payload = {}) {
 }
 
 async function parseTelegramIntent({ text, tasks = [], telegramContext = {} }) {
-  const quickIntent = inferQuickIntent(text);
-  if (quickIntent) {
-    return normalizeIntent(quickIntent);
-  }
-
   const systemPrompt = buildSystemPrompt({
     tasks,
     telegramContext,

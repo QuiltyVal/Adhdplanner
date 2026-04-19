@@ -1,6 +1,6 @@
 # ADHD Planner Execution Plan
 
-Last updated: 2026-04-15
+Last updated: 2026-04-19
 
 This is the working execution plan for the next product layer.
 
@@ -24,6 +24,7 @@ It turns the "angel / executive-function companion" direction into concrete deli
 - LLMs should classify, extract, and explain. They should not be the sole source of prioritization truth.
 - Firestore writes must stay per-document and stale-safe. Do not introduce new bulk planner overwrite paths.
 - Raw user brain dumps should land in append-only capture storage before they become structured memory.
+- Mobile parity is mandatory by architecture: core planner logic must live in shared server/domain layers, not in web-only UI code, so Android can reuse behavior without rewrite.
 
 ## Already true in the product
 
@@ -48,10 +49,15 @@ Goal: make sure the new memory layer is built on safe mutation rules instead of 
   - decision log
   - capture processing log
   - task mutation trace
+- [x] Define the cross-platform boundary explicitly:
+  - server/domain is the source of business truth (selection, pressure, reopen/complete semantics)
+  - web and future Android are thin clients
+  - no new feature ships with logic locked inside React-only components
 
 Done when:
 - a new agent can implement on top of this plan without guessing where state is allowed to live
 - no planned angel feature relies on whole-planner overwrite behavior
+- Android implementation can reuse server/domain behavior instead of reverse-engineering web UI logic
 
 ## Phase 1 - Brain-dump intake (`captures`)
 
@@ -59,7 +65,7 @@ Goal: let the user dump chaos into the system without first organizing it.
 
 - [x] Add `Users/{uid}/captures/{captureId}` schema to the plan/docs.
 - [x] Support append-only capture creation from Telegram free text.
-- [ ] Support append-only capture creation from web input.
+- [x] Support append-only capture creation from web input.
 - [ ] Support append-only capture creation from MCP-originated notes/facts.
 - [x] Track capture lifecycle:
   - `new`
@@ -88,7 +94,7 @@ Goal: turn raw captures into structured memory without making the LLM the only b
   - `lifeArea`
   - `commitmentIds`
 - [x] Store extraction confidence and source capture linkage.
-- [ ] Keep extraction idempotent enough that re-running it does not spray duplicate tasks.
+- [x] Keep extraction idempotent enough that re-running it does not spray duplicate tasks.
 
 Done when:
 - a single messy text dump can create or enrich structured planner context
@@ -109,15 +115,21 @@ Goal: remember life obligations even when individual tasks die.
   - `lastTouchedAt`
   - `nextReviewAt`
 - [x] Link Telegram-created and Telegram-updated tasks to commitments with `commitmentIds`.
-- [ ] Add the rule: if an important commitment has no live next step for too long, the system should surface that explicitly.
+- [x] Add the rule: if an important commitment has no live next step for too long, the system should surface that explicitly.
 
 Done when:
 - the system can remember "documents", "money", "health", "cat", and similar obligations even when no active task is currently visible
 
 Notes:
 - As of 2026-04-15, live plain-text Telegram now runs through `route -> memory enrichment -> execute`, and task creation/update carries `lifeArea` and `commitmentIds` into canonical task docs.
-- Slash commands and callback-button flows in `api/telegram-webhook.js` still use local handlers; only plain-text Telegram is on the shared route/executor path today.
-- The broader Phase 2 item stays in progress because web/MCP capture enrichment is still missing, and deadline/vital extraction is not yet fully inferred outside explicit intent fields.
+- As of 2026-04-16, planner slash commands (`/today`, `/completed`, `/panic`, `/reopen`, `/add`) and callback actions (`done`, `today`, `vital`, `panic`, `reopen`) now execute through the shared `route -> executePlannerAction` path.
+- `/start` and `/calendar` remain explicit transport-level handlers (chat linking / OAuth connect message), outside planner action execution by design.
+- As of 2026-04-18, authenticated first-party clients can execute the same planner business actions through `POST /api/planner-client-actions` (Firebase bearer token), using the same server-side `planner-action-executor` contract as Telegram/server routes.
+- As of 2026-04-18, server-to-server action calls continue to use `POST /api/planner-actions` (secret-based), now backed by the same runtime helper as client actions.
+- As of 2026-04-18, `/api/captures` response suggestions are now filtered against existing active tasks, so repeated extraction runs do not keep proposing already-live duplicates.
+- As of 2026-04-18, `show_today` now explicitly surfaces high-cost commitments that stayed without an active linked step longer than their `needsTaskIfSilentDays` threshold.
+- As of 2026-04-18, `processCapture` now performs safe hint upsert into existing active tasks for web capture flow (`urgency`, `resistance`, `isVital`, `deadlineAt`, `lifeArea`, `commitmentIds`) using `mutatePlanner` with stale-write protection and conservative text-match thresholds.
+- The broader Phase 2 item stays in progress because MCP-originated capture enrichment is still missing, and deadline/vital extraction is not yet fully inferred outside explicit intent fields.
 
 ## Phase 4 - Angel pin layer
 
@@ -189,6 +201,9 @@ Done when:
 Goal: expose the angel layer where the user already lives instead of creating a detached feature island.
 
 - [ ] Show `angelPinned` and `angelReason` in the main planner UI.
+- [ ] Keep Angel Lab voice path on browser STT by default, and add optional server fallback via OpenAI Whisper when budget allows.
+- [ ] Angel Lab (beta): for `create` cards, preselect up to 1-2 highest-confidence subtasks by default.
+  - Must stay reversible: if suggestion quality/noise gets worse, switch back to strict manual subtask selection (no preselected checkboxes).
 - [ ] Show angel picks in Telegram as part of the daily loop.
 - [ ] Keep mission UI, panic mode, and angel pressure consistent instead of inventing competing flows.
 - [ ] Add enough UI/debug surface to inspect:

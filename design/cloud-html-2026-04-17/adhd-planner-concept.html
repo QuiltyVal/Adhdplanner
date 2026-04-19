@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ADHD Planner — тестовый дизайн 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Caveat:wght@500;700&family=Shadows+Into+Light&display=swap" rel="stylesheet">
+<style>
+  /* ========= TOKENS =========
+     Trend stack: Scrapbook/Scanner + Scribbles (emotion)
+                  + Index/Catalog (structure)
+                  + Sensory Storytelling (focus mode)
+  */
+  :root {
+    --paper:        #F2ECDC;
+    --paper-dark:   #E7DEC5;
+    --kraft:        #C9A77A;
+    --ink:          #1C1A15;
+    --ink-soft:     #4A453A;
+    --line:         #1C1A1520;
+
+    --tape-blue:    #98BFD9;
+    --tape-pink:    #F2A5B3;
+    --tape-mint:    #BFD9A8;
+    --tape-yellow:  #F2D27A;
+
+    --marker-red:   #E63946;
+    --marker-blue:  #2E58FC;
+    --marker-yellow:#F9E03B;
+    --marker-green: #27A65A;
+
+    --grid: 8px;
+    --radius: 2px;
+
+    --serif: "Instrument Serif", "GT Sectra", "Canela", Georgia, serif;
+    --sans:  "Inter", "Söhne", system-ui, -apple-system, sans-serif;
+    --mono:  "JetBrains Mono", "IBM Plex Mono", monospace;
+    --hand:  "Caveat", "Shadows Into Light", cursive;
+    --hand-2:"Shadows Into Light", "Caveat", cursive;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+
+    /* Paper texture via layered noise + vignette */
+    background-image:
+      radial-gradient(1200px 800px at 20% 10%, #00000010, transparent 60%),
+      radial-gradient(1400px 900px at 85% 90%, #00000018, transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.11  0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* ========= LAYOUT SHELL ========= */
+  .page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 64px 48px 120px;
+  }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; padding-bottom: 24px; border-bottom: 1.5px solid var(--ink); margin-bottom: 64px; }
+  .page-head h1 { font-family: var(--serif); font-size: 88px; font-weight: 400; line-height: .95; margin: 0; letter-spacing: -.02em; font-style: italic; }
+  .page-head .meta { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft); text-align: right; line-height: 1.7; }
+  .page-head .meta b { color: var(--ink); font-weight: 600; }
+
+  .section-title {
+    display: flex; align-items: baseline; gap: 16px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 80px 0 24px;
+  }
+  .section-title .num { font-family: var(--mono); font-weight: 700; color: var(--ink); }
+  .section-title h2 { font-family: var(--serif); font-weight: 400; font-size: 40px; color: var(--ink); margin: 0; letter-spacing: -.01em; }
+  .section-title .rule { flex: 1; height: 1.5px; background: var(--ink); margin-left: 16px; }
+
+  /* ========= DESIGN SYSTEM CARD ========= */
+  .system { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 32px; align-items: stretch; }
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .swatch { aspect-ratio: 1; border: 1px solid var(--ink); position: relative; font-family: var(--mono); font-size: 9px; text-transform: uppercase; }
+  .swatch span { position: absolute; left: 6px; bottom: 6px; background: var(--paper); padding: 2px 4px; }
+  .palette-title { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; margin: 0 0 10px; color: var(--ink-soft); }
+  .type-stack h3 { margin: 0 0 2px; font-weight: 400; }
+  .type-stack .row { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+  .type-stack .row:last-child { border-bottom: 0; }
+  .type-stack .row .label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); }
+  .type-stack .show-serif { font-family: var(--serif); font-size: 34px; font-style: italic; line-height: 1; }
+  .type-stack .show-sans  { font-family: var(--sans); font-size: 18px; font-weight: 600; }
+  .type-stack .show-mono  { font-family: var(--mono); font-size: 13px; }
+  .type-stack .show-hand  { font-family: var(--hand); font-size: 32px; line-height: 1; }
+
+  /* Principles block */
+  .principles { border: 1.5px solid var(--ink); padding: 24px; background: var(--paper-dark); position: relative; }
+  .principles::before { content: "PRINCIPLES"; position: absolute; top: -9px; left: 16px; background: var(--paper-dark); padding: 0 8px; font-family: var(--mono); font-size: 10px; letter-spacing: .18em; }
+  .principles ol { margin: 0; padding-left: 20px; font-family: var(--serif); font-size: 20px; line-height: 1.35; }
+  .principles ol li { margin-bottom: 8px; }
+  .principles ol li em { font-style: italic; color: var(--marker-red); }
+
+  /* ========= PHONE MOCKUPS ========= */
+  .phones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; align-items: start; }
+  .phone-wrap { position: relative; }
+  .phone-wrap .tag {
+    position: absolute; top: -28px; left: 0;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  .phone-wrap .tag b { color: var(--ink); margin-right: 8px; }
+  .phone {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 9 / 19.5;
+    background: var(--paper);
+    border: 1.5px solid var(--ink);
+    border-radius: 36px;
+    padding: 22px 16px 24px;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .phone::before {
+    /* status bar */
+    content: "9:41      5G     100%";
+    display: block;
+    font-family: var(--mono); font-size: 9px; letter-spacing: .08em;
+    color: var(--ink); padding: 0 8px 10px; border-bottom: 1px dashed var(--line);
+    margin-bottom: 12px;
+    white-space: pre;
+  }
+
+  /* Tape element — reusable */
+  .tape {
+    position: absolute;
+    width: 80px; height: 22px;
+    background: var(--tape-yellow);
+    opacity: .9;
+    transform: rotate(-6deg);
+    mix-blend-mode: multiply;
+    box-shadow: inset 0 0 0 1px #00000010;
+  }
+  .tape::before, .tape::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 4px;
+    background: linear-gradient(90deg, #00000018, transparent);
+  }
+  .tape::before { left: 0; }
+  .tape::after { right: 0; transform: scaleX(-1); }
+
+  /* ========= SCREEN 1 — LOGIN =========== */
+  .login-hero {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 56px;
+    line-height: .92;
+    letter-spacing: -.02em;
+    margin: 24px 4px 8px;
+  }
+  .login-hero .hand-overlay {
+    font-family: var(--hand);
+    font-style: normal;
+    font-size: 34px;
+    color: var(--marker-red);
+    display: block;
+    transform: rotate(-3deg);
+    margin: -6px 0 0 38px;
+  }
+  .login-lede {
+    font-family: var(--sans); font-size: 13px; color: var(--ink-soft);
+    padding: 0 4px; margin: 8px 0 16px;
+  }
+  .login-card {
+    position: relative;
+    margin: 14px 2px 0;
+    padding: 14px 14px 14px;
+    background: #FCF7E7;
+    border: 1.25px solid var(--ink);
+  }
+  .login-card .tape { top: -10px; left: 50%; transform: translateX(-50%) rotate(-4deg); background: var(--tape-pink); }
+  .login-card .row-fig { font-family: var(--mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); display: flex; justify-content: space-between; margin-bottom: 10px; }
+  .btn-primary {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 12px 14px;
+    background: var(--ink); color: var(--paper);
+    border: 0; font-family: var(--sans); font-weight: 600; font-size: 13px;
+    letter-spacing: .02em;
+  }
+  .btn-primary .g { display: inline-block; width: 14px; height: 14px; background: var(--paper); color: var(--ink); border-radius: 50%; font-family: var(--serif); font-weight: 700; font-size: 11px; line-height: 14px; text-align: center; }
+  .btn-ghost {
+    display: block; width: 100%; margin-top: 10px; padding: 11px 14px;
+    background: transparent; color: var(--ink);
+    border: 1.25px solid var(--ink);
+    font-family: var(--sans); font-weight: 500; font-size: 12px;
+  }
+  .login-note {
+    font-family: var(--hand); font-size: 20px; color: var(--ink);
+    transform: rotate(-2deg);
+    margin: 18px 6px 0; position: relative;
+  }
+  .login-note::before {
+    content: ""; position: absolute; left: -4px; right: 80%; top: 65%;
+    height: 8px; background: var(--marker-yellow); opacity: .55; z-index: -1;
+    transform: rotate(-1.5deg);
+  }
+  .login-foot { position: absolute; bottom: 22px; left: 18px; right: 18px; font-family: var(--mono); font-size: 9px; color: var(--ink-soft); letter-spacing: .1em; display: flex; justify-content: space-between; }
+
+  /* ========= SCREEN 2 — TODAY =========== */
+  .today-head { display: flex; align-items: flex-end; justify-content: space-between; padding: 2px 4px 10px; border-bottom: 1.25px solid var(--ink); }
+  .today-head .date { font-family: var(--serif); font-style: italic; font-size: 34px; line-height: 1; }
+  .today-head .meta { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); text-align: right; }
+
+  .energy {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 4px 0;
+    font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  .energy .bar { flex: 1; height: 10px; position: relative; border: 1px solid var(--ink); }
+  .energy .bar .fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 64%;
+    background: repeating-linear-gradient(45deg, var(--marker-yellow) 0 4px, #00000015 4px 5px);
+  }
+  .energy .bar .scribble {
+    position: absolute; left: 58%; top: -4px; font-family: var(--hand); font-size: 14px; color: var(--marker-red);
+    transform: rotate(-4deg);
+  }
+
+  .task-list { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .task {
+    position: relative;
+    border: 1.25px solid var(--ink);
+    background: #FAF4DF;
+    padding: 10px 12px 10px 38px;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  .task .chk {
+    position: absolute; left: 10px; top: 12px;
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--ink); background: var(--paper);
+  }
+  .task .num {
+    position: absolute; right: 10px; top: 10px;
+    font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+    color: var(--ink-soft);
+  }
+  .task .time { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
+  .task .title { font-family: var(--serif); font-size: 20px; line-height: 1.1; letter-spacing: -.01em; }
+  .task .tag  { display: inline-block; margin-top: 6px; padding: 2px 6px; border: 1px solid var(--ink); font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; }
+
+  /* Priority — marker highlight */
+  .task.prio .title::after { content: ""; }
+  .task.prio { background: #FDEEC4; }
+  .task.prio .title {
+    background: linear-gradient(var(--marker-yellow), var(--marker-yellow)) left 90%/100% 46% no-repeat;
+    padding: 0 2px;
+  }
+  .task.prio .flag {
+    position: absolute; left: -8px; top: -8px;
+    background: var(--marker-red); color: var(--paper);
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: .14em;
+    padding: 3px 6px; transform: rotate(-4deg);
+  }
+
+  /* Done — strike */
+  .task.done { background: #EFE8D2; opacity: .8; }
+  .task.done .title { position: relative; color: var(--ink-soft); }
+  .task.done .title::after {
+    content: ""; position: absolute; left: -2px; right: -2px; top: 55%; height: 3px;
+    background: var(--marker-red); transform: rotate(-1.5deg);
+  }
+  .task.done .chk {
+    background: var(--ink);
+    position: absolute; left: 10px; top: 12px;
+  }
+  .task.done .chk::after {
+    content: "✓"; color: var(--marker-yellow); font-family: var(--hand); font-size: 18px;
+    position: absolute; left: 1px; top: -6px;
+  }
+
+  .quick-add {
+    margin-top: 14px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px;
+    border: 1.25px dashed var(--ink);
+    background: transparent;
+    font-family: var(--hand); font-size: 22px;
+    color: var(--ink-soft);
+  }
+  .quick-add .plus { font-family: var(--serif); font-size: 26px; color: var(--ink); }
+
+  .tabbar {
+    position: absolute; left: 12px; right: 12px; bottom: 14px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    background: var(--ink); color: var(--paper);
+    padding: 8px;
+  }
+  .tabbar .tab { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; text-align: center; padding: 6px 2px; }
+  .tabbar .tab.active { background: var(--paper); color: var(--ink); }
+
+  /* ========= SCREEN 3 — FOCUS =========== */
+  .focus { height: 100%; display: flex; flex-direction: column; }
+  .focus .focus-head { font-family: var(--mono); font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink-soft); display: flex; justify-content: space-between; margin-bottom: 20px; padding: 2px 2px 0; }
+  .focus-shot {
+    margin: 4px -16px 16px;
+    height: 140px;
+    background:
+      linear-gradient(180deg, #3A342A 0%, #1C1A15 60%),
+      radial-gradient(circle at 40% 40%, #FFFFFF10, transparent 50%);
+    position: relative;
+    overflow: hidden;
+  }
+  .focus-shot::before {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(closest-side at 40% 45%, #E9D7A455 0%, transparent 55%),
+      radial-gradient(closest-side at 75% 70%, #8FA4B055 0%, transparent 55%);
+    filter: blur(2px);
+  }
+  .focus-shot .cred { position: absolute; left: 10px; bottom: 8px; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: #F2ECDC; opacity: .7; }
+  .focus-kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px; }
+  .focus-title { font-family: var(--serif); font-style: italic; font-size: 34px; line-height: 1.02; letter-spacing: -.015em; margin: 0 0 12px; }
+  .focus-timer {
+    font-family: var(--serif); font-weight: 400; font-size: 86px; line-height: .9;
+    letter-spacing: -.04em;
+    display: flex; align-items: flex-end; gap: 8px;
+  }
+  .focus-timer small { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 12px; }
+  .focus-timer .ring {
+    width: 54px; height: 54px; border: 1.5px solid var(--ink); border-radius: 50%;
+    margin-bottom: 8px; position: relative;
+  }
+  .focus-timer .ring::before {
+    content: ""; position: absolute; inset: -1.5px;
+    border: 3px solid transparent; border-top-color: var(--marker-red); border-right-color: var(--marker-red);
+    border-radius: 50%;
+    transform: rotate(135deg);
+  }
+  .focus-meta { margin-top: 16px; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+  .focus-meta .bar { display: inline-block; width: 100%; height: 4px; background: #00000015; margin-top: 8px; position: relative; }
+  .focus-meta .bar::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 38%; background: var(--ink); }
+  .focus-actions { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .focus-actions .b-pause { background: var(--ink); color: var(--paper); padding: 12px 10px; font-family: var(--sans); font-weight: 600; font-size: 12px; text-align: center; }
+  .focus-actions .b-stop { border: 1.25px solid var(--ink); padding: 12px 10px; text-align: center; font-family: var(--sans); font-weight: 500; font-size: 12px; }
+  .focus-note {
+    font-family: var(--hand); font-size: 22px; color: var(--marker-blue);
+    transform: rotate(-2.5deg); margin: 10px 0 0; line-height: 1.05;
+  }
+
+  /* ========= DETAIL PANELS ========= */
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .panel {
+    border: 1.25px solid var(--ink);
+    padding: 18px 18px 20px;
+    background: #FCF7E7;
+    position: relative;
+  }
+  .panel h4 { margin: 0 0 10px; font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); }
+  .panel p { margin: 0 0 10px; }
+  .panel .fig { position: absolute; top: 10px; right: 14px; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: var(--ink-soft); }
+  .panel.tape-top::before { content: ""; position: absolute; top: -8px; left: 22px; width: 68px; height: 18px; background: var(--tape-blue); opacity: .85; transform: rotate(-4deg); mix-blend-mode: multiply; }
+  .panel.tape-mint::before { background: var(--tape-mint); left: auto; right: 22px; transform: rotate(3deg); }
+  .panel.tape-pink::before { background: var(--tape-pink); left: 50%; transform: translateX(-50%) rotate(-2deg); }
+
+  /* Task detail specific */
+  .detail-title { font-family: var(--serif); font-style: italic; font-size: 34px; line-height: 1; letter-spacing: -.015em; margin: 6px 0 10px; }
+  .detail-time { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
+  .subtasks { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; }
+  .subtasks li { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 17px; }
+  .subtasks li .box { width: 14px; height: 14px; border: 1.4px solid var(--ink); flex: none; }
+  .subtasks li.checked .box { background: var(--ink); position: relative; }
+  .subtasks li.checked .box::after { content: "✓"; color: var(--marker-yellow); position: absolute; left: 1px; top: -7px; font-family: var(--hand); font-size: 18px; }
+  .subtasks li.checked { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: var(--marker-red); text-decoration-thickness: 2px; }
+
+  .time-slip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 8px; border: 1.25px solid var(--ink); background: var(--paper-dark);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+    margin-right: 6px; margin-bottom: 6px;
+  }
+
+  /* Brain dump */
+  .brain {
+    grid-column: span 2;
+    background: #FDEEC4;
+    position: relative;
+    border: 1.25px solid var(--ink);
+    padding: 18px 18px 18px;
+    min-height: 220px;
+  }
+  .brain::before {
+    content: "BRAIN DUMP"; position: absolute; top: -10px; left: 24px;
+    background: var(--marker-red); color: var(--paper);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .16em;
+    padding: 3px 8px; transform: rotate(-1.5deg);
+  }
+  .brain .note {
+    font-family: var(--hand); font-size: 26px; line-height: 1.15; color: var(--ink);
+    transform: rotate(-1deg);
+  }
+  .brain .note span { color: var(--marker-red); }
+  .brain .scan-lines {
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+      repeating-linear-gradient(180deg, transparent 0 26px, #1C1A1508 26px 27px);
+    mix-blend-mode: multiply;
+  }
+  .brain .tags { margin-top: 12px; }
+
+  /* Principle callout row */
+  .callout { display: flex; align-items: flex-start; gap: 24px; margin-top: 48px; padding: 28px 32px; border: 1.5px solid var(--ink); background: var(--paper-dark); position: relative; }
+  .callout .num { font-family: var(--serif); font-size: 64px; line-height: .8; font-style: italic; color: var(--marker-red); }
+  .callout .body { font-family: var(--serif); font-size: 22px; line-height: 1.25; max-width: 720px; }
+  .callout .body b { font-weight: 400; font-style: italic; }
+  .callout .sig { font-family: var(--hand); font-size: 28px; color: var(--ink); margin-top: 6px; }
+
+  /* Trend chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1.25px solid var(--ink); background: var(--paper); font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+  .chip b { font-weight: 700; }
+  .chip.primary { background: var(--ink); color: var(--paper); }
+
+  /* Footer */
+  footer { margin-top: 120px; padding-top: 24px; border-top: 1.25px solid var(--ink); display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+
+  @media (max-width: 960px) {
+    .system, .phones, .grid-3 { grid-template-columns: 1fr; }
+    .page { padding: 32px 20px 80px; }
+    .page-head h1 { font-size: 56px; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <!-- ========= HEADER ========= -->
+  <header class="page-head">
+    <div>
+      <div style="font-family: var(--mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 10px;">
+        Concept v0.1 · Design Trend Report 2026
+      </div>
+      <h1>ADHD&nbsp;Planner<span style="font-family:var(--hand); font-style: normal; color: var(--marker-red); font-size: 48px; display:block; margin: -8px 0 0 12px; transform: rotate(-2deg);">&mdash; на бумаге.</span></h1>
+    </div>
+    <div class="meta">
+      <b>FILE</b>&nbsp;&nbsp;adhd-planner-concept.html<br>
+      <b>FOR</b>&nbsp;&nbsp;planner.valquilty.com<br>
+      <b>STACK</b>&nbsp;&nbsp;scrapbook · scribbles · index/catalog · (sensory)
+    </div>
+  </header>
+
+  <!-- ========= 01 RATIONALE =========== -->
+  <div class="section-title">
+    <span class="num">01</span>
+    <h2>Почему такой стиль под ADHD-планер</h2>
+    <span class="rule"></span>
+  </div>
+
+  <div class="grid-3" style="gap: 24px;">
+    <div class="panel tape-top tape-pink">
+      <span class="fig">[ fig. 01 ]</span>
+      <h4>Проблема продукта</h4>
+      <p>Люди с ADHD бросают планеры, которые выглядят как Excel: стерильные, «серьёзные», <em>скучные</em> — мозг не цепляется. И те, что перегружены — <em>overwhelm</em> на старте.</p>
+    </div>
+    <div class="panel tape-top">
+      <span class="fig">[ fig. 02 ]</span>
+      <h4>Что делает эстетика</h4>
+      <p><b>Scrapbook + Scribbles</b> дают дофамин и ощущение «это моё, я это собрал». <b>Index/Catalog</b> держит структуру и не даёт скатиться в хаос. <b>Sensory</b> — только в Focus-режиме, чтобы мозг отдыхал.</p>
+    </div>
+    <div class="panel tape-top tape-mint">
+      <span class="fig">[ fig. 03 ]</span>
+      <h4>Anti-patterns</h4>
+      <p>Нет градиентов, нет чистого SaaS-neutral, нет пастели из стока. Нет «мотивирующих» иллюстраций. Маркер и тейп — только там, где есть смысл: приоритет, готово, подсказка.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="num">“</span>
+    <div>
+      <div class="body"><b>Хочется открыть приложение не потому, что надо,<br>а потому, что оно как блокнот, который ты сам завёл.</b></div>
+      <div class="sig">— инсайт юзер-интервью</div>
+    </div>
+  </div>
+
+  <!-- ========= 02 SYSTEM =========== -->
+  <div class="section-title">
+    <span class="num">02</span>
+    <h2>Визуальная система</h2>
+    <span class="rule"></span>
+  </div>
+
+  <div class="system">
+    <div>
+      <div class="palette-title">Paper &amp; Ink</div>
+      <div class="swatches" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="swatch" style="background:#F2ECDC"><span>paper</span></div>
+        <div class="swatch" style="background:#E7DEC5"><span>paper-dk</span></div>
+        <div class="swatch" style="background:#C9A77A"><span>kraft</span></div>
+        <div class="swatch" style="background:#1C1A15;color:#F2ECDC"><span style="background:#1C1A15;color:#F2ECDC">ink</span></div>
+      </div>
+      <div class="palette-title" style="margin-top:18px;">Washi tape (multiply)</div>
+      <div class="swatches" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="swatch" style="background:#98BFD9"><span>blue</span></div>
+        <div class="swatch" style="background:#F2A5B3"><span>pink</span></div>
+        <div class="swatch" style="background:#BFD9A8"><span>mint</span></div>
+        <div class="swatch" style="background:#F2D27A"><span>yellow</span></div>
+      </div>
+      <div class="palette-title" style="margin-top:18px;">Marker accents</div>
+      <div class="swatches" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="swatch" style="background:#E63946;color:#F2ECDC"><span style="color:#1C1A15">red</span></div>
+        <div class="swatch" style="background:#2E58FC;color:#F2ECDC"><span style="color:#1C1A15">blue</span></div>
+        <div class="swatch" style="background:#F9E03B"><span>yellow</span></div>
+        <div class="swatch" style="background:#27A65A;color:#F2ECDC"><span style="color:#1C1A15">green</span></div>
+      </div>
+    </div>
+
+    <div class="type-stack">
+      <div class="palette-title">Типографика</div>
+      <div class="row">
+        <span class="show-serif">Today is a page.</span>
+        <span class="label">Instrument Serif · Display / Italic</span>
+      </div>
+      <div class="row">
+        <span class="show-sans">Focus for 25 minutes</span>
+        <span class="label">Inter · Body / UI</span>
+      </div>
+      <div class="row">
+        <span class="show-mono">[ FIG. 04 ] · 09:41 am</span>
+        <span class="label">JetBrains Mono · Labels / Numbers</span>
+      </div>
+      <div class="row">
+        <span class="show-hand">не забыть позвонить маме</span>
+        <span class="label">Caveat · Hand notes / highlights</span>
+      </div>
+    </div>
+
+    <div class="principles">
+      <ol>
+        <li><em>Страница — это день.</em> Один скролл, один день.</li>
+        <li><em>Приоритет видно слепому.</em> Маркер и тейп — только по делу.</li>
+        <li><em>Overwhelm — фича, не баг.</em> Есть кнопка «мне слишком много», и она чинит экран.</li>
+        <li><em>Фокус — это тишина.</em> В focus-mode палитра уходит в sensory-темноту.</li>
+        <li><em>Сделано = зачёркнуто.</em> Красным. С чувством.</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ========= 03 TREND STACK =========== -->
+  <div class="section-title">
+    <span class="num">03</span>
+    <h2>Стек трендов</h2>
+    <span class="rule"></span>
+  </div>
+  <div class="chips" style="margin-bottom: 24px;">
+    <span class="chip primary"><b>Primary</b> Scrapbook / Scanner</span>
+    <span class="chip primary"><b>Primary</b> Scribbles</span>
+    <span class="chip"><b>Structure</b> Index / Catalog</span>
+    <span class="chip"><b>Accent</b> Sensory Storytelling (Focus mode)</span>
+    <span class="chip"><b>Ref</b> Design Guide 2026 · §2.8, §2.12, §2.13, §2.3</span>
+  </div>
+
+  <!-- ========= 04 SCREENS =========== -->
+  <div class="section-title">
+    <span class="num">04</span>
+    <h2>Экраны</h2>
+    <span class="rule"></span>
+  </div>
+
+  <div class="phones">
+
+    <!-- ======= LOGIN ======= -->
+    <div class="phone-wrap">
+      <div class="tag"><b>01</b> Login · replaces current</div>
+      <div class="phone">
+        <div class="login-hero">
+          Твой день&nbsp;—
+          <span class="hand-overlay">на странице.</span>
+        </div>
+        <div class="login-lede">Задачи живут в облаке. Или просто в твоей голове — офлайн тоже работает.</div>
+
+        <div class="login-card">
+          <div class="tape"></div>
+          <div class="row-fig"><span>[ fig. 01 ]</span><span>sign&nbsp;in</span></div>
+          <button class="btn-primary"><span class="g">G</span> Войти через Google</button>
+          <button class="btn-ghost">Продолжить без аккаунта</button>
+        </div>
+
+        <div class="login-note">синхронизация появится, когда войдёшь.</div>
+
+        <div class="login-foot">
+          <span>v 0.1 · offline ready</span>
+          <span>planner / valquilty</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======= TODAY ======= -->
+    <div class="phone-wrap">
+      <div class="tag"><b>02</b> Today · main screen</div>
+      <div class="phone">
+        <div class="today-head">
+          <div class="date">Пятница,<br>17 апреля</div>
+          <div class="meta">today<br>[ fig. 04 ]<br>3 / 7 done</div>
+        </div>
+
+        <div class="energy">
+          <span>energy</span>
+          <div class="bar">
+            <div class="fill"></div>
+            <div class="scribble">сейчас</div>
+          </div>
+          <span>64%</span>
+        </div>
+
+        <div class="task-list">
+          <div class="task done">
+            <span class="chk"></span>
+            <span class="num">[ 01 ]</span>
+            <div class="time">08:30 · morning</div>
+            <div class="title">Завтрак + таблетки</div>
+          </div>
+
+          <div class="task prio">
+            <span class="flag">Must today</span>
+            <span class="chk"></span>
+            <span class="num">[ 02 ]</span>
+            <div class="time">10:00 · deep work · 90 min</div>
+            <div class="title">Закончить макет дашборда</div>
+            <span class="tag">focus</span>
+            <span class="tag">client · onyx</span>
+          </div>
+
+          <div class="task">
+            <span class="chk"></span>
+            <span class="num">[ 03 ]</span>
+            <div class="time">12:30 · quick</div>
+            <div class="title">Позвонить маме</div>
+            <span class="tag">personal</span>
+          </div>
+
+          <div class="task">
+            <span class="chk"></span>
+            <span class="num">[ 04 ]</span>
+            <div class="time">15:00 · low-energy ok</div>
+            <div class="title">Разобрать инбокс</div>
+          </div>
+        </div>
+
+        <div class="quick-add"><span class="plus">+</span> добавить задачу…</div>
+
+        <div class="tabbar">
+          <div class="tab active">today</div>
+          <div class="tab">week</div>
+          <div class="tab">brain</div>
+          <div class="tab">focus</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======= FOCUS ======= -->
+    <div class="phone-wrap">
+      <div class="tag"><b>03</b> Focus mode · Sensory</div>
+      <div class="phone" style="background: #1C1A15; color: #F2ECDC; border-color: #1C1A15;">
+        <div class="focus">
+          <div class="focus-head" style="color:#C9A77A;">
+            <span>focus · session 02</span>
+            <span>silent</span>
+          </div>
+
+          <div class="focus-shot">
+            <span class="cred">tactile still · kraft paper, warm light</span>
+          </div>
+
+          <div class="focus-kicker" style="color:#C9A77A;">now · one thing</div>
+          <h3 class="focus-title">Закончить макет<br>дашборда.</h3>
+
+          <div class="focus-timer">
+            <span>24</span><small>:37</small>
+            <div class="ring"></div>
+          </div>
+
+          <div class="focus-meta" style="color:#C9A77A;">
+            progress · 38% of pomodoro
+            <div class="bar" style="background:#C9A77A30;"><style>.phone .focus-meta .bar::after{background:#F2D27A}</style></div>
+          </div>
+
+          <div class="focus-note">дыши. телефон — в ящик.</div>
+
+          <div class="focus-actions">
+            <div class="b-pause" style="background:#F2ECDC;color:#1C1A15;">Pause</div>
+            <div class="b-stop" style="border-color:#F2ECDC;color:#F2ECDC;">End session</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========= 05 DETAIL PANELS =========== -->
+  <div class="section-title">
+    <span class="num">05</span>
+    <h2>Детали и состояния</h2>
+    <span class="rule"></span>
+  </div>
+
+  <div class="grid-3">
+    <div class="panel tape-top">
+      <span class="fig">[ fig. 05 ]</span>
+      <h4>Task detail · breakdown</h4>
+      <div class="detail-time">10:00 – 11:30 · deep work</div>
+      <div class="detail-title">Закончить макет дашборда</div>
+      <div>
+        <span class="time-slip">90 MIN</span>
+        <span class="time-slip">HIGH FOCUS</span>
+        <span class="time-slip">CLIENT · ONYX</span>
+      </div>
+      <ul class="subtasks">
+        <li class="checked"><span class="box"></span>Собрать брейф в одном файле</li>
+        <li class="checked"><span class="box"></span>Найти 3 референса</li>
+        <li><span class="box"></span>Черновой wireframe главного экрана</li>
+        <li><span class="box"></span>Типографика и сетка</li>
+        <li><span class="box"></span>Показать артдиру до 11:30</li>
+      </ul>
+    </div>
+
+    <div class="panel brain">
+      <span class="fig">[ fig. 06 ]</span>
+      <div class="scan-lines"></div>
+      <div class="note">
+        &mdash; идея для подкаста<br>
+        &mdash; купить <span>новый блокнот</span><br>
+        &mdash; написать Денису по проекту<br>
+        &mdash; не забыть: виза продлевается!<br>
+        &mdash; почему люди не пьют воду?<br>
+        &mdash; тренировка — пн вт чт
+      </div>
+      <div class="tags" style="margin-top:18px;">
+        <span class="time-slip">RAW</span>
+        <span class="time-slip">NOT SORTED</span>
+        <span class="time-slip">TRIAGE LATER</span>
+      </div>
+    </div>
+
+    <div class="panel tape-top tape-mint">
+      <span class="fig">[ fig. 07 ]</span>
+      <h4>Overwhelm · safety switch</h4>
+      <p style="font-family: var(--serif); font-size: 19px; line-height: 1.25;">Если всё стало слишком много — одна кнопка. Экран тает: остаётся <em>одна</em> задача, Focus-mode и глубокое дыхание на 60 секунд.</p>
+      <div style="margin-top: 14px;">
+        <button class="btn-primary" style="background:var(--marker-red); color: var(--paper);">Мне слишком много →</button>
+        <div style="font-family: var(--hand); font-size: 20px; color: var(--ink-soft); margin-top: 8px; transform: rotate(-1deg);">это нормально. сейчас починим.</div>
+      </div>
+    </div>
+
+    <div class="panel tape-top">
+      <span class="fig">[ fig. 08 ]</span>
+      <h4>Empty state · first time</h4>
+      <div style="font-family: var(--serif); font-style: italic; font-size: 30px; line-height: 1; margin: 6px 0 8px;">Пока пусто.</div>
+      <div style="font-family: var(--hand); font-size: 24px; color: var(--marker-blue); transform: rotate(-2deg); line-height: 1.05; margin-bottom: 10px;">напиши первую мысль,<br>которая сейчас в голове &nbsp;→</div>
+      <div class="quick-add" style="font-family: var(--sans); font-size: 13px;">
+        <span class="plus">+</span> напиши что угодно…
+      </div>
+      <div style="font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); margin-top: 12px;">потом разберём вместе</div>
+    </div>
+
+    <div class="panel tape-top tape-pink">
+      <span class="fig">[ fig. 09 ]</span>
+      <h4>Week view · catalog grid</h4>
+      <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 8px;">
+        <!-- 7 mini day cards -->
+        <!-- Pattern: border + number + dot grid by tasks done -->
+        <div style="border:1.25px solid var(--ink); padding: 6px 4px; min-height: 84px; position: relative;">
+          <div style="font-family: var(--mono); font-size: 9px;">MON</div>
+          <div style="font-family: var(--serif); font-size: 20px; line-height: 1;">14</div>
+          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;">
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;border:1px solid var(--ink);display:block;"></i>
+          </div>
+        </div>
+        <div style="border:1.25px solid var(--ink); padding: 6px 4px; min-height: 84px;">
+          <div style="font-family: var(--mono); font-size: 9px;">TUE</div>
+          <div style="font-family: var(--serif); font-size: 20px; line-height: 1;">15</div>
+          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;">
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;border:1px solid var(--ink);display:block;"></i>
+          </div>
+        </div>
+        <div style="border:1.25px solid var(--ink); padding: 6px 4px; min-height: 84px;">
+          <div style="font-family: var(--mono); font-size: 9px;">WED</div>
+          <div style="font-family: var(--serif); font-size: 20px; line-height: 1;">16</div>
+          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;">
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+          </div>
+        </div>
+        <div style="border:1.25px solid var(--ink); padding: 6px 4px; min-height: 84px; background: #FDEEC4;">
+          <div style="font-family: var(--mono); font-size: 9px;">THU</div>
+          <div style="font-family: var(--serif); font-size: 20px; line-height: 1;">17</div>
+          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;">
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;background:var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;border:1px solid var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;border:1px solid var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;border:1px solid var(--ink);display:block;"></i>
+            <i style="width:6px;height:6px;border:1px solid var(--ink);display:block;"></i>
+          </div>
+          <div style="font-family: var(--hand); font-size: 18px; color: var(--marker-red); transform: rotate(-4deg); position: absolute; bottom: 2px; right: 4px;">now</div>
+        </div>
+        <div style="border:1.25px dashed var(--ink); padding: 6px 4px; min-height: 84px;">
+          <div style="font-family: var(--mono); font-size: 9px;">FRI</div>
+          <div style="font-family: var(--serif); font-size: 20px; line-height: 1; color: var(--ink-soft);">18</div>
+        </div>
+        <div style="border:1.25px dashed var(--ink); padding: 6px 4px; min-height: 84px;">
+          <div style="font-family: var(--mono); font-size: 9px;">SAT</div>
+          <div style="font-family: var(--serif); font-size: 20px; line-height: 1; color: var(--ink-soft);">19</div>
+        </div>
+        <div style="border:1.25px dashed var(--ink); padding: 6px 4px; min-height: 84px;">
+          <div style="font-family: var(--mono); font-size: 9px;">SUN</div>
+          <div style="font-family: var(--serif); font-size: 20px; line-height: 1; color: var(--ink-soft);">20</div>
+        </div>
+      </div>
+      <div style="font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); margin-top: 10px;">Index-сетка · один день = одна карточка · точка = задача</div>
+    </div>
+
+    <div class="panel tape-top">
+      <span class="fig">[ fig. 10 ]</span>
+      <h4>Done · end of day ritual</h4>
+      <div style="font-family: var(--serif); font-style: italic; font-size: 28px; line-height: 1.05; margin: 4px 0 10px;">5 из 7.<br>Достаточно.</div>
+      <p style="font-family: var(--sans); font-size: 13px; color: var(--ink-soft);">Вечером планер сам закрывает день. Не стыдит за недоделанное — переносит на завтра мягко. Внизу &mdash; одна строчка от руки: что было хорошим сегодня.</p>
+      <div style="font-family: var(--hand); font-size: 22px; color: var(--marker-blue); border-bottom: 1.5px solid var(--ink); padding-bottom: 2px; transform: rotate(-.5deg); margin-top: 8px;">
+        успела позвонить маме ✓
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========= 06 ACCESSIBILITY =========== -->
+  <div class="section-title">
+    <span class="num">06</span>
+    <h2>Доступность и ограничения</h2>
+    <span class="rule"></span>
+  </div>
+  <div class="grid-3">
+    <div class="panel">
+      <span class="fig">[ a11y ]</span>
+      <h4>Контраст</h4>
+      <p>Ink <span style="font-family:var(--mono)">#1C1A15</span> на paper <span style="font-family:var(--mono)">#F2ECDC</span> = 14.3:1 (AAA). Текстура — только в фоне, не под текстом.</p>
+    </div>
+    <div class="panel">
+      <span class="fig">[ motion ]</span>
+      <h4>Reduced motion</h4>
+      <p>Тейп и рукописные штрихи — статичные. «Дрожание» бумаги, scan-lines и scribble-анимации выключаются через <span style="font-family:var(--mono)">prefers-reduced-motion</span>.</p>
+    </div>
+    <div class="panel">
+      <span class="fig">[ scale ]</span>
+      <h4>Режим «меньше вайба»</h4>
+      <p>В настройках — переключатель <b>calm mode</b>: убирает тейпы, оставляет Index/Catalog-каркас. Для дней, когда визуального шума и так хватает.</p>
+    </div>
+  </div>
+
+  <footer>
+    <span>ADHD Planner · concept v0.1</span>
+    <span>based on Stills 2026 Design Trend Report</span>
+    <span>Design Guide 2026 · §2.8 + §2.12 + §2.13</span>
+  </footer>
+</main>
+</body>
+</html>

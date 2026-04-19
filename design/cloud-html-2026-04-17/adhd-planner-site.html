@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ADHD Planner</title>
+<meta name="description" content="Ваши задачи в облаке. Войдите через Google." />
+<meta name="theme-color" content="#F2ECDC" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:       #F2ECDC;
+    --paper-card:  #FCF7E7;
+    --paper-dark:  #E7DEC5;
+    --ink:         #1C1A15;
+    --ink-soft:    #4A453A;
+    --line:        #1C1A1520;
+
+    --tape-pink:   #F2A5B3;
+    --tape-blue:   #98BFD9;
+    --tape-yellow: #F2D27A;
+
+    --marker-red:  #E63946;
+    --marker-blue: #2E58FC;
+    --marker-yel:  #F9E03B;
+
+    --serif: "Instrument Serif", Georgia, serif;
+    --sans:  "Inter", system-ui, -apple-system, sans-serif;
+    --mono:  "JetBrains Mono", "IBM Plex Mono", monospace;
+    --hand:  "Caveat", cursive;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { min-height: 100%; }
+  body {
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+
+    background-image:
+      radial-gradient(1400px 900px at 15% 5%,  #00000010, transparent 60%),
+      radial-gradient(1400px 900px at 90% 95%, #00000018, transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.11  0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0.09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  a { color: inherit; }
+
+  /* ========= SHELL ========= */
+  .shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  /* ========= TOP BAR ========= */
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 32px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-soft);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); }
+  .topbar .brand .mark {
+    width: 22px; height: 22px;
+    border: 1.5px solid var(--ink);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-style: italic; font-size: 15px;
+    line-height: 1;
+  }
+  .topbar .brand b { font-weight: 600; letter-spacing: .12em; }
+  .topbar .right { display: flex; gap: 18px; align-items: center; }
+  .topbar .right a { text-decoration: none; }
+  .topbar .right a:hover { color: var(--ink); }
+
+  /* ========= MAIN ========= */
+  main.hero {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 64px;
+    padding: 72px 56px 96px;
+    max-width: 1320px;
+    margin: 0 auto;
+    width: 100%;
+    align-items: center;
+  }
+
+  /* ----- Left column ----- */
+  .lead .kicker {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 18px;
+  }
+  .lead .kicker .dot {
+    display: inline-block; width: 7px; height: 7px; background: var(--marker-red);
+    border-radius: 50%; margin-right: 8px; vertical-align: 2px;
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: .5; transform: scale(.85); }
+  }
+
+  .lead h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-style: italic;
+    font-size: clamp(64px, 9vw, 132px);
+    line-height: .92;
+    letter-spacing: -.025em;
+    margin: 0;
+  }
+  .lead h1 .plain { font-style: normal; }
+  .lead h1 .hand {
+    display: block;
+    font-family: var(--hand); font-weight: 700;
+    font-style: normal;
+    font-size: .42em;
+    color: var(--marker-red);
+    transform: rotate(-2.5deg);
+    margin: -.08em 0 0 .4em;
+    line-height: .95;
+  }
+
+  .lead .sub {
+    margin-top: 24px;
+    max-width: 520px;
+    font-size: 18px;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .lead .sub b { font-weight: 500; }
+
+  .lead .hand-note {
+    margin-top: 26px;
+    font-family: var(--hand); font-size: 30px; line-height: 1; color: var(--ink);
+    transform: rotate(-1.5deg);
+    position: relative; display: inline-block;
+    padding: 2px 4px;
+  }
+  .lead .hand-note::before {
+    content: ""; position: absolute; inset: auto 0 10%  0; height: 12px;
+    background: var(--marker-yel); opacity: .55; z-index: -1;
+    transform: rotate(-.7deg);
+  }
+
+  /* Meta strip under heading */
+  .lead .strip {
+    margin-top: 40px;
+    padding: 14px 18px;
+    border: 1.25px solid var(--ink);
+    background: var(--paper-card);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase;
+    position: relative;
+    max-width: 540px;
+  }
+  .lead .strip::before {
+    content: ""; position: absolute; top: -9px; left: 28px;
+    width: 72px; height: 18px; background: var(--tape-blue);
+    opacity: .9; transform: rotate(-3deg); mix-blend-mode: multiply;
+  }
+  .lead .strip .cell b { display: block; color: var(--ink); font-weight: 700; margin-bottom: 4px; font-size: 12px; }
+  .lead .strip .cell span { color: var(--ink-soft); }
+
+  /* ----- Right column — login card ----- */
+  .login {
+    position: relative;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    padding: 36px 32px 32px;
+    max-width: 460px;
+    width: 100%;
+    justify-self: end;
+  }
+  .login::before {
+    content: ""; position: absolute; top: -11px; left: 50%;
+    width: 140px; height: 22px;
+    background: var(--tape-pink); opacity: .9;
+    transform: translateX(-50%) rotate(-2.5deg);
+    mix-blend-mode: multiply;
+  }
+  .login::after {
+    content: ""; position: absolute; inset: 0;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.11  0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    pointer-events: none; mix-blend-mode: multiply; opacity: .7;
+  }
+  .login > * { position: relative; z-index: 1; }
+
+  .login .figline {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-soft);
+    margin-bottom: 22px;
+  }
+
+  .login h2 {
+    font-family: var(--serif); font-weight: 400; font-style: italic;
+    font-size: 42px; line-height: 1; letter-spacing: -.015em;
+    margin: 0 0 8px;
+  }
+  .login .h-sub {
+    font-size: 14px; color: var(--ink-soft); margin: 0 0 22px;
+  }
+
+  /* Buttons */
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%;
+    padding: 14px 16px;
+    font-family: var(--sans); font-weight: 600; font-size: 14px;
+    letter-spacing: .01em;
+    border: 1.5px solid var(--ink);
+    background: var(--ink); color: var(--paper);
+    cursor: pointer;
+    transition: transform .12s ease, background .12s ease, color .12s ease;
+    text-decoration: none;
+  }
+  .btn:hover { transform: translate(-1px, -1px); background: var(--marker-red); }
+  .btn:active { transform: translate(0, 0); }
+  .btn:focus-visible { outline: 2px solid var(--marker-red); outline-offset: 3px; }
+
+  .btn .g {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif); font-weight: 700; font-style: normal;
+    font-size: 14px; line-height: 20px; text-align: center;
+    flex: none;
+  }
+
+  .btn-ghost {
+    margin-top: 10px;
+    background: transparent; color: var(--ink);
+    font-weight: 500;
+  }
+  .btn-ghost:hover { background: var(--ink); color: var(--paper); }
+
+  .login .sep {
+    display: flex; align-items: center; gap: 10px;
+    margin: 16px 0 10px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--ink-soft);
+  }
+  .login .sep::before, .login .sep::after {
+    content: ""; flex: 1; height: 1px; background: var(--line);
+  }
+
+  .login .legal {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+    color: var(--ink-soft); margin-top: 20px; line-height: 1.6;
+  }
+  .login .legal a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+  .login .sticker {
+    position: absolute; right: -14px; top: 38%;
+    transform: rotate(8deg);
+    background: var(--marker-yel);
+    border: 1.25px solid var(--ink);
+    padding: 6px 10px 5px;
+    font-family: var(--hand); font-size: 22px; line-height: 1;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+
+  /* ========= FOOTER ========= */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 20px 32px 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-soft);
+    gap: 20px; flex-wrap: wrap;
+  }
+  footer .links { display: flex; gap: 18px; }
+  footer a { text-decoration: none; }
+  footer a:hover { color: var(--ink); }
+
+  /* ========= MOBILE ========= */
+  @media (max-width: 860px) {
+    .topbar { padding: 16px 20px; font-size: 10px; }
+    .topbar .right .muted-hide { display: none; }
+    main.hero {
+      grid-template-columns: 1fr;
+      gap: 40px;
+      padding: 40px 20px 60px;
+    }
+    .lead h1 { font-size: clamp(56px, 15vw, 96px); }
+    .lead .sub { font-size: 16px; }
+    .lead .hand-note { font-size: 26px; }
+    .lead .strip { grid-template-columns: 1fr 1fr; max-width: none; }
+    .login { justify-self: stretch; max-width: none; padding: 30px 22px 26px; }
+    .login .sticker { right: -8px; top: auto; bottom: -16px; }
+    footer { padding: 16px 20px; justify-content: flex-start; }
+  }
+
+  /* ========= A11Y: reduced motion ========= */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    .btn:hover { transform: none; }
+  }
+
+  /* ========= DARK / CALM MODE (toggle-ready) ========= */
+  [data-mode="dark"] {
+    --paper:      #16150F;
+    --paper-card: #1E1C14;
+    --paper-dark: #272419;
+    --ink:        #F2ECDC;
+    --ink-soft:   #BDB49A;
+    --line:       #F2ECDC22;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar" role="banner">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">a</span>
+      <b>ADHD&nbsp;Planner</b>
+    </div>
+    <nav class="right" aria-label="Меню">
+      <a href="#about"   class="muted-hide">О проекте</a>
+      <a href="#privacy" class="muted-hide">Приватность</a>
+      <a href="#help">Помощь</a>
+      <span aria-hidden="true">·</span>
+      <span>v&nbsp;0.1</span>
+    </nav>
+  </header>
+
+  <!-- ============ MAIN ============ -->
+  <main class="hero" role="main">
+
+    <section class="lead">
+      <div class="kicker"><span class="dot"></span>Готов. Работает онлайн и офлайн.</div>
+
+      <h1>
+        <span class="plain">ADHD</span>
+        Planner.
+        <span class="hand">твой день — на странице.</span>
+      </h1>
+
+      <p class="sub">
+        <b>Ваши задачи в облаке.</b> Войдите через Google — и план синхронизируется со всеми устройствами. Или откройте без аккаунта: всё останется у вас в браузере.
+      </p>
+
+      <div class="hand-note">без регистрации. без шума.</div>
+
+      <div class="strip" role="list">
+        <div class="cell" role="listitem"><b>Brain dump</b><span>одной кнопкой</span></div>
+        <div class="cell" role="listitem"><b>Focus&nbsp;mode</b><span>25 минут тишины</span></div>
+        <div class="cell" role="listitem"><b>Оффлайн</b><span>работает без интернета</span></div>
+      </div>
+    </section>
+
+    <!-- ============ LOGIN CARD ============ -->
+    <section class="login" aria-labelledby="login-title">
+      <div class="figline">
+        <span>[ fig. 01 ]</span>
+        <span>sign&nbsp;in</span>
+      </div>
+
+      <h2 id="login-title">Войти.</h2>
+      <p class="h-sub">Так задачи будут везде, где есть вы.</p>
+
+      <button class="btn" type="button" data-action="google">
+        <span class="g" aria-hidden="true">G</span>
+        Войти через Google
+      </button>
+
+      <div class="sep">или</div>
+
+      <button class="btn btn-ghost" type="button" data-action="offline">
+        Продолжить без аккаунта <span aria-hidden="true" style="margin-left:4px; font-family: var(--mono); font-size: 11px;">(оффлайн)</span>
+      </button>
+
+      <p class="legal">
+        Входя, вы соглашаетесь с <a href="#terms">условиями</a> и <a href="#privacy">политикой приватности</a>. Данные синхронизируются только после входа.
+      </p>
+
+      <div class="sticker" aria-hidden="true">новое</div>
+    </section>
+
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer role="contentinfo">
+    <div>© 2026 · planner.valquilty.com</div>
+    <div class="links">
+      <a href="#about">О проекте</a>
+      <a href="#privacy">Приватность</a>
+      <a href="#terms">Условия</a>
+      <a href="mailto:hello@valquilty.com">Связаться</a>
+    </div>
+    <div>Made on paper. Runs in the browser.</div>
+  </footer>
+
+</div>
+
+<script>
+  // Минимальная демо-логика для кнопок — на проде заменить на реальную авторизацию
+  document.querySelectorAll('[data-action]').forEach(b => {
+    b.addEventListener('click', e => {
+      const a = e.currentTarget.dataset.action;
+      if (a === 'google')  console.log('→ OAuth redirect (Google)');
+      if (a === 'offline') console.log('→ Mount local storage session');
+    });
+  });
+</script>
+</body>
+</html>

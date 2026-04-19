@@ -6,6 +6,13 @@ import TaskColumn from "./TaskColumn";
 import LogoutButton from "./LogoutButton";
 import Companions from "./Companions";
 import LoadingScreen from "./LoadingScreen";
+import AngelLabScreen from "./AngelLabScreen";
+import angelLabCat from "./assets/angel-lab-cat.png";
+import {
+  getNextTaskOrder,
+  resolveTaskOrderValue,
+  sortTasksByOrder,
+} from "./taskOrderUtils";
 import {
   subscribeToTasks,
   saveTask,
@@ -43,6 +50,15 @@ const CLOUD_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
 const LOCAL_PENDING_SYNC_TTL_MS = 15 * 1000;
 const DEVIL_AUTO_CLEAN_THRESHOLD = 5;   // purgatory tasks before devil intervenes
 const DEVIL_AUTO_CLEAN_COOLDOWN_MS = 30 * 60 * 1000; // 30 min between auto-cleans
+const ANGEL_TASK_STARTERS = new Set([
+  "купить", "сделать", "построить", "приготовить", "узнать", "убить", "проверить",
+  "подготовить", "написать", "позвонить", "сходить", "записаться", "заказать", "оплатить",
+  "помыть", "починить", "отправить", "найти", "выбрать", "забрать", "постирать",
+]);
+const ANGEL_STOPWORDS = new Set([
+  "надо", "нужно", "хочу", "и", "или", "но", "а", "потом", "затем", "после", "этого",
+  "для", "как", "что", "это", "еще", "ещё", "просто", "вообще",
+]);
 
 function stripLocalTaskState(task) {
   if (!task || typeof task !== "object") return task;
@@ -95,6 +111,324 @@ function getPulseStorageKey(userId) {
 
 function getCloudCacheKey(userId) {
   return `${CLOUD_CACHE_PREFIX}_${userId}`;
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read audio blob"));
+    reader.onloadend = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        reject(new Error("Invalid audio payload"));
+        return;
+      }
+      const commaIndex = result.indexOf(",");
+      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+function tokenizeAngelLabText(value = "") {
+  return normalizeAngelLabTranscript(value)
+    .toLowerCase()
+    .replace(/[«»"'`]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function isAngelLabNearDuplicate(left = "", right = "") {
+  const leftNormalized = normalizeAngelLabTranscript(left).toLowerCase();
+  const rightNormalized = normalizeAngelLabTranscript(right).toLowerCase();
+
+  if (!leftNormalized || !rightNormalized) return false;
+  if (leftNormalized === rightNormalized) return true;
+  if (leftNormalized.length >= 8 && rightNormalized.includes(leftNormalized)) return true;
+  if (rightNormalized.length >= 8 && leftNormalized.includes(rightNormalized)) return true;
+
+  const leftTokenList = tokenizeAngelLabText(leftNormalized);
+  const rightTokenList = tokenizeAngelLabText(rightNormalized);
+  if (!leftTokenList.length || !rightTokenList.length) return false;
+
+  const shorterTokens = leftTokenList.length <= rightTokenList.length ? leftTokenList : rightTokenList;
+  const longerTokens = leftTokenList.length <= rightTokenList.length ? rightTokenList : leftTokenList;
+  if (shorterTokens.length >= 2 && shorterTokens.length <= 3) {
+    const longerSet = new Set(longerTokens);
+    if (shorterTokens.every((token) => longerSet.has(token))) return true;
+  }
+
+  const leftTokens = new Set(leftTokenList);
+  const rightTokens = new Set(rightTokenList);
+
+  let intersection = 0;
+  for (const token of leftTokens) {
+    if (rightTokens.has(token)) intersection += 1;
+  }
+  const union = new Set([...leftTokens, ...rightTokens]).size;
+  if (!union) return false;
+
+  return intersection / union >= 0.66;
+}
+function normalizeAngelLabServerTaskCards(rawCards = []) {
+  const result = [];
+
+  for (const rawCard of Array.isArray(rawCards) ? rawCards : []) {
+    if (result.length >= 5) break;
+
+    const rawTitle = rawCard && typeof rawCard === "object"
+      ? (rawCard.title || rawCard.text || rawCard.task || "")
+      : "";
+    const title = normalizeAngelLabTranscript(rawTitle);
+    const mode = rawCard && typeof rawCard === "object"
+      ? String(rawCard.mode || "reject").toLowerCase()
+      : "reject";
+    if (!title || isLowQualityAngelLabTranscript(title)) continue;
+    if (result.some((item) => isAngelLabNearDuplicate(item.title, title))) continue;
+
+    const rawStepsSource = rawCard && typeof rawCard === "object" && Array.isArray(rawCard.subtasks)
+      ? rawCard.subtasks
+      : [];
+
+    const subtasks = [];
+    const seenStepKeys = new Set();
+    for (const rawStep of rawStepsSource) {
+      if (subtasks.length >= 5) break;
+      const stepText = normalizeAngelLabTranscript(
+        typeof rawStep === "string"
+          ? rawStep
+          : (rawStep && typeof rawStep === "object" ? rawStep.text || rawStep.title || "" : ""),
+      );
+      if (!stepText || isLowQualityAngelLabTranscript(stepText)) continue;
+      if (isAngelLabNearDuplicate(stepText, title)) continue;
+      const key = stepText.toLowerCase();
+      if (seenStepKeys.has(key)) continue;
+      seenStepKeys.add(key);
+      subtasks.push({
+        id: `server-task-${result.length + 1}-step-${subtasks.length + 1}`,
+        text: stepText,
+        selected: Boolean(rawStep?.selectedByDefault),
+        selectedByDefault: Boolean(rawStep?.selectedByDefault),
+        source: rawStep?.source || "dump",
+        confidence: Number(rawStep?.confidence || 0),
+        added: false,
+      });
+    }
+
+    const steps = subtasks.map((item) => ({
+      id: item.id,
+      text: item.text,
+      selected: Boolean(item.selected),
+      added: false,
+    }));
+
+    result.push({
+      id: rawCard?.id || `server-task-${result.length + 1}`,
+      title,
+      mode: mode === "merge" || mode === "create" || mode === "reject" ? mode : "reject",
+      targetTaskId: rawCard?.targetTaskId ? String(rawCard.targetTaskId) : null,
+      confidence: Number(rawCard?.confidence || 0),
+      reason: String(rawCard?.reason || ""),
+      added: false,
+      steps,
+      subtasks,
+    });
+  }
+
+  return result;
+}
+
+function formatAngelLabTaskEnrichmentMessage(taskEnrichment = null) {
+  const updatedTasks = Array.isArray(taskEnrichment?.updatedTasks)
+    ? taskEnrichment.updatedTasks.filter((item) => item && typeof item === "object")
+    : [];
+  if (!updatedTasks.length) return "";
+
+  const fieldLabels = {
+    urgency: "срочность",
+    resistance: "сопротивление",
+    isVital: "критичность",
+    deadlineAt: "дедлайн",
+    lifeArea: "сфера",
+    commitmentIds: "связи",
+  };
+
+  const visible = updatedTasks.slice(0, 3).map((item) => {
+    const taskText = normalizeAngelLabTranscript(item.text || "");
+    if (!taskText) return "";
+    const labels = [...new Set(
+      (Array.isArray(item.fields) ? item.fields : [])
+        .map((fieldKey) => fieldLabels[fieldKey] || "")
+        .filter(Boolean),
+    )];
+    if (!labels.length) return `«${taskText}»`;
+    return `«${taskText}» (${labels.join(", ")})`;
+  }).filter(Boolean);
+
+  if (!visible.length) return "";
+  const hidden = updatedTasks.length - visible.length;
+  const hiddenSuffix = hidden > 0 ? ` +${hidden}` : "";
+  return ` Обновила ${updatedTasks.length} задач: ${visible.join("; ")}${hiddenSuffix}.`;
+}
+
+function mergeAngelLabTranscriptChunk(existingText = "", incomingText = "") {
+  const existing = normalizeAngelLabTranscript(existingText);
+  const incoming = normalizeAngelLabTranscript(incomingText);
+
+  if (!incoming) return existing;
+  if (!existing) return incoming;
+  if (existing === incoming) return existing;
+  if (incoming.startsWith(existing)) return incoming;
+  if (existing.startsWith(incoming)) return existing;
+  if (existing.endsWith(incoming)) return existing;
+  if (incoming.endsWith(existing)) return incoming;
+  if (existing.includes(incoming) && incoming.split(" ").length >= 3) return existing;
+
+  const leftWords = existing.split(" ").filter(Boolean);
+  const rightWords = incoming.split(" ").filter(Boolean);
+  const maxOverlap = Math.min(8, leftWords.length, rightWords.length);
+
+  for (let overlap = maxOverlap; overlap >= 2; overlap -= 1) {
+    const leftTail = leftWords.slice(-overlap).join(" ");
+    const rightHead = rightWords.slice(0, overlap).join(" ");
+    if (leftTail === rightHead) {
+      return normalizeAngelLabTranscript(`${existing} ${rightWords.slice(overlap).join(" ")}`);
+    }
+  }
+
+  return normalizeAngelLabTranscript(`${existing} ${incoming}`);
+}
+
+function collapseRepeatedAngelLabPhrases(words = []) {
+  if (!Array.isArray(words) || words.length < 6) return Array.isArray(words) ? words : [];
+
+  const output = [];
+  let index = 0;
+
+  while (index < words.length) {
+    let collapsed = false;
+
+    const maxWindow = Math.min(12, Math.floor((words.length - index) / 2));
+    for (let windowSize = maxWindow; windowSize >= 2; windowSize -= 1) {
+      if (index + windowSize * 2 > words.length) continue;
+
+      const left = words
+        .slice(index, index + windowSize)
+        .map((word) => String(word || "").toLowerCase())
+        .join(" ");
+      const right = words
+        .slice(index + windowSize, index + windowSize * 2)
+        .map((word) => String(word || "").toLowerCase())
+        .join(" ");
+
+      if (!left || left !== right) continue;
+
+      output.push(...words.slice(index, index + windowSize));
+      index += windowSize * 2;
+
+      while (index + windowSize <= words.length) {
+        const next = words
+          .slice(index, index + windowSize)
+          .map((word) => String(word || "").toLowerCase())
+          .join(" ");
+        if (next !== left) break;
+        index += windowSize;
+      }
+
+      collapsed = true;
+      break;
+    }
+
+    if (!collapsed) {
+      output.push(words[index]);
+      index += 1;
+    }
+  }
+
+  return output;
+}
+
+function normalizeAngelLabTranscript(rawText = "") {
+  const collapsed = String(rawText || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!collapsed) return "";
+
+  const words = collapsed.split(" ");
+  const output = [];
+  let previous = "";
+  let repeatCount = 0;
+
+  for (const word of words) {
+    const key = word.toLowerCase();
+    if (key === previous) {
+      repeatCount += 1;
+      if (repeatCount >= 1) continue;
+    } else {
+      repeatCount = 0;
+      previous = key;
+    }
+    output.push(word);
+  }
+
+  const phraseCollapsed = collapseRepeatedAngelLabPhrases(output);
+  return phraseCollapsed.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function isLowQualityAngelLabTranscript(rawText = "") {
+  const text = normalizeAngelLabTranscript(rawText);
+  if (!text) return true;
+
+  const words = text.split(" ").filter(Boolean);
+  if (words.length <= 2) return false;
+
+  const punctuationCount = (text.match(/[.!?]/g) || []).length;
+  const normalizedWords = words.map((word) => word.toLowerCase());
+  const uniqueWordCount = new Set(normalizedWords).size;
+  const uniqueRatio = uniqueWordCount / Math.max(1, words.length);
+
+  const bigrams = [];
+  for (let index = 0; index < normalizedWords.length - 1; index += 1) {
+    bigrams.push(`${normalizedWords[index]} ${normalizedWords[index + 1]}`);
+  }
+  const bigramRatio = bigrams.length
+    ? new Set(bigrams).size / bigrams.length
+    : 1;
+
+  const frequency = new Map();
+  for (const word of normalizedWords) {
+    frequency.set(word, (frequency.get(word) || 0) + 1);
+  }
+  const maxWordShare = Math.max(...frequency.values()) / Math.max(1, words.length);
+
+  let repeatingBigram = false;
+  if (normalizedWords.length >= 8) {
+    const seenBigrams = new Map();
+    for (let index = 0; index < normalizedWords.length - 1; index += 1) {
+      const key = `${normalizedWords[index]} ${normalizedWords[index + 1]}`;
+      const nextCount = (seenBigrams.get(key) || 0) + 1;
+      seenBigrams.set(key, nextCount);
+      if (nextCount >= 3) {
+        repeatingBigram = true;
+        break;
+      }
+    }
+  }
+
+  if (words.length >= 45 && punctuationCount === 0 && uniqueRatio < 0.55) return true;
+  if (words.length >= 70 && uniqueRatio < 0.62) return true;
+  if (words.length >= 45 && bigramRatio < 0.6) return true;
+  if (words.length >= 6 && punctuationCount === 0 && uniqueRatio < 0.58) return true;
+  if (words.length >= 6 && bigramRatio < 0.72) return true;
+  if (words.length >= 6 && maxWordShare > 0.28) return true;
+  if (words.length >= 12 && uniqueRatio < 0.5) return true;
+  if (words.length >= 12 && maxWordShare > 0.34) return true;
+  if (words.length >= 12 && repeatingBigram) return true;
+  if (words.length >= 20 && punctuationCount === 0 && uniqueRatio < 0.68) return true;
+
+  return false;
 }
 
 function loadPulseState(userId) {
@@ -194,6 +528,7 @@ function markTaskFromCloud(task) {
   const cleanTask = stripLocalTaskState(task);
   return {
     ...cleanTask,
+    position: resolveTaskOrderValue(cleanTask),
     __baseLastUpdated: typeof cleanTask?.lastUpdated === "number" ? cleanTask.lastUpdated : 0,
     __pendingSyncAt: 0,
   };
@@ -203,8 +538,13 @@ function markTaskPendingSync(task, previousTask = null) {
   const cleanTask = stripLocalTaskState(task);
   const previousBase = getTaskBaseLastUpdated(previousTask);
   const previousUpdatedAt = typeof previousTask?.lastUpdated === "number" ? previousTask.lastUpdated : 0;
+  const previousOrder = resolveTaskOrderValue(previousTask);
+  const nextOrder = typeof cleanTask?.position === "number" && Number.isFinite(cleanTask.position)
+    ? cleanTask.position
+    : previousOrder;
   return {
     ...cleanTask,
+    position: nextOrder,
     __baseLastUpdated: Math.max(previousBase, previousUpdatedAt),
     __pendingSyncAt: Date.now(),
   };
@@ -237,8 +577,18 @@ function mergeTaskLists(localTasks = [], remoteTasks = []) {
 
     const remoteUpdatedAt = remoteTask.lastUpdated || 0;
     const localUpdatedAt = localTask.lastUpdated || 0;
-    if (remoteUpdatedAt >= localUpdatedAt) {
+    if (remoteUpdatedAt > localUpdatedAt) {
       return remoteTask;
+    }
+
+    if (remoteUpdatedAt === localUpdatedAt) {
+      const mergedTask = { ...remoteTask, ...localTask };
+      mergedTask.subtasks = mergeSubtasks(
+        localTask.subtasks || [],
+        remoteTask.subtasks || [],
+        false,
+      );
+      return mergedTask;
     }
 
     const mergedTask = { ...remoteTask, ...localTask };
@@ -253,11 +603,64 @@ function mergeTaskLists(localTasks = [], remoteTasks = []) {
   const localOnly = localTasks.filter(
     (task) => !remoteIds.has(String(task.id)) && hasFreshPendingSync(task, now),
   );
-  return [...localOnly, ...mergedRemote];
+  return sortTasksByOrder([...localOnly, ...mergedRemote]);
 }
 
 function getTaskHeat(task) {
   return typeof task.heatCurrent === "number" ? task.heatCurrent : task.heatBase || 0;
+}
+
+function getActiveZoneHeat(task) {
+  const heat = getTaskHeat(task);
+  if (heat > 60) return 80;
+  if (heat > 25) return 40;
+  return 10;
+}
+
+function normalizeTaskId(value) {
+  return String(value).replace("task-", "");
+}
+
+function isHeavenJunkTaskText(text) {
+  const normalized = String(text || "").trim().toLowerCase();
+  if (!normalized) return true;
+
+  const junkPatterns = [
+    /^test\d*$/,
+    /^тест\d*$/,
+    /^asdf+$/,
+    /^qwe+$/,
+    /^йцук+$/,
+    /^123+$/,
+    /^новая задача$/,
+    /^new task$/,
+    /^задача$/,
+    /^task$/,
+  ];
+
+  if (junkPatterns.some((pattern) => pattern.test(normalized))) return true;
+
+  const lettersOnly = normalized.replace(/[^a-zа-яё]/gi, "");
+  if (lettersOnly.length >= 5) {
+    const uniqueChars = new Set(lettersOnly.split(""));
+    if (uniqueChars.size <= 2) return true;
+  }
+
+  return false;
+}
+
+function isProtectedFromMassHeavenCleanup(task) {
+  if (!task) return true;
+  if (task.isVital) return true;
+  if (task.deadlineAt) return true;
+  if ((task.subtasks || []).length > 0) return true;
+  if ((task.activeDays || []).length > 0) return true;
+  if ((task.timeSpent || 0) > 0) return true;
+  return false;
+}
+
+function isEligibleHeavenJunkTask(task) {
+  return isHeavenJunkTaskText(task?.text) && !isProtectedFromMassHeavenCleanup(task);
 }
 
 function getTaskDecayWindowMs(task) {
@@ -280,6 +683,7 @@ function reviveProtectedDeadTask(task) {
     heatCurrent: DEFAULT_TASK_HEAT,
     lastUpdated: Date.now(),
     deadAt: null,
+    position: resolveTaskOrderValue(task),
   };
 }
 
@@ -566,7 +970,7 @@ function buildPanicPlan(task) {
   if (!task) {
     return {
       title: "Зависать сейчас не на чем",
-      intro: "Нет активной цели. Добавьте одну задачу, и panic mode сможет разрезать её на микрошаг.",
+      intro: "Нет активной цели. Добавьте одну задачу, и режим сдвига поможет разрезать её на микрошаг.",
       steps: [],
     };
   }
@@ -646,6 +1050,14 @@ export default function App() {
   const devilAutoCleanLastRef = useRef(0);
   const tasksRef = useRef([]);
   const pendingTaskWritesRef = useRef(new Map());
+  const angelLabRecognitionRef = useRef(null);
+  const angelLabRecognitionBaseTextRef = useRef("");
+  const angelLabRecognitionSegmentsRef = useRef([]);
+  const angelLabRecognitionFinalTextRef = useRef("");
+  const angelLabRecognitionInterimTextRef = useRef("");
+  const angelLabRecorderRef = useRef(null);
+  const angelLabRecorderStreamRef = useRef(null);
+  const angelLabAudioChunksRef = useRef([]);
 
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -666,6 +1078,17 @@ export default function App() {
   const [panicEndsAt, setPanicEndsAt] = useState(null);
   const [panicTick, setPanicTick] = useState(Date.now());
   const [panicDraftStep, setPanicDraftStep] = useState("");
+  const [angelLabOpen, setAngelLabOpen] = useState(false);
+  const [angelLabText, setAngelLabText] = useState("");
+  const [angelLabSaving, setAngelLabSaving] = useState(false);
+  const [angelLabListening, setAngelLabListening] = useState(false);
+  const [angelLabMicMode, setAngelLabMicMode] = useState("");
+  const [angelLabStatus, setAngelLabStatus] = useState({ kind: "", message: "" });
+  const [angelLabMicStatus, setAngelLabMicStatus] = useState("");
+  const [angelLabProcessing, setAngelLabProcessing] = useState(false);
+  const [angelLabFinalizing, setAngelLabFinalizing] = useState(false);
+  const [angelLabDumpHistory, setAngelLabDumpHistory] = useState([]);
+  const [angelLabSuggestions, setAngelLabSuggestions] = useState([]);
 
   const toggleTheme = () => {
     setTheme(prev => {
@@ -858,9 +1281,14 @@ export default function App() {
                 firestoreReadyRef.current = true;
               }
 
-              const healedTasks = tasks.map((task) =>
-                shouldAutoReviveProtectedDeadTask(task) ? reviveProtectedDeadTask(task) : task,
-              );
+              let nextActiveOrder = getNextTaskOrder(tasks, "active");
+              const healedTasks = tasks.map((task) => {
+                if (!shouldAutoReviveProtectedDeadTask(task)) return task;
+                const next = reviveProtectedDeadTask(task);
+                const revivedTask = { ...next, position: nextActiveOrder };
+                nextActiveOrder += 1;
+                return revivedTask;
+              });
 
               const repairedTasks = healedTasks.filter(
                 (task, index) => task !== tasks[index],
@@ -956,6 +1384,7 @@ export default function App() {
         if (prevTasks.length === 0) return prevTasks;
         let changed = false;
         const dead = [];
+        let deadCursor = getNextTaskOrder(prevTasks, "dead");
 
         const next = prevTasks.map(task => {
           if (task.status !== "active") return task;
@@ -972,7 +1401,9 @@ export default function App() {
               deadAt: now,
               isToday: false,
               lastUpdated: now,
+              position: deadCursor,
             }, task);
+            deadCursor += 1;
             changed = true;
             dead.push(deadTask);
             return deadTask;
@@ -1002,9 +1433,15 @@ export default function App() {
     return () => clearInterval(interval);
   }, [loading, dataLoaded]);
 
-  const activeTasks = tasks.filter((task) => task.status === "active");
-  const completedTasks = tasks.filter((task) => task.status === "completed");
-  const deadTasks = tasks.filter((task) => task.status === "dead");
+  const orderedActiveTasks = sortTasksByOrder(tasks.filter((task) => task.status === "active"));
+  const activeOrderIndex = new Map(orderedActiveTasks.map((task, index) => [task.id, index]));
+  const activeTasks = [...orderedActiveTasks].sort((left, right) => {
+    const priorityDelta = getPriorityScore(right) - getPriorityScore(left);
+    if (priorityDelta !== 0) return priorityDelta;
+    return (activeOrderIndex.get(left.id) || 0) - (activeOrderIndex.get(right.id) || 0);
+  });
+  const completedTasks = sortTasksByOrder(tasks.filter((task) => task.status === "completed"));
+  const deadTasks = sortTasksByOrder(tasks.filter((task) => task.status === "dead"));
   const todayPinnedTasks = activeTasks.filter((task) => task.isToday);
   const visibleActiveTasks = activeFilter === "today" ? todayPinnedTasks : activeTasks;
   const missionSelection = getMissionSelection(activeTasks);
@@ -1205,6 +1642,18 @@ export default function App() {
 
   const handleAddTask = (text, options = {}) => {
     const now = Date.now();
+    const subtasks = [...new Set(
+      (Array.isArray(options.subtasks) ? options.subtasks : [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean),
+    )]
+      .slice(0, 8)
+      .map((item, index) => ({
+        id: `${now}-sub-${index + 1}`,
+        text: item,
+        completed: false,
+      }));
+
     const newTask = markTaskPendingSync({
       id: now.toString(),
       text,
@@ -1212,7 +1661,8 @@ export default function App() {
       heatBase: DEFAULT_TASK_HEAT,
       heatCurrent: DEFAULT_TASK_HEAT,
       status: "active",
-      subtasks: [],
+      position: getNextTaskOrder(tasksRef.current, "active"),
+      subtasks,
       urgency: options.urgency || "medium",
       resistance: "medium",
       isToday: false,
@@ -1359,6 +1809,74 @@ export default function App() {
     setHighlightTaskId(taskId);
   };
 
+  const handleReorderActiveTasks = (dragTaskId, overTaskId) => {
+    const normalizedDragTaskId = normalizeTaskId(dragTaskId);
+    const normalizedOverTaskId = normalizeTaskId(overTaskId);
+
+    const activeOrdered = sortTasksByOrder(
+      tasksRef.current.filter((task) => task.status === "active"),
+    );
+    const fromIndex = activeOrdered.findIndex((task) => String(task.id) === normalizedDragTaskId);
+    const toIndex = activeOrdered.findIndex((task) => String(task.id) === normalizedOverTaskId);
+
+    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return false;
+
+    const movedTask = activeOrdered[fromIndex];
+    const targetTask = activeOrdered[toIndex];
+    if (!movedTask || !targetTask) return false;
+
+    const targetHeat = getActiveZoneHeat(targetTask);
+    const now = Date.now();
+    const reordered = [...activeOrdered];
+    const [item] = reordered.splice(fromIndex, 1);
+    const insertionIndex = fromIndex < toIndex ? toIndex : toIndex;
+    reordered.splice(insertionIndex, 0, item);
+
+    const nextActiveById = new Map();
+    const heatByTaskId = new Map([
+      [normalizedDragTaskId, [targetHeat, targetHeat]],
+    ]);
+
+    reordered.forEach((task, index) => {
+      const currentTaskId = String(task.id);
+      const nextHeat = heatByTaskId.get(currentTaskId);
+      const targetPosition = index + 1;
+      const needsPositionFix = resolveTaskOrderValue(task) !== targetPosition;
+      const needsHeatFix = Boolean(
+        nextHeat && (task.heatBase !== nextHeat[0] || task.heatCurrent !== nextHeat[1]),
+      );
+
+      if (!needsPositionFix && !needsHeatFix) {
+        return;
+      }
+
+      const nextTask = markTaskPendingSync(
+        {
+          ...task,
+          ...(needsPositionFix ? { position: targetPosition } : {}),
+          ...(needsHeatFix ? { heatBase: nextHeat[0], heatCurrent: nextHeat[1] } : {}),
+          lastUpdated: now,
+        },
+        task,
+      );
+      nextActiveById.set(currentTaskId, nextTask);
+    });
+
+    const nextTasks = tasksRef.current.map((task) => {
+      if (task.status !== "active") return task;
+      const replacement = nextActiveById.get(String(task.id));
+      return replacement || task;
+    });
+
+    const changed = nextTasks.filter((task) => nextActiveById.has(String(task.id)));
+
+    if (changed.length === 0) return false;
+
+    commitTasks(nextTasks);
+    changed.forEach((task) => persistTask(task));
+    return true;
+  };
+
   const handleComplete = (taskId) => {
     const saved = mutateSingleTask(taskId, (task) => {
       // Auto-complete all subtasks, set heat to 100%, and clear any dead state.
@@ -1375,6 +1893,7 @@ export default function App() {
         subtasks: completedSubtasks,
         heatBase: 100,      // pulse always 100% when user manually sends to heaven
         heatCurrent: 100,
+        position: getNextTaskOrder(tasksRef.current, "completed"),
       }, task);
     });
     if (!saved) return;
@@ -1397,27 +1916,46 @@ export default function App() {
       handleComplete(taskId);
       return;
     }
+
+    if (typeof over.id === "string" && over.id.startsWith("task-drop-")) {
+      const overTaskId = String(over.id).replace("task-drop-", "");
+      const hasReorder = handleReorderActiveTasks(taskId, overTaskId);
+      if (hasReorder) return;
+    }
+
     const zoneHeat = { "zone-hot": 80, "zone-passive": 40, "zone-purgatory": 10 };
     if (zoneHeat[over.id] !== undefined) {
       const newHeat = zoneHeat[over.id];
       let prevStatus = null;
+      const nextActiveOrder = getNextTaskOrder(tasksRef.current, "active");
       const saved = mutateSingleTask(taskId, (task) => {
         prevStatus = task.status;
         const wasInactive = task.status === "completed" || task.status === "dead";
+        const nextPosition = wasInactive ? nextActiveOrder : task.position;
         return markTaskPendingSync({
           ...task,
           heatBase: newHeat,
           heatCurrent: newHeat,
           lastUpdated: Date.now(),
-          ...(wasInactive ? { status: "active", isToday: false, deadAt: null } : {}),
+          ...(wasInactive
+            ? { status: "active", isToday: false, deadAt: null, position: nextPosition }
+            : {}),
         }, task);
       });
       if (saved) persistTask(saved);
       if (prevStatus === "completed") {
-        setScore(s => { const n = s - 10; persistScore(n); return n; });
+        setScore(s => {
+          const n = s - 10;
+          persistScore(n);
+          return n;
+        });
         flashCompanion("angel", ANGEL_RESURRECT_PHRASES);
       } else if (prevStatus === "dead") {
-        setScore(s => { const n = s - 2; persistScore(n); return n; });
+        setScore(s => {
+          const n = s - 2;
+          persistScore(n);
+          return n;
+        });
         flashCompanion("angel", ANGEL_RESURRECT_PHRASES);
       }
     }
@@ -1453,7 +1991,14 @@ export default function App() {
   const handleKill = (taskId) => {
     const saved = mutateSingleTask(taskId, (task) => (
       markTaskPendingSync(
-        { ...task, status: "dead", isToday: false, lastUpdated: Date.now(), deadAt: Date.now() },
+        {
+          ...task,
+          status: "dead",
+          isToday: false,
+          lastUpdated: Date.now(),
+          deadAt: Date.now(),
+          position: getNextTaskOrder(tasksRef.current, "dead", taskId),
+        },
         task,
       )
     ));
@@ -1479,15 +2024,19 @@ export default function App() {
     // Kill the 2 coldest non-protected tasks
     const sorted = [...coldUnprotected].sort((a, b) => getTaskHeat(a) - getTaskHeat(b));
     const toKill = sorted.slice(0, 2);
-    const killedTasks = toKill.map((t) =>
-      markTaskPendingSync({
+    let nextDeadOrder = getNextTaskOrder(tasksRef.current, "dead");
+    const killedTasks = toKill.map((t) => {
+      const nextTask = markTaskPendingSync({
         ...t,
         status: "dead",
         isToday: false,
         lastUpdated: now,
         deadAt: now,
-      }, t),
-    );
+        position: nextDeadOrder,
+      }, t);
+      nextDeadOrder += 1;
+      return nextTask;
+    });
     const killedById = new Map(killedTasks.map(t => [t.id, t]));
 
     devilAutoCleanLastRef.current = now;
@@ -1561,6 +2110,648 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    if (!angelLabOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [angelLabOpen]);
+
+  const stopAngelLabListening = () => {
+    const activeRecognition = angelLabRecognitionRef.current;
+    let finalizingStarted = false;
+    if (activeRecognition) {
+      try {
+        activeRecognition.stop();
+      } catch (error) {
+        // ignore stop errors
+      }
+      finalizingStarted = true;
+    }
+
+    const recorder = angelLabRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      try {
+        recorder.stop();
+      } catch (error) {
+        // ignore stop errors
+      }
+      finalizingStarted = true;
+    }
+
+    setAngelLabFinalizing(finalizingStarted);
+    setAngelLabListening(false);
+    setAngelLabMicMode("");
+  };
+
+  const startBrowserSpeechRecognition = () => {
+    if (typeof window === "undefined") return false;
+    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) return false;
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = "ru-RU";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+      if (angelLabRecognitionRef.current !== recognition) return;
+      const results = Array.from(event.results || []);
+      const startIndex = typeof event?.resultIndex === "number" ? event.resultIndex : 0;
+      const segments = angelLabRecognitionSegmentsRef.current;
+
+      if (segments.length > results.length) {
+        segments.length = results.length;
+      }
+
+      for (let index = startIndex; index < results.length; index += 1) {
+        const result = results[index];
+        const transcript = normalizeAngelLabTranscript(String(result?.[0]?.transcript || ""));
+        if (!result?.isFinal || !transcript) {
+          segments[index] = "";
+          continue;
+        }
+        segments[index] = transcript;
+      }
+
+      const collapsedChunks = [];
+      for (const chunk of segments) {
+        const cleanedChunk = normalizeAngelLabTranscript(chunk);
+        if (!cleanedChunk) continue;
+
+        const previousChunk = collapsedChunks[collapsedChunks.length - 1] || "";
+        if (!previousChunk) {
+          collapsedChunks.push(cleanedChunk);
+          continue;
+        }
+        if (cleanedChunk === previousChunk) continue;
+        if (cleanedChunk.startsWith(previousChunk)) {
+          collapsedChunks[collapsedChunks.length - 1] = cleanedChunk;
+          continue;
+        }
+        if (previousChunk.startsWith(cleanedChunk)) continue;
+        collapsedChunks.push(cleanedChunk);
+      }
+
+      angelLabRecognitionFinalTextRef.current = normalizeAngelLabTranscript(collapsedChunks.join(" "));
+      angelLabRecognitionInterimTextRef.current = "";
+      const baseText = normalizeAngelLabTranscript(angelLabRecognitionBaseTextRef.current);
+      const nextText = normalizeAngelLabTranscript(
+        mergeAngelLabTranscriptChunk(baseText, angelLabRecognitionFinalTextRef.current),
+      );
+
+      setAngelLabText(nextText);
+      setAngelLabMicStatus("Слушаю...");
+    };
+
+    recognition.onerror = (event) => {
+      if (angelLabRecognitionRef.current !== recognition) return;
+      setAngelLabMicStatus(`Ошибка микрофона: ${event?.error || "unknown"}`);
+      setAngelLabListening(false);
+      setAngelLabFinalizing(false);
+      setAngelLabMicMode("");
+      angelLabRecognitionRef.current = null;
+      angelLabRecognitionBaseTextRef.current = "";
+      angelLabRecognitionSegmentsRef.current = [];
+      angelLabRecognitionFinalTextRef.current = "";
+      angelLabRecognitionInterimTextRef.current = "";
+    };
+
+    recognition.onend = () => {
+      if (angelLabRecognitionRef.current !== recognition) return;
+      const baseText = normalizeAngelLabTranscript(angelLabRecognitionBaseTextRef.current);
+      const finalizedTranscript = normalizeAngelLabTranscript(
+        mergeAngelLabTranscriptChunk(baseText, angelLabRecognitionFinalTextRef.current),
+      );
+      if (finalizedTranscript) {
+        setAngelLabText(finalizedTranscript);
+      }
+      setAngelLabListening(false);
+      setAngelLabFinalizing(false);
+      setAngelLabMicMode("");
+      angelLabRecognitionRef.current = null;
+      angelLabRecognitionBaseTextRef.current = "";
+      angelLabRecognitionSegmentsRef.current = [];
+      angelLabRecognitionFinalTextRef.current = "";
+      angelLabRecognitionInterimTextRef.current = "";
+    };
+
+    try {
+      angelLabRecognitionBaseTextRef.current = normalizeAngelLabTranscript(angelLabText);
+      angelLabRecognitionSegmentsRef.current = [];
+      angelLabRecognitionFinalTextRef.current = "";
+      angelLabRecognitionInterimTextRef.current = "";
+      angelLabRecognitionRef.current = recognition;
+      recognition.start();
+      setAngelLabListening(true);
+      setAngelLabFinalizing(false);
+      setAngelLabMicMode("speech");
+      setAngelLabMicStatus("Слушаю...");
+      return true;
+    } catch (error) {
+      setAngelLabMicStatus("Не удалось запустить микрофон.");
+      return false;
+    }
+  };
+
+  const startRecordedSpeechFallback = async () => {
+    if (
+      typeof window === "undefined" ||
+      typeof navigator === "undefined" ||
+      !window.MediaRecorder ||
+      !navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia
+    ) {
+      return false;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const preferredTypes = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+      const mimeType = preferredTypes.find((type) => {
+        try {
+          return window.MediaRecorder.isTypeSupported(type);
+        } catch (error) {
+          return false;
+        }
+      });
+      const recorder = mimeType
+        ? new window.MediaRecorder(stream, { mimeType })
+        : new window.MediaRecorder(stream);
+
+      angelLabAudioChunksRef.current = [];
+      angelLabRecorderStreamRef.current = stream;
+      angelLabRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          angelLabAudioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const chunks = angelLabAudioChunksRef.current;
+        angelLabAudioChunksRef.current = [];
+
+        const activeStream = angelLabRecorderStreamRef.current;
+        if (activeStream) {
+          activeStream.getTracks().forEach((track) => track.stop());
+        }
+        angelLabRecorderStreamRef.current = null;
+        angelLabRecorderRef.current = null;
+        setAngelLabListening(false);
+        setAngelLabMicMode("");
+
+        if (!chunks.length) {
+          setAngelLabMicStatus("Не удалось записать аудио.");
+          return;
+        }
+
+        try {
+          setAngelLabMicStatus("Распознаю речь...");
+          const audioBlob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+          const audioBase64 = await blobToBase64(audioBlob);
+          let idToken = "";
+          try {
+            if (auth.currentUser) {
+              idToken = await auth.currentUser.getIdToken();
+            }
+          } catch (error) {
+            // ignore token read errors
+          }
+
+          if (!idToken) {
+            setAngelLabMicStatus("Нужно войти в аккаунт, чтобы распознать речь на сервере.");
+            return;
+          }
+
+          const response = await fetch("/api/speech-to-text", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+              audioBase64,
+              mimeType: audioBlob.type || "audio/webm",
+              language: "ru",
+            }),
+          });
+          const payload = await response.json().catch(() => null);
+          if (!response.ok || payload?.ok === false) {
+            throw new Error(payload?.error || "Speech-to-text failed");
+          }
+
+          const transcript = String(payload?.text || "").trim();
+          if (transcript) {
+            setAngelLabText((previous) => mergeAngelLabTranscriptChunk(previous, transcript));
+            setAngelLabMicStatus("Готово.");
+          } else {
+            setAngelLabMicStatus("Речь не распознана.");
+          }
+        } catch (error) {
+          setAngelLabMicStatus(error?.message || "Не удалось распознать речь.");
+        } finally {
+          setAngelLabFinalizing(false);
+        }
+      };
+
+      recorder.start();
+      setAngelLabListening(true);
+      setAngelLabFinalizing(false);
+      setAngelLabMicMode("record");
+      setAngelLabMicStatus("Записываю...");
+      return true;
+    } catch (error) {
+      setAngelLabMicStatus("Нет доступа к микрофону.");
+      return false;
+    }
+  };
+
+  const handleAngelLabMicToggle = async () => {
+    if (angelLabSaving) return;
+    if (angelLabFinalizing) {
+      setAngelLabMicStatus("Подожди пару секунд, завершаю распознавание...");
+      return;
+    }
+    if (angelLabListening) {
+      stopAngelLabListening();
+      return;
+    }
+
+    setAngelLabMicStatus("");
+    if (startBrowserSpeechRecognition()) return;
+    if (await startRecordedSpeechFallback()) return;
+
+    setAngelLabMicStatus("Микрофон недоступен в этом браузере.");
+  };
+
+  const openAngelLab = () => {
+    setAngelLabStatus({ kind: "", message: "" });
+    setAngelLabMicStatus("");
+    setAngelLabOpen(true);
+  };
+
+  const closeAngelLab = () => {
+    if (angelLabSaving) return;
+    stopAngelLabListening();
+    setAngelLabOpen(false);
+  };
+
+  const handleSaveAngelLab = async () => {
+    const text = normalizeAngelLabTranscript(angelLabText);
+    if (!text.trim() || angelLabSaving) return;
+    if (angelLabFinalizing) {
+      setAngelLabStatus({
+        kind: "error",
+        message: "Подожди секунду: микрофон ещё завершает распознавание.",
+      });
+      return;
+    }
+    if (angelLabListening) {
+      setAngelLabStatus({
+        kind: "error",
+        message: "Сначала останови микрофон, потом сохраняй dump.",
+      });
+      return;
+    }
+
+    if (isLowQualityAngelLabTranscript(text)) {
+      setAngelLabStatus({
+        kind: "error",
+        message: "Текст распознан криво. Попробуй ещё раз или поправь вручную перед сохранением.",
+      });
+      return;
+    }
+
+    setAngelLabSaving(true);
+    setAngelLabStatus({ kind: "", message: "" });
+    setAngelLabProcessing(true);
+
+    try {
+      const inMemoryActiveTasks = tasksRef.current
+        .filter((task) => task?.status === "active")
+        .map((task) => ({
+          id: String(task.id || ""),
+          text: String(task.text || ""),
+          status: String(task.status || "active"),
+          subtasks: Array.isArray(task.subtasks)
+            ? task.subtasks.map((subtask) => ({
+              id: String(subtask?.id || ""),
+              text: String(subtask?.text || ""),
+              completed: Boolean(subtask?.completed),
+            }))
+            : [],
+        }));
+
+      let activeTasksPayload = inMemoryActiveTasks;
+      if (activeTasksPayload.length === 0) {
+        try {
+          const rawLocalTasks = localStorage.getItem("adhd_planner_tasks");
+          const parsedLocalTasks = JSON.parse(rawLocalTasks || "[]");
+          if (Array.isArray(parsedLocalTasks)) {
+            activeTasksPayload = parsedLocalTasks
+              .filter((task) => task?.status === "active")
+              .map((task) => ({
+                id: String(task.id || ""),
+                text: String(task.text || ""),
+                status: String(task.status || "active"),
+                subtasks: Array.isArray(task.subtasks)
+                  ? task.subtasks.map((subtask) => ({
+                    id: String(subtask?.id || ""),
+                    text: String(subtask?.text || ""),
+                    completed: Boolean(subtask?.completed),
+                  }))
+                  : [],
+              }));
+          }
+        } catch (_error) {
+          activeTasksPayload = inMemoryActiveTasks;
+        }
+      }
+
+      const response = await fetch("/api/captures", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text,
+          source: "angel_lab",
+          idempotencyKey: `angel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          activeTasks: activeTasksPayload,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.error || payload?.message || "Не удалось сохранить dump");
+      }
+
+      const dumpText = text.trim();
+      const captureId = String(payload?.captureId || `angel-${Date.now()}`);
+      setAngelLabDumpHistory((previous) => [
+        { id: captureId, text: dumpText, createdAt: Date.now() },
+        ...previous,
+      ].slice(0, 8));
+
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      const serverTaskCards = normalizeAngelLabServerTaskCards(payload?.taskCards);
+      const cardsForUi = serverTaskCards.map((card, cardIndex) => ({
+        ...card,
+        id: card.id || `${captureId}-task-${cardIndex + 1}`,
+        steps: (card.steps || []).map((step, stepIndex) => ({
+          ...step,
+          id: step.id || `${captureId}-task-${cardIndex + 1}-step-${stepIndex + 1}`,
+        })),
+        subtasks: (card.subtasks || []).map((subtask, stepIndex) => ({
+          ...subtask,
+          id: subtask.id || `${captureId}-task-${cardIndex + 1}-step-${stepIndex + 1}`,
+        })),
+      }));
+
+      setAngelLabSuggestions(cardsForUi);
+      const taskEnrichmentMessage = formatAngelLabTaskEnrichmentMessage(payload?.taskEnrichment);
+
+      setAngelLabText("");
+      if (cardsForUi.length > 0) {
+        const totalSteps = cardsForUi.reduce((sum, card) => sum + ((card.subtasks || card.steps || []).length), 0);
+        setAngelLabStatus({
+          kind: "success",
+          message: totalSteps > 0
+            ? `Готово. Справа ${cardsForUi.length} карточек и ${totalSteps} вариантов шагов.${taskEnrichmentMessage}`
+            : `Готово. Справа ${cardsForUi.length} карточек.${taskEnrichmentMessage}`,
+        });
+      } else if (taskEnrichmentMessage) {
+        setAngelLabStatus({
+          kind: "success",
+          message: `Сохранила dump.${taskEnrichmentMessage}`,
+        });
+      } else {
+        setAngelLabStatus({
+          kind: "error",
+          message: "Сохранила dump, но черновой разбор не дал задач. Можно попробовать переформулировать.",
+        });
+      }
+    } catch (error) {
+      setAngelLabStatus({
+        kind: "error",
+        message: error?.message || "Не удалось сохранить dump",
+      });
+    } finally {
+      setAngelLabSaving(false);
+      setAngelLabProcessing(false);
+    }
+  };
+
+  const applyAngelLabTaskCard = (cardId, withSelectedSteps = false) => {
+    const card = angelLabSuggestions.find((item) => item.id === cardId);
+    if (!card || card.added) return;
+
+    const candidateText = normalizeAngelLabTranscript(card.title || card.text || "");
+    const mode = String(card.mode || "create").toLowerCase();
+    const targetTaskId = card.targetTaskId ? String(card.targetTaskId) : null;
+
+    if (mode === "reject") {
+      setAngelLabStatus({
+        kind: "error",
+        message: "Эта карточка шумная. Ничего не применяла.",
+      });
+      return;
+    }
+
+    const cardSubtasks = Array.isArray(card.subtasks) && card.subtasks.length > 0
+      ? card.subtasks
+      : (Array.isArray(card.steps) ? card.steps : []);
+
+    const selectedSteps = withSelectedSteps
+      ? cardSubtasks
+        .filter((step) => step.selected && !step.added)
+        .map((step) => normalizeAngelLabTranscript(step.text))
+        .filter(Boolean)
+      : [];
+
+    const stepSet = new Set();
+    const cleanSteps = [];
+    for (const step of selectedSteps) {
+      if (isAngelLabNearDuplicate(step, candidateText)) continue;
+      const key = step.toLowerCase();
+      if (!key || stepSet.has(key)) continue;
+      stepSet.add(key);
+      cleanSteps.push(step);
+    }
+
+    if (mode === "merge") {
+      if (!targetTaskId) {
+        setAngelLabStatus({
+          kind: "error",
+          message: "Не нашла целевую задачу для объединения.",
+        });
+        return;
+      }
+
+      if (!withSelectedSteps) {
+        setAngelLabSuggestions((previous) => previous.map((item) => {
+          if (item.id !== cardId) return item;
+          return {
+            ...item,
+            added: true,
+          };
+        }));
+        setHighlightTaskId(targetTaskId);
+        trackDailyAction();
+        setAngelLabStatus({
+          kind: "success",
+          message: `Похожая задача уже есть («${candidateText}»). Без новых шагов.`,
+        });
+        return;
+      }
+
+      let addedStepsCount = 0;
+      if (cleanSteps.length > 0) {
+        const saved = mutateSingleTask(targetTaskId, (task) => {
+          const existingSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
+          const now = Date.now();
+          const appendedSubtasks = [];
+
+          for (const stepText of cleanSteps) {
+            const normalizedStep = normalizeAngelLabTranscript(stepText);
+            if (!normalizedStep) continue;
+            if (isAngelLabNearDuplicate(normalizedStep, task.text || "")) continue;
+
+            const duplicateInTask = existingSubtasks.some((subtask) => (
+              isAngelLabNearDuplicate(subtask.text || "", normalizedStep)
+            ));
+            if (duplicateInTask) continue;
+
+            const duplicateInAppend = appendedSubtasks.some((subtask) => (
+              isAngelLabNearDuplicate(subtask.text || "", normalizedStep)
+            ));
+            if (duplicateInAppend) continue;
+
+            appendedSubtasks.push({
+              id: `${task.id}-sub-${now}-${appendedSubtasks.length + 1}`,
+              text: normalizedStep,
+              completed: false,
+            });
+          }
+
+          addedStepsCount = appendedSubtasks.length;
+          if (addedStepsCount === 0) return null;
+
+          return markTaskPendingSync(
+            withActiveDay({
+              ...task,
+              subtasks: [...existingSubtasks, ...appendedSubtasks],
+              lastUpdated: Date.now(),
+            }),
+            task,
+          );
+        });
+
+        if (saved) persistTask(saved);
+      }
+
+      setAngelLabSuggestions((previous) => previous.map((item) => {
+        if (item.id !== cardId) return item;
+        return {
+          ...item,
+          added: true,
+          steps: (item.steps || []).map((step) => (
+            withSelectedSteps && step.selected && addedStepsCount > 0
+              ? { ...step, added: true }
+              : step
+          )),
+          subtasks: (item.subtasks || []).map((step) => (
+            withSelectedSteps && step.selected && addedStepsCount > 0
+              ? { ...step, added: true }
+              : step
+          )),
+        };
+      }));
+
+      setHighlightTaskId(targetTaskId);
+      trackDailyAction();
+      setAngelLabStatus({
+        kind: "success",
+        message: addedStepsCount > 0
+          ? `Добавила ${addedStepsCount} шаг(а) в существующую задачу «${candidateText}».`
+          : `Похожая задача уже есть («${candidateText}»). Новые шаги не добавлены.`,
+      });
+      return;
+    }
+
+    handleAddTask(candidateText, { subtasks: withSelectedSteps ? cleanSteps : [] });
+
+    setAngelLabSuggestions((previous) => previous.map((item) => {
+      if (item.id !== cardId) return item;
+      return {
+        ...item,
+        added: true,
+        steps: (item.steps || []).map((step) => (
+          withSelectedSteps && step.selected
+            ? { ...step, added: true }
+            : step
+        )),
+        subtasks: (item.subtasks || []).map((step) => (
+          withSelectedSteps && step.selected
+            ? { ...step, added: true }
+            : step
+        )),
+      };
+    }));
+
+    setAngelLabStatus({
+      kind: "success",
+      message: withSelectedSteps
+        ? cleanSteps.length > 0
+          ? `Задача добавлена с шагами (${cleanSteps.length}).`
+          : "Задача добавлена. Шаги не выбраны."
+        : "Задача добавлена в план.",
+    });
+  };
+
+  const handleAngelLabAddTaskOnly = (cardId) => {
+    applyAngelLabTaskCard(cardId, false);
+  };
+
+  const handleAngelLabAddTaskWithSteps = (cardId) => {
+    applyAngelLabTaskCard(cardId, true);
+  };
+
+  const handleAngelLabDismissTask = (cardId) => {
+    setAngelLabSuggestions((previous) => previous.filter((item) => item.id !== cardId));
+    setAngelLabStatus({ kind: "success", message: "Карточка убрана." });
+  };
+
+  const handleAngelLabToggleStep = (cardId, stepId) => {
+    setAngelLabSuggestions((previous) => previous.map((item) => {
+      if (item.id !== cardId || item.added) return item;
+      return {
+        ...item,
+        steps: (item.steps || []).map((step) => {
+          if (step.id !== stepId || step.added) return step;
+          return {
+            ...step,
+            selected: !step.selected,
+          };
+        }),
+        subtasks: (item.subtasks || []).map((step) => {
+          if (step.id !== stepId || step.added) return step;
+          return {
+            ...step,
+            selected: !step.selected,
+          };
+        }),
+      };
+    }));
+  };
+
   const handleResurrect = (taskId) => {
     const saved = mutateSingleTask(taskId, (task) => (
       markTaskPendingSync({
@@ -1571,6 +2762,7 @@ export default function App() {
         lastUpdated: Date.now(),
         isToday: false,
         deadAt: null,
+        position: getNextTaskOrder(tasksRef.current, "active", taskId),
       }, task)
     ));
     if (!saved) return;
@@ -1592,6 +2784,7 @@ export default function App() {
         lastUpdated: Date.now(),
         isToday: false,
         deadAt: null,
+        position: getNextTaskOrder(tasksRef.current, "active", taskId),
       }, task)
     ));
     if (!saved) return;
@@ -1602,6 +2795,156 @@ export default function App() {
     setHighlightTaskId(taskId);
     trackDailyAction();
     flashCompanion("angel", ANGEL_RESURRECT_PHRASES);
+  };
+
+  const handleTrashCompleted = (taskId) => {
+    const saved = mutateSingleTask(taskId, (task) => (
+      markTaskPendingSync(
+        {
+          ...task,
+          status: "dead",
+          isToday: false,
+          lastUpdated: Date.now(),
+          deadAt: Date.now(),
+          position: getNextTaskOrder(tasksRef.current, "dead", taskId),
+        },
+        task,
+      )
+    ));
+    if (!saved) return;
+    persistTask(saved);
+    setScore((prev) => {
+      const next = prev - 10;
+      persistScore(next);
+      return next;
+    });
+    setNudgeStatus("Убрала задачу из рая в мусор.");
+  };
+
+  const handleCleanHeavenJunk = () => {
+    const completed = tasksRef.current.filter((task) => task.status === "completed");
+    if (completed.length === 0) {
+      setNudgeStatus("В раю пока нечего чистить.");
+      return;
+    }
+
+    const junk = completed.filter((task) => isHeavenJunkTaskText(task.text));
+    const eligible = junk.filter((task) => isEligibleHeavenJunkTask(task));
+    const protectedCount = junk.length - eligible.length;
+
+    if (eligible.length === 0) {
+      setNudgeStatus("Тестового мусора в раю не нашла.");
+      return;
+    }
+
+    const now = Date.now();
+    let nextDeadOrder = getNextTaskOrder(tasksRef.current, "dead");
+    const movedTasks = eligible.map((task) => {
+      const nextTask = markTaskPendingSync(
+        {
+          ...task,
+          status: "dead",
+          isToday: false,
+          lastUpdated: now,
+          deadAt: now,
+          position: nextDeadOrder,
+        },
+        task,
+      );
+      nextDeadOrder += 1;
+      return nextTask;
+    });
+
+    const movedById = new Map(movedTasks.map((task) => [String(task.id), task]));
+    const nextTasks = tasksRef.current.map((task) => movedById.get(String(task.id)) || task);
+
+    commitTasks(nextTasks);
+    movedTasks.forEach((task) => persistTask(task));
+    setScore((prev) => {
+      const next = prev - movedTasks.length * 10;
+      persistScore(next);
+      return next;
+    });
+    const suffix = protectedCount > 0 ? ` (${protectedCount} защищены)` : "";
+    setNudgeStatus(`Рай очищен: убрала ${movedTasks.length} мусорных задач${suffix}.`);
+    flashCompanion("devil", DEVIL_AUTO_CLEAN_PHRASES);
+  };
+
+  const handlePurgeHeavenJunk = () => {
+    const completed = tasksRef.current.filter((task) => task.status === "completed");
+    if (completed.length === 0) {
+      setNudgeStatus("В раю пока нечего чистить.");
+      return;
+    }
+
+    const junk = completed.filter((task) => isHeavenJunkTaskText(task.text));
+    const eligible = junk.filter((task) => isEligibleHeavenJunkTask(task));
+    const protectedCount = junk.length - eligible.length;
+
+    if (eligible.length === 0) {
+      setNudgeStatus("Тестового мусора в раю не нашла.");
+      return;
+    }
+
+    const preview = eligible
+      .slice(0, 5)
+      .map((task) => `• ${task.text}`)
+      .join("\n");
+    const moreCount = Math.max(0, eligible.length - 5);
+    const protectedLine = protectedCount > 0 ? `\nЗащищено и НЕ удаляется: ${protectedCount}` : "";
+    const moreLine = moreCount > 0 ? `\n...и ещё ${moreCount}` : "";
+    const confirmed = window.confirm(
+      `Удалить навсегда ${eligible.length} задач из рая?\n\n${preview}${moreLine}${protectedLine}`,
+    );
+    if (!confirmed) {
+      setNudgeStatus("Массовое удаление отменено.");
+      return;
+    }
+
+    const junkIds = new Set(eligible.map((task) => String(task.id)));
+    const nextTasks = tasksRef.current.filter((task) => !junkIds.has(String(task.id)));
+    commitTasks(nextTasks);
+
+    setScore((prev) => {
+      const next = prev - eligible.length * 10;
+      persistScore(next);
+      return next;
+    });
+
+    if (isCloudUser) {
+      eligible.forEach((task) => {
+        deleteTask(user.id, task.id).catch((error) => {
+          console.error("[deleteTask]", error);
+        });
+      });
+    }
+
+    const suffix = protectedCount > 0 ? ` (${protectedCount} защищены)` : "";
+    setNudgeStatus(`Отправила в небытие ${eligible.length} задач${suffix}.`);
+  };
+
+  const handleDeleteForever = (taskId) => {
+    const target = tasksRef.current.find((task) => String(task.id) === String(taskId));
+    if (!target) return;
+
+    const nextTasks = tasksRef.current.filter((task) => String(task.id) !== String(taskId));
+    commitTasks(nextTasks);
+
+    if (target.status === "completed") {
+      setScore((prev) => {
+        const next = prev - 10;
+        persistScore(next);
+        return next;
+      });
+    }
+
+    if (isCloudUser) {
+      deleteTask(user.id, taskId).catch((error) => {
+        console.error("[deleteTask]", error);
+      });
+    }
+
+    setNudgeStatus("Задача отправлена в небытие.");
   };
 
   const handleLoadSnapshots = async () => {
@@ -1699,9 +3042,12 @@ export default function App() {
   };
 
   const handleSpotlightMission = () => {
-    if (!rescueTask) return;
-    focusTaskInList(rescueTask.id);
-    setNudgeStatus("Показываю задачу, которая сейчас сильнее всего проседает.");
+    setFogMode(true);
+    setNudgeStatus(
+      rescueTask
+        ? "Открыла режим тумана: здесь одна миссия и panic-инструменты."
+        : "Открыла туман. Добавь задачу, и здесь появится миссия.",
+    );
   };
 
   const handleNotificationsClick = async () => {
@@ -1752,7 +3098,7 @@ export default function App() {
     setPanicEndsAt(Date.now() + 2 * 60 * 1000);
     setPanicTick(Date.now());
     focusTaskInList(panicTask.id);
-    setNudgeStatus("Panic mode запущен. Сейчас только 2 минуты и один шаг.");
+    setNudgeStatus("Режим сдвига запущен. Сейчас только 2 минуты и один шаг.");
   };
 
   const handlePanicAddStep = () => {
@@ -1772,7 +3118,7 @@ export default function App() {
   const handlePanicFocusTask = () => {
     if (!panicTask) return;
     focusTaskInList(panicTask.id);
-    setNudgeStatus("Показываю задачу из panic mode.");
+    setNudgeStatus("Показываю задачу из режима сдвига.");
   };
 
   if (loading || !minLoadDone) return <LoadingScreen />;
@@ -1781,6 +3127,39 @@ export default function App() {
 
   return (
     <DndContext sensors={dndSensors} collisionDetection={dndCollision} onDragStart={({ active }) => setDragTaskId(String(active.id).replace("task-", ""))} onDragEnd={handleDragEnd}>
+    <button
+      type="button"
+      className="angel-lab-tab"
+      onClick={openAngelLab}
+      title="Angel Lab — единый вход для выгрузки из головы"
+      disabled={angelLabOpen}
+    >
+      Angel
+    </button>
+
+    <AngelLabScreen
+      open={angelLabOpen}
+      text={angelLabText}
+      saving={angelLabSaving}
+      listening={angelLabListening}
+      finalizing={angelLabFinalizing}
+      micStatus={angelLabMicStatus}
+      micMode={angelLabMicMode}
+      processing={angelLabProcessing}
+      status={angelLabStatus}
+      dumpHistory={angelLabDumpHistory}
+      suggestions={angelLabSuggestions}
+      imageSrc={angelLabCat}
+      onChange={setAngelLabText}
+      onToggleMic={handleAngelLabMicToggle}
+      onToggleStep={handleAngelLabToggleStep}
+      onAddTaskOnly={handleAngelLabAddTaskOnly}
+      onAddTaskWithSteps={handleAngelLabAddTaskWithSteps}
+      onDismissTask={handleAngelLabDismissTask}
+      onClose={closeAngelLab}
+      onSave={handleSaveAngelLab}
+    />
+
     <div className="app-wrapper">
       <div className="score-panel animated-fade-in">
         <span className="score-icon">⚡</span>
@@ -1793,7 +3172,7 @@ export default function App() {
             <h1 className="app-title">ADHD Planner</h1>
             <p className="greeting-text">Привет, {user?.first_name || "Гость"}!</p>
           </div>
-          <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
+          <div style={{display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end'}}>
             <button
               onClick={() => setFogMode(f => !f)}
               className={`theme-toggle-btn${fogMode ? ' fog-btn-active' : ''}`}
@@ -1816,8 +3195,20 @@ export default function App() {
       </header>
 
       <section className="daily-pulse-panel glass-panel animated-fade-in">
-        <div className="daily-pulse-copy">
-          <div className="daily-pulse-kicker">today mission</div>
+        <div
+          className="daily-pulse-copy mission-spotlight"
+          role="button"
+          tabIndex={0}
+          onClick={handleSpotlightMission}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              handleSpotlightMission();
+            }
+          }}
+          title="Нажми, чтобы открыть цель в режиме тумана"
+        >
+          <div className="daily-pulse-kicker">today mission · нажми для тумана</div>
           <h2 className="daily-pulse-title">
             {rescueTask ? rescueTask.text : "Сегодня всё под контролем"}
           </h2>
@@ -1853,20 +3244,6 @@ export default function App() {
           >
             🧯 Спасти сейчас
           </button>
-          <button
-            className="pulse-action-btn"
-            onClick={handleSpotlightMission}
-            disabled={!rescueTask}
-          >
-            🎯 Показать цель
-          </button>
-          <button
-            className="pulse-action-btn"
-            onClick={() => openPanicMode(rescueTask)}
-            disabled={!rescueTask}
-          >
-            🆘 Panic mode
-          </button>
           <button className="pulse-action-btn" onClick={handleNotificationsClick}>
             {notificationPermission === "granted"
               ? pulseState.notificationsEnabled
@@ -1890,7 +3267,7 @@ export default function App() {
           <div className="panic-modal glass-panel animated-fade-in">
             <div className="panic-header">
               <div>
-                <div className="daily-pulse-kicker">panic mode</div>
+                <div className="daily-pulse-kicker">мягкий старт</div>
                 <h2 className="panic-title">{panicPlan.title}</h2>
               </div>
               <button className="panic-close-btn" onClick={closePanicMode}>
@@ -2040,8 +3417,25 @@ export default function App() {
             calendarToken={calendarToken}
           />
         )}
-        {activeTab === 'heaven' && <TaskColumn type="heaven" tasks={completedTasks} onReopenCompleted={handleReopenCompleted} />}
-        {activeTab === 'cemetery' && <TaskColumn type="cemetery" tasks={deadTasks} onResurrect={handleResurrect} />}
+        {activeTab === 'heaven' && (
+          <TaskColumn
+            type="heaven"
+            tasks={completedTasks}
+            onReopenCompleted={handleReopenCompleted}
+            onTrashCompleted={handleTrashCompleted}
+            onCleanHeavenJunk={handleCleanHeavenJunk}
+            onPurgeHeavenJunk={handlePurgeHeavenJunk}
+            onDeleteForever={handleDeleteForever}
+          />
+        )}
+        {activeTab === 'cemetery' && (
+          <TaskColumn
+            type="cemetery"
+            tasks={deadTasks}
+            onResurrect={handleResurrect}
+            onDeleteForever={handleDeleteForever}
+          />
+        )}
         {activeTab === 'stats' && (() => {
           const totalMs = tasks.reduce((sum, t) => sum + (t.timeSpent || 0), 0);
           // Tasks with any tracked activity (auto activeDays OR manual timer)
@@ -2302,16 +3696,19 @@ export default function App() {
                 )}
 
                 <div className="fog-actions">
-                  <button className="fog-action primary" onClick={() => { handleComplete(fogTask.id); setFogMode(false); }}>
-                    ✅ Выполнено
+                  <button className="fog-action primary" onClick={() => { setFogMode(false); openPanicMode(fogTask); setNudgeStatus("Включаю мягкий старт на 2 минуты."); }}>
+                    ⏱️ 2 минуты
                   </button>
-                  <button className="fog-action" onClick={() => { handleTouch(fogTask.id); setNudgeStatus("Пульс задан!"); }}>
-                    ⚡ Дать импульс
+                  <button className="fog-action" onClick={() => { setFogMode(false); openPanicMode(fogTask); }}>
+                    ➕ Добавить маленький шаг
                   </button>
-                  <button className="fog-action panic" onClick={() => { setFogMode(false); openPanicMode(fogTask); }}>
-                    🆘 Паника
+                  <button className="fog-action" onClick={() => { handleTouch(fogTask.id); setNudgeStatus("Сдвиг засчитан."); setFogMode(false); }}>
+                    ✅ Я сдвинулась
                   </button>
                 </div>
+                <button className="fog-help-link" onClick={() => { setFogMode(false); openPanicMode(fogTask); }}>
+                  застряла?
+                </button>
               </>
             ) : (
               <>

@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>ADHD Planner · Рай</title>
+<meta name="theme-color" content="#F5ECCF" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================
+     ADHD Planner — Paradise (рай)
+     Same scrapbook tokens as board-v2/panic/cemetery, but
+     paper a touch warmer — like sunlight on a page.
+  ========================================================== */
+  :root{
+    --paper:       #F5ECCF;
+    --paper-card:  #FFF5D8;
+    --paper-soft:  #FBEFCD;
+    --paper-warm:  #F7E0A1;
+    --paper-dark:  #E8D9A8;
+    --ink:         #1C1A15;
+    --ink-soft:    #4A453A;
+    --ink-muted:   #7A7366;
+    --line:        #1C1A1520;
+    --line-strong: #1C1A1540;
+
+    --tape-pink:   #F2A5B3;
+    --tape-blue:   #98BFD9;
+    --tape-yellow: #F2D27A;
+    --tape-mint:   #A9D3B4;
+    --tape-gold:   #E8C56A;
+
+    --marker-red:  #E63946;
+    --marker-blue: #2E58FC;
+    --marker-yel:  #F9E03B;
+    --marker-grn:  #1F7A3A;
+    --marker-gold: #B58A2B;
+
+    --serif: "Instrument Serif", Georgia, serif;
+    --sans:  "Inter", system-ui, -apple-system, sans-serif;
+    --mono:  "JetBrains Mono", ui-monospace, monospace;
+    --hand:  "Caveat", cursive;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    min-height:100svh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    background-image:
+      radial-gradient(900px 700px at 50% -10%, #FFE9A680, transparent 60%),
+      radial-gradient(900px 700px at 100% 100%, #E8C56A40, transparent 60%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.11  0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0.08 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  .stage{
+    min-height:100svh;
+    display:flex; align-items:flex-start; justify-content:center;
+    padding: 28px 16px 48px;
+  }
+  .phone{
+    width: 390px; max-width: 100%;
+    background: var(--paper);
+    border: 1.25px solid var(--ink);
+    border-radius: 36px;
+    overflow: hidden;
+    position: relative;
+    box-shadow:
+      0 1px 0 #fff6 inset,
+      0 20px 0 -14px #0002,
+      0 40px 60px -30px #0003;
+  }
+
+  /* status */
+  .status{
+    display:flex; justify-content:space-between; align-items:center;
+    padding: 12px 22px 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--ink);
+    letter-spacing:.04em;
+  }
+  .status .dots{ display:flex; gap:3px; }
+  .status .dots i{ width:3px; height:3px; background: var(--ink); border-radius:50%; display:block; }
+
+  /* ======= HEADER ======= */
+  .top{
+    position: relative;
+    padding: 4px 18px 14px;
+  }
+  .top::after{
+    content:""; position:absolute; left:18px; right:18px; bottom:0;
+    border-bottom: 1px dashed var(--line-strong);
+  }
+  .brandrow{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family: var(--mono); font-size:11px; letter-spacing:.18em;
+    color: var(--ink-soft); text-transform:uppercase;
+  }
+  .brandrow .back{
+    display:inline-flex; align-items:center; gap:6px;
+    background: transparent; border: 0;
+    font: inherit; color: inherit; cursor: pointer;
+    padding: 0;
+  }
+  .brandrow .back .arr{
+    font-family: var(--serif); font-style: italic; font-size: 20px; line-height: 1;
+    color: var(--ink);
+  }
+  .brandrow .date{ color: var(--ink-muted); }
+
+  .title-row{
+    margin-top: 14px;
+    position: relative;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 10px;
+    padding-right: 92px; /* room for angel */
+  }
+  .title-row h1{
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 52px; line-height: .92; letter-spacing: -.02em;
+    margin: 0;
+    color: var(--ink);
+  }
+  .title-row h1 .plain{ font-style: normal; }
+  .title-row h1 .halo{
+    display: inline-block;
+    position: relative;
+  }
+  .title-row h1 .halo::after{
+    content:""; position: absolute;
+    left: 50%; top: -16px;
+    transform: translateX(-50%);
+    width: 90%; height: 10px;
+    border: 1.5px solid var(--marker-gold);
+    border-radius: 50%;
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+    transform: translateX(-50%) rotate(-8deg);
+  }
+
+  .title-row .count{
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+    color: var(--ink-soft); text-transform: uppercase;
+    white-space: nowrap; padding-bottom: 10px; text-align: right;
+  }
+  .title-row .count b{ color: var(--ink); font-weight: 600; }
+
+  /* Angel — top right, proud */
+  .angel-here{
+    position: absolute;
+    top: 14px; right: 6px;
+    width: 92px; height: 92px;
+    transform: rotate(-6deg);
+  }
+  .angel-here::before{
+    content:""; position: absolute;
+    top: -6px; left: 50%; transform: translateX(-50%);
+    width: 64px; height: 10px;
+    border: 1.5px solid var(--marker-gold);
+    border-radius: 50%;
+    border-bottom-color: transparent;
+  }
+  .angel-here img{
+    width: 100%; height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 0 rgba(0,0,0,.08));
+    image-rendering: -webkit-optimize-contrast;
+  }
+  .angel-here .whisper{
+    position: absolute;
+    bottom: -10px; left: 50%; transform: translateX(-50%) rotate(-3deg);
+    font-family: var(--hand); font-size: 17px; color: var(--marker-grn);
+    white-space: nowrap;
+  }
+
+  /* ======= INDEX TABS ======= */
+  .tabs{
+    margin: 14px 18px 4px;
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--line-strong);
+    padding-bottom: 8px;
+  }
+  .tab{
+    font-family: var(--mono); font-size: 11px; letter-spacing:.12em;
+    color: var(--ink-muted); text-transform: uppercase;
+    padding: 4px 0;
+    background: transparent; border: 0;
+    cursor: pointer;
+  }
+  .tab.active{
+    color: var(--ink);
+    border-bottom: 2px solid var(--marker-gold);
+    padding-bottom: 6px;
+    margin-bottom: -9px;
+  }
+  .tab .num{
+    font-family: var(--serif); font-style: italic; font-size: 15px;
+    color: var(--ink-muted); margin-left: 4px;
+  }
+  .tab.active .num{ color: var(--ink); }
+
+  /* ======= Angel's note ======= */
+  .angel-note{
+    margin: 14px 18px 4px;
+    position: relative;
+    padding: 12px 14px 12px 40px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 3px 3px 0 -1px #1c1a1520;
+    transform: rotate(-.25deg);
+    font-family: var(--hand); font-size: 20px; line-height: 1.1;
+    color: var(--ink);
+  }
+  .angel-note::before{
+    content: "“"; position: absolute;
+    left: 10px; top: -2px;
+    font-family: var(--serif); font-style: italic; font-size: 56px;
+    line-height: 1; color: var(--marker-gold);
+  }
+  .angel-note .sign{
+    display: block; text-align: right;
+    margin-top: 2px;
+    font-family: var(--hand); font-size: 15px;
+    color: var(--marker-grn);
+  }
+  .angel-note .tape{
+    position:absolute; top:-9px; left: 34px;
+    width: 72px; height: 16px;
+    background: var(--tape-gold);
+    transform: rotate(-2deg);
+    opacity:.95; mix-blend-mode: multiply;
+  }
+
+  /* ======= TODAY'S WIN (hero) ======= */
+  .win-wrap{ margin: 18px 18px 0; }
+  .win-label{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--marker-gold); text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .win-label .star{
+    font-family: var(--serif); font-style: italic; font-size: 14px;
+    color: var(--marker-gold);
+  }
+
+  .win{
+    position: relative;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    padding: 22px 18px 16px;
+    box-shadow: 4px 4px 0 -1px #1c1a1520;
+    transform: rotate(-.3deg);
+  }
+  .win .tape{
+    position:absolute; top:-10px; left: 42px;
+    width: 100px; height: 20px;
+    background: var(--tape-gold);
+    transform: rotate(-3deg);
+    opacity:.95; mix-blend-mode: multiply;
+  }
+  .win .stamp{
+    position: absolute;
+    top: 14px; right: -6px;
+    background: var(--paper);
+    border: 1.5px solid var(--marker-grn);
+    color: var(--marker-grn);
+    padding: 6px 10px 5px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    transform: rotate(8deg);
+    border-radius: 2px;
+    text-align: center;
+  }
+  .win .stamp b{
+    display: block;
+    font-family: var(--serif); font-style: italic; font-size: 18px;
+    font-weight: 400; letter-spacing: 0;
+    color: var(--marker-grn);
+    margin-top: 1px;
+  }
+
+  .win h2{
+    margin: 4px 0 6px;
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 30px; line-height: 1.02; letter-spacing: -.015em;
+    color: var(--ink);
+    padding-right: 80px;
+  }
+  .win h2 .plain{ font-style: normal; }
+  .win .caption{
+    font-family: var(--hand); font-size: 20px; line-height: 1.1;
+    color: var(--marker-grn);
+    transform: rotate(-.4deg);
+    margin-top: 2px;
+  }
+  .win .meta{
+    margin-top: 16px; padding-top: 12px;
+    border-top: 1px dashed var(--line-strong);
+    display:flex; justify-content:space-between; align-items:center;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+    color: var(--ink-soft);
+  }
+  .win .meta b{ color: var(--ink); font-weight: 600; }
+  .win .meta .bolt{ color: var(--marker-gold); font-weight: 700; }
+
+  /* ======= ARCHIVE GRID ======= */
+  .arc-label{
+    margin: 22px 18px 8px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
+    color: var(--ink-soft); text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .arc-label::before, .arc-label::after{
+    content:""; flex: 1; height: 1px; background: var(--line-strong);
+  }
+
+  .arc{
+    padding: 0 18px 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .trophy{
+    position: relative;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    padding: 12px 12px 10px;
+    box-shadow: 3px 3px 0 -1px #1c1a1520;
+    min-height: 140px;
+    display: flex; flex-direction: column;
+  }
+  .trophy.r1{ transform: rotate(-.8deg); }
+  .trophy.r2{ transform: rotate(.7deg); }
+  .trophy.r3{ transform: rotate(-.5deg); }
+  .trophy.r4{ transform: rotate(.4deg); }
+  .trophy.r5{ transform: rotate(-.25deg); }
+  .trophy.r6{ transform: rotate(.3deg); }
+
+  .trophy .pin{
+    position: absolute;
+    top: -6px; left: 50%; transform: translateX(-50%) rotate(-1deg);
+    width: 42px; height: 12px;
+    background: var(--tape-gold);
+    opacity: .9; mix-blend-mode: multiply;
+  }
+  .trophy .star{
+    position: absolute;
+    right: 8px; top: 6px;
+    font-family: var(--serif); font-style: italic; font-size: 16px;
+    color: var(--marker-gold);
+  }
+
+  .trophy h3{
+    margin: 8px 0 2px;
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: 17px; line-height: 1.05; letter-spacing: -.005em;
+    color: var(--ink);
+  }
+  .trophy h3 .plain{ font-style: normal; }
+  .trophy .note{
+    font-family: var(--hand); font-size: 15px; line-height: 1.1;
+    color: var(--marker-grn);
+    margin-top: 2px;
+    flex: 1;
+  }
+  .trophy .foot{
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px dashed var(--line-strong);
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--mono); font-size: 9px; letter-spacing: .14em;
+    color: var(--ink-muted); text-transform: uppercase;
+  }
+  .trophy .foot .bolt{ color: var(--marker-gold); font-weight: 700; }
+  .trophy .foot b{ color: var(--ink); }
+
+  /* Streak strip */
+  .streak{
+    margin: 8px 18px 0;
+    padding: 14px 16px;
+    background: var(--paper-soft);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 3px 3px 0 -1px #1c1a1520;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: center;
+    transform: rotate(.15deg);
+  }
+  .streak .fire{
+    font-family: var(--serif); font-style: italic; font-size: 42px; line-height: 1;
+    color: var(--marker-red);
+  }
+  .streak .body .lbl{
+    font-family: var(--mono); font-size: 10px; letter-spacing: .2em;
+    color: var(--ink-soft); text-transform: uppercase;
+  }
+  .streak .body .val{
+    font-family: var(--serif); font-style: italic;
+    font-size: 24px; line-height: 1.05; letter-spacing: -.01em;
+    color: var(--ink);
+  }
+  .streak .body .val b{ font-style: normal; color: var(--marker-red); font-weight: 600; }
+  .streak .body .hint{
+    font-family: var(--hand); font-size: 16px; color: var(--ink-soft);
+    transform: rotate(-.3deg);
+  }
+
+  /* Footer actions */
+  .footbar{
+    position: sticky; bottom: 0;
+    margin-top: 14px;
+    padding: 12px 16px 16px;
+    background: linear-gradient(180deg, transparent, var(--paper) 40%);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+  }
+  .filter{
+    display:flex; align-items:center; gap: 12px;
+    background: var(--paper-card);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    color: var(--ink-soft); text-transform: uppercase;
+    box-shadow: 3px 3px 0 -1px #1c1a1520;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .filter .on{
+    color: var(--ink); font-weight: 600;
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 1px;
+  }
+  .share{
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--marker-gold); color: var(--ink);
+    border: 1.25px solid var(--ink);
+    border-radius: 3px;
+    padding: 10px 14px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 -1px #1c1a1520;
+  }
+  .share .arr{ font-family: var(--serif); font-style: italic; font-size: 16px; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="phone" role="application" aria-label="ADHD Planner — Рай">
+
+    <!-- status -->
+    <div class="status">
+      <span>9:41</span>
+      <span class="dots"><i></i><i></i><i></i></span>
+      <span>100%</span>
+    </div>
+
+    <!-- HEADER -->
+    <div class="top">
+      <div class="brandrow">
+        <button class="back" aria-label="Назад к доске">
+          <span class="arr">←</span>
+          <span>BOARD</span>
+        </button>
+        <span class="date">17 АПР · №024</span>
+      </div>
+
+      <div class="title-row">
+        <h1><span class="plain">Рай&nbsp;</span><span class="halo">✦</span></h1>
+        <div class="count"><b>41</b> задача<br/>уходит в&nbsp;свет</div>
+
+        <div class="angel-here" role="img" aria-label="Ангел — хранительница рая">
+          <img src="mascots/angel.png" alt="" />
+          <span class="whisper">ты молодец ✿</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- INDEX TABS -->
+    <nav class="tabs" aria-label="Разделы">
+      <button class="tab">В процессе<span class="num">12</span></button>
+      <button class="tab active">Рай<span class="num">41</span></button>
+      <button class="tab">Кладбище<span class="num">07</span></button>
+      <button class="tab">Прогресс</button>
+    </nav>
+
+    <!-- ANGEL'S NOTE -->
+    <aside class="angel-note" aria-label="Голос ангела">
+      <span class="tape" aria-hidden="true"></span>
+      посмотри, сколько всего ты уже&nbsp;закрыла. каждая — маленькое доказательство, что&nbsp;ты можешь.
+      <span class="sign">— ангел</span>
+    </aside>
+
+    <!-- TODAY'S WIN -->
+    <div class="win-wrap">
+      <div class="win-label"><span class="star">✦</span>победа дня · сегодня</div>
+
+      <article class="win">
+        <span class="tape" aria-hidden="true"></span>
+        <div class="stamp" aria-label="Выполнено на 100%">
+          сделано
+          <b>100%</b>
+        </div>
+
+        <h2><span class="plain">Собеседование</span> с&nbsp;командой разработки.</h2>
+        <div class="caption">ты в душе была уверена, что&nbsp;не&nbsp;дойдёшь. дошла.</div>
+
+        <div class="meta">
+          <span>прожила · <b>4 дня</b></span>
+          <span>время · <b>1ч 10м</b></span>
+          <span class="bolt">⚡ +24</span>
+        </div>
+      </article>
+    </div>
+
+    <!-- ARCHIVE -->
+    <div class="arc-label">архив побед · апрель</div>
+
+    <div class="arc">
+
+      <article class="trophy r1">
+        <span class="pin" aria-hidden="true"></span>
+        <span class="star">✦</span>
+        <h3><span class="plain">Отправить</span> резюме в&nbsp;3&nbsp;места</h3>
+        <div class="note">страшно было. сделала.</div>
+        <div class="foot"><span>15 апр</span><span class="bolt">⚡ +18</span></div>
+      </article>
+
+      <article class="trophy r2">
+        <span class="pin" aria-hidden="true"></span>
+        <span class="star">✦</span>
+        <h3><span class="plain">Починить</span> сон на&nbsp;неделю</h3>
+        <div class="note">7 дней подряд. магия.</div>
+        <div class="foot"><span>14 апр</span><span class="bolt">⚡ +35</span></div>
+      </article>
+
+      <article class="trophy r3">
+        <span class="pin" aria-hidden="true"></span>
+        <span class="star">✦</span>
+        <h3><span class="plain">Дописать</span> главу про&nbsp;фокус</h3>
+        <div class="note">2000 слов за утро.</div>
+        <div class="foot"><span>11 апр</span><span class="bolt">⚡ +22</span></div>
+      </article>
+
+      <article class="trophy r4">
+        <span class="pin" aria-hidden="true"></span>
+        <span class="star">✦</span>
+        <h3><span class="plain">Сходить</span> к&nbsp;стоматологу</h3>
+        <div class="note">наконец-то. три месяца.</div>
+        <div class="foot"><span>09 апр</span><span class="bolt">⚡ +14</span></div>
+      </article>
+
+      <article class="trophy r5">
+        <span class="pin" aria-hidden="true"></span>
+        <span class="star">✦</span>
+        <h3><span class="plain">Перезагрузить</span> сайт</h3>
+        <div class="note">без паник-мода. горжусь.</div>
+        <div class="foot"><span>06 апр</span><span class="bolt">⚡ +28</span></div>
+      </article>
+
+      <article class="trophy r6">
+        <span class="pin" aria-hidden="true"></span>
+        <span class="star">✦</span>
+        <h3><span class="plain">Позвонить</span> подруге</h3>
+        <div class="note">поговорили 40 минут.</div>
+        <div class="foot"><span>03 апр</span><span class="bolt">⚡ +8</span></div>
+      </article>
+
+    </div>
+
+    <!-- STREAK -->
+    <section class="streak" aria-label="Серия дней подряд">
+      <div class="fire" aria-hidden="true">✺</div>
+      <div class="body">
+        <div class="lbl">◦ серия подряд</div>
+        <div class="val"><b>7</b> дней · ни одна не&nbsp;умерла.</div>
+        <div class="hint">продержись ещё — чёртик нервничает.</div>
+      </div>
+    </section>
+
+    <!-- FOOTER: filter + share -->
+    <div class="footbar">
+      <div class="filter" aria-label="Фильтры рая">
+        <span class="on">все</span>
+        <span>апрель</span>
+        <span>страшные</span>
+        <span>за 2 мин</span>
+      </div>
+      <button class="share" aria-label="Отпраздновать и поделиться">
+        отпраздновать&nbsp;<span class="arr">→</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Tabs swap (demo)
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+
+  // Filter chip click
+  document.querySelectorAll('.filter span').forEach(s => {
+    s.addEventListener('click', () => {
+      document.querySelectorAll('.filter span').forEach(x => x.classList.remove('on'));
+      s.classList.add('on');
+    });
+  });
+
+  // Trophy hover / tap feedback
+  document.querySelectorAll('.trophy, .win').forEach(el => {
+    el.addEventListener('click', () => {
+      const before = el.style.transform;
+      el.style.transition = 'transform .18s ease';
+      el.style.transform = (before || '') + ' scale(.99)';
+      setTimeout(() => { el.style.transform = before; }, 180);
+    });
+  });
+</script>
+</body>
+</html>

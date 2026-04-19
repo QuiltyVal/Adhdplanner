@@ -34,6 +34,47 @@ function normalizeTaskText(text = "") {
   return String(text).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function parseNaturalReopen(text = "") {
+  const raw = String(text || "").trim();
+  if (!raw) return { isReopen: false, taskRef: "" };
+
+  const lowered = raw.toLowerCase();
+  const looksLikeReopen = /(верни|вернуть|восстанов|переоткрой|reopen|undo|uncomplete)/i.test(lowered);
+  const mentionsTask = /(задач|дело|таск|task)/i.test(lowered);
+
+  if (!looksLikeReopen && !mentionsTask) {
+    return { isReopen: false, taskRef: "" };
+  }
+
+  if (!looksLikeReopen) {
+    return { isReopen: false, taskRef: "" };
+  }
+
+  const quoted =
+    raw.match(/["“«](.+?)["”»]/)?.[1] ||
+    raw.match(/'(.+?)'/)?.[1] ||
+    "";
+  if (quoted.trim()) {
+    return { isReopen: true, taskRef: quoted.trim() };
+  }
+
+  const afterVerb =
+    raw.match(/(?:верни|вернуть|восстанови|восстановить|переоткрой|reopen)\s+(.+)$/i)?.[1] ||
+    "";
+
+  const cleaned = String(afterVerb || "")
+    .replace(/^(мне|пожалуйста|плиз|эту|эту задачу|задачу|таск)\s+/i, "")
+    .replace(/\s+(назад|обратно|в активные|пожалуйста)$/i, "")
+    .trim();
+
+  const genericOnly = /^(задачу|таск|е[её]|последнюю|любую)$/i.test(cleaned);
+  if (!cleaned || genericOnly) {
+    return { isReopen: true, taskRef: "" };
+  }
+
+  return { isReopen: true, taskRef: cleaned };
+}
+
 function findTaskByText(tasks = [], query, allowedStatuses = ["active"]) {
   const normalizedQuery = normalizeTaskText(query);
   if (!normalizedQuery) return null;
@@ -274,6 +315,39 @@ async function safeWriteTelegramLog(payload) {
   }
 }
 
+function buildPlannerActionAdapter(chatId, options = {}) {
+  const suppressMessages = options.suppressMessages === true;
+  return {
+    sendText: async (messageText, extra = {}) => {
+      if (suppressMessages) return null;
+      return sendText(chatId, messageText, extra);
+    },
+    taskKeyboard: plannerTaskKeyboard,
+    completedTaskKeyboard,
+    calendarConnectKeyboard,
+  };
+}
+
+function plannerDataWithContextTask(plannerData, task, action = "callback_context") {
+  return {
+    ...plannerData,
+    telegramContext: buildTelegramContext(task, action),
+  };
+}
+
+async function runPlannerRoute(chatId, route, options = {}) {
+  const userId = getTargetUserId();
+  const plannerData = options.plannerData || await getPlannerData(userId);
+  await executePlannerAction({
+    userId,
+    chatId,
+    plannerData,
+    route,
+    adapter: buildPlannerActionAdapter(chatId, { suppressMessages: options.suppressMessages }),
+    log: safeWriteTelegramLog,
+  });
+}
+
 async function sendTodayDigest(chatId, plannerData) {
   const activeTasks = plannerData.tasks.filter((task) => task.status === "active");
   const topTasks = sortTasksByPriority(activeTasks).slice(0, 3);
@@ -324,92 +398,48 @@ function buildPanicText(task) {
   return lines.join("\n");
 }
 
-async function handleStart(chatId) {
+async function handleStart(chatId, options = {}) {
+  const shouldLinkChat = options.linkChat !== false;
   const userId = getTargetUserId();
-  await linkTelegramChat(userId, chatId);
+  if (shouldLinkChat) {
+    await linkTelegramChat(userId, chatId);
+  }
   await sendText(
     chatId,
-    [
-      "Я привязал этот Telegram к planner.",
-      "",
-      "Команды:",
-      "/today — показать 1-3 главные задачи",
-      "/completed — показать завершённые и вернуть ошибочно закрытую",
-      "/panic — выбрать одну задачу и один микрошаг",
-      "/add текст — добавить задачу",
-      "",
-      "Любое обычное сообщение я пока тоже складываю как новую задачу.",
-    ].join("\n"),
+      [
+        "Я привязал этот Telegram к planner.",
+        "",
+        "Команды:",
+        "/today — показать 1-3 главные задачи",
+        "/completed — показать завершённые и вернуть ошибочно закрытую",
+        "/reopen — вернуть последнюю завершённую задачу",
+        "/reopen [название] — вернуть задачу по названию",
+        "/panic — выбрать одну задачу и один микрошаг",
+        "/add текст — добавить задачу",
+        "",
+        "Любое обычное сообщение я пока тоже складываю как новую задачу.",
+      ].join("\n"),
   );
 }
 
 async function handleToday(chatId) {
-  const userId = getTargetUserId();
-  const plannerData = await getPlannerData(userId);
-  const topTask = await sendTodayDigest(chatId, plannerData);
-  if (!topTask) return;
-  await mutatePlanner(userId, (current) => ({
-    ...current,
-    telegramContext: buildTelegramContext(topTask, "today"),
-  }), {
-    source: "telegram",
-    reason: "show_today",
+  await runPlannerRoute(chatId, {
+    type: "show_today",
+    source: "slash_command",
   });
 }
 
 async function handleCompleted(chatId) {
-  const userId = getTargetUserId();
-  const allNonActive = await getNonActiveTasks(userId);
-  const completedTasks = allNonActive
-    .filter((task) => task.status === "completed")
-    .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))
-    .slice(0, 5);
-
-  if (completedTasks.length === 0) {
-    await sendText(chatId, "В раю пока пусто. Завершённых задач нет.");
-    return;
-  }
-
-  await sendText(
-    chatId,
-    [
-      "☁️ <b>Последние завершённые задачи</b>",
-      "",
-      ...completedTasks.map((task, index) => `${index + 1}. ${escapeHtml(task.text)}`),
-      "",
-      "Если бот отправил что-то в рай по ошибке, жми кнопку возврата.",
-    ].join("\n"),
-  );
-
-  for (const task of completedTasks) {
-    await sendText(
-      chatId,
-      `☁️ <b>${escapeHtml(task.text)}</b>`,
-      { reply_markup: completedTaskKeyboard(task.id) },
-    );
-  }
+  await runPlannerRoute(chatId, {
+    type: "show_completed",
+    source: "slash_command",
+  });
 }
 
 async function handlePanic(chatId) {
-  const userId = getTargetUserId();
-  const plannerData = await getPlannerData(userId);
-  const task = pickRescueTask(plannerData.tasks);
-
-  if (!task) {
-    await sendText(chatId, "Сейчас нет активной задачи для panic mode.");
-    return;
-  }
-
-  await sendText(chatId, buildPanicText(task), {
-    reply_markup: plannerTaskKeyboard(task.id),
-  });
-
-  await mutatePlanner(userId, (current) => ({
-    ...current,
-    telegramContext: buildTelegramContext(task, "panic"),
-  }), {
-    source: "telegram",
-    reason: "show_panic",
+  await runPlannerRoute(chatId, {
+    type: "panic",
+    source: "slash_command",
   });
 }
 
@@ -430,16 +460,20 @@ async function handleAdd(chatId, argText, options = {}) {
     telegramUpdateId: options.telegramUpdateId || null,
     writeLog: safeWriteTelegramLog,
   });
-  const enrichment = buildTaskMemoryEnrichment(processing, argText);
-
-  await upsertTask(chatId, {
-    text: argText,
-    source: "telegram",
-    urgency: enrichment.urgency || "medium",
-    resistance: enrichment.resistance || "medium",
-    lifeArea: enrichment.lifeArea || "",
-    commitmentIds: enrichment.commitmentIds || [],
-  });
+  const baseRoute = {
+    type: "add_task",
+    taskText: argText,
+    rawText: argText,
+    source: "slash_command",
+    urgency: "medium",
+    resistance: "",
+    isToday: false,
+    isVital: false,
+    deadlineAt: "",
+    subtasks: [],
+  };
+  const enrichedRoute = mergeTelegramTaskMemoryIntoRoute(baseRoute, processing);
+  await runPlannerRoute(chatId, enrichedRoute);
 }
 
 async function handleCalendar(chatId) {
@@ -452,6 +486,184 @@ async function handleCalendar(chatId) {
       reply_markup: calendarConnectKeyboard(url),
     },
   );
+}
+
+async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
+  const cleaned = String(text || "").trim();
+  if (!cleaned) return { route: null, plannerData: null, prefaceText: "", errorText: "" };
+
+  if (cleaned.startsWith("/")) {
+    const { command, argText } = parseCommand(cleaned);
+
+    if (command === "/today") {
+      return {
+        route: {
+          type: "show_today",
+          source: "slash_command",
+          rawText: cleaned,
+        },
+        plannerData: null,
+        prefaceText: "",
+        errorText: "",
+      };
+    }
+
+    if (command === "/completed") {
+      return {
+        route: {
+          type: "show_completed",
+          source: "slash_command",
+          rawText: cleaned,
+        },
+        plannerData: null,
+        prefaceText: "",
+        errorText: "",
+      };
+    }
+
+    if (command === "/reopen") {
+      return {
+        route: {
+          type: "reopen_task",
+          taskRef: argText || "",
+          source: "slash_command",
+          rawText: cleaned,
+        },
+        plannerData: null,
+        prefaceText: "",
+        errorText: "",
+      };
+    }
+
+    if (command === "/panic") {
+      return {
+        route: {
+          type: "panic",
+          source: "slash_command",
+          rawText: cleaned,
+        },
+        plannerData: null,
+        prefaceText: "",
+        errorText: "",
+      };
+    }
+
+    if (command === "/add") {
+      if (!argText) {
+        return {
+          route: null,
+          plannerData: null,
+          prefaceText: "",
+          errorText: "Напиши так: /add купить корм",
+        };
+      }
+
+      const userId = getTargetUserId();
+      const processing = await processTelegramTaskCapture({
+        userId,
+        chatId,
+        rawText: argText,
+        intent: "add_task",
+        taskText: argText,
+        telegramMessageId: options.telegramMessageId || null,
+        telegramUpdateId: options.telegramUpdateId || null,
+        writeLog: safeWriteTelegramLog,
+      });
+
+      const baseRoute = {
+        type: "add_task",
+        taskText: argText,
+        rawText: argText,
+        source: "slash_command",
+        urgency: "medium",
+        resistance: "",
+        isToday: false,
+        isVital: false,
+        deadlineAt: "",
+        subtasks: [],
+      };
+
+      return {
+        route: mergeTelegramTaskMemoryIntoRoute(baseRoute, processing),
+        plannerData: null,
+        prefaceText: "",
+        errorText: "",
+      };
+    }
+
+    return {
+      route: {
+        type: "unknown_command",
+        rawText: cleaned,
+        source: "slash_command",
+      },
+      plannerData: null,
+      prefaceText: "",
+      errorText: "",
+    };
+  }
+
+  const naturalReopen = parseNaturalReopen(cleaned);
+  if (naturalReopen.isReopen) {
+    if (naturalReopen.taskRef) {
+      return {
+        route: {
+          type: "reopen_task",
+          taskRef: naturalReopen.taskRef,
+          source: "natural_text",
+          rawText: cleaned,
+        },
+        plannerData: null,
+        prefaceText: "",
+        errorText: "",
+      };
+    }
+
+    return {
+      route: {
+        type: "show_completed",
+        source: "natural_text",
+        rawText: cleaned,
+      },
+      plannerData: null,
+      prefaceText: "Поняла. Хочешь вернуть задачу из завершённых. Вот последние, выбери нужную:",
+      errorText: "",
+    };
+  }
+
+  const userId = getTargetUserId();
+  const plannerData = await getPlannerData(userId);
+  const route = await routePlannerAgentInput({
+    text: cleaned,
+    plannerData,
+  });
+
+  const captureProcessing =
+    ["add_task", "chat"].includes(route.type)
+      ? await processTelegramTaskCapture({
+          userId,
+          chatId,
+          rawText: cleaned,
+          intent: route.type,
+          taskText: route.taskText || "",
+          taskRef: route.taskRef || "",
+          urgency: route.urgency || "",
+          isToday: Boolean(route.isToday),
+          isVital: Boolean(route.isVital),
+          deadlineAt: route.deadlineAt || "",
+          subtasks: Array.isArray(route.subtasks) ? route.subtasks : [],
+          telegramMessageId: options.telegramMessageId || null,
+          telegramUpdateId: options.telegramUpdateId || null,
+          writeLog: safeWriteTelegramLog,
+        })
+      : null;
+
+  return {
+    route: mergeTelegramTaskMemoryIntoRoute(route, captureProcessing),
+    plannerData,
+    prefaceText: "",
+    errorText: "",
+  };
 }
 
 // Kept for reference — plain-text reopen now goes through handleReopenTask via LLM intent
@@ -773,31 +985,16 @@ async function handleReopenTask(chatId, plannerData, taskRef) {
 }
 
 async function handlePlainCapture(chatId, text, options = {}) {
-  const cleaned = text.trim();
+  const cleaned = String(text || "").trim();
   if (!cleaned) return;
-  if (cleaned.startsWith("/")) {
-    await sendText(
-      chatId,
-      [
-        "Я не поняла эту команду.",
-        "",
-        "Рабочие команды сейчас:",
-        "/start",
-        "/today",
-        "/completed",
-        "/panic",
-        "/add текст",
-      ].join("\n"),
-    );
+  const { route, plannerData, prefaceText, errorText } = await resolveUnifiedInboundRoute(chatId, cleaned, options);
+
+  if (errorText) {
+    await sendText(chatId, errorText);
     return;
   }
 
-  const userId = getTargetUserId();
-  const plannerData = await getPlannerData(userId);
-  const route = await routePlannerAgentInput({
-    text: cleaned,
-    plannerData,
-  });
+  if (!route) return;
 
   await safeWriteTelegramLog({
     kind: "intent",
@@ -806,168 +1003,146 @@ async function handlePlainCapture(chatId, text, options = {}) {
     intent: route,
   });
 
-  const captureProcessing =
-    ["add_task", "chat"].includes(route.type)
-      ? await processTelegramTaskCapture({
-          userId,
-          chatId,
-          rawText: cleaned,
-          intent: route.type,
-          taskText: route.taskText || "",
-          taskRef: route.taskRef || "",
-          urgency: route.urgency || "",
-          isToday: Boolean(route.isToday),
-          isVital: Boolean(route.isVital),
-          deadlineAt: route.deadlineAt || "",
-          subtasks: Array.isArray(route.subtasks) ? route.subtasks : [],
-          telegramMessageId: options.telegramMessageId || null,
-          telegramUpdateId: options.telegramUpdateId || null,
-          writeLog: safeWriteTelegramLog,
-        })
-      : null;
+  if (prefaceText) {
+    await sendText(chatId, prefaceText);
+  }
 
-  const enrichedRoute = mergeTelegramTaskMemoryIntoRoute(route, captureProcessing);
-
-  await executePlannerAction({
-    userId,
-    chatId,
-    plannerData,
-    route: enrichedRoute,
-    adapter: {
-      sendText: async (messageText, extra = {}) => sendText(chatId, messageText, extra),
-      taskKeyboard: plannerTaskKeyboard,
-      calendarConnectKeyboard,
-    },
-    log: safeWriteTelegramLog,
+  await runPlannerRoute(chatId, route, {
+    plannerData: plannerData || undefined,
   });
 }
 
-async function handleCallback(chatId, callbackQuery) {
+async function resolveUnifiedCallbackRoute(callbackQuery) {
   const userId = getTargetUserId();
-  const [action, taskId] = String(callbackQuery.data || "").split(":");
+  const [action, taskId] = String(callbackQuery?.data || "").split(":");
+
   if (!taskId) {
-    await answerCallback(callbackQuery.id, "Некорректное действие");
-    return;
+    return {
+      errorText: "Некорректное действие",
+      callbackRoute: null,
+      feedback: "",
+      plannerData: null,
+      suppressMessages: true,
+    };
   }
 
-  // "reopen" must fetch from Firestore by ID because completed/dead tasks are
-  // not included in the active-only list returned by getPlannerData.
   if (action === "reopen") {
     const source = await getTaskById(userId, taskId);
     if (!source) {
-      await answerCallback(callbackQuery.id, "Задача не найдена.");
-      return;
-    }
-    let reopenedTask = null;
-    await mutatePlanner(userId, (current) => {
-      reopenedTask = {
-        ...source,
-        __baseLastUpdated: typeof source?.lastUpdated === "number" ? source.lastUpdated : 0,
-        status: "active",
-        isToday: false,
-        deadAt: null,
-        heatBase: typeof source.heatBase === "number" ? source.heatBase : 35,
-        heatCurrent: typeof source.heatCurrent === "number" ? source.heatCurrent : (typeof source.heatBase === "number" ? source.heatBase : 35),
-        lastUpdated: Date.now(),
+      return {
+        errorText: "Задача не найдена.",
+        callbackRoute: null,
+        feedback: "",
+        plannerData: null,
+        suppressMessages: true,
       };
-      // Add to active list (source was completed, not in current.tasks)
-      const exists = current.tasks.some((t) => t.id === reopenedTask.id);
-      const tasks = exists
-        ? current.tasks.map((t) => (t.id === reopenedTask.id ? reopenedTask : t))
-        : [reopenedTask, ...current.tasks];
-      return { ...current, tasks, telegramContext: buildTelegramContext(reopenedTask, "reopen") };
-    }, { source: "telegram", reason: "callback_reopen" });
-    await answerCallback(callbackQuery.id, "Вернул задачу в активные.");
-    if (reopenedTask) {
-      await sendText(chatId, `↩️ <b>${escapeHtml(reopenedTask.text)}</b> снова в активных.`, {
-        reply_markup: plannerTaskKeyboard(reopenedTask.id),
-      });
     }
+
+    const plannerData = await getPlannerData(userId);
+    return {
+      errorText: "",
+      callbackRoute: { type: "reopen_task", taskRef: "", source: "callback" },
+      feedback: "Вернул задачу в активные.",
+      plannerData: plannerDataWithContextTask({
+        ...plannerData,
+        tasks: [source, ...(plannerData.tasks || []).filter((task) => task.id !== source.id)],
+      }, source, "callback_reopen"),
+      suppressMessages: false,
+    };
+  }
+
+  const plannerData = await getPlannerData(userId);
+  const callbackTask = (plannerData.tasks || []).find((task) => task.id === taskId) || null;
+  if (!callbackTask) {
+    return {
+      errorText: "Задача не найдена.",
+      callbackRoute: null,
+      feedback: "",
+      plannerData: null,
+      suppressMessages: true,
+    };
+  }
+
+  let callbackRoute = null;
+  let feedback = "Сделано.";
+  let contextAction = "callback_context";
+  let suppressMessages = true;
+
+  if (action === "done") {
+    callbackRoute = { type: "complete_task", taskRef: "", source: "callback" };
+    feedback = "Задача отправлена в выполненные.";
+    contextAction = "callback_done";
+    suppressMessages = false;
+  } else if (action === "panic") {
+    callbackRoute = { type: "panic_task", taskRef: "", source: "callback" };
+    feedback = "Показываю micro-шаг.";
+    contextAction = "callback_panic";
+    suppressMessages = false;
+  } else if (action === "today") {
+    if (callbackTask.isToday) {
+      callbackRoute = { type: "unset_today", taskRef: "", source: "callback" };
+      feedback = "Открепил от сегодня.";
+      contextAction = "callback_today_unset";
+    } else {
+      callbackRoute = { type: "set_today", taskRef: "", source: "callback" };
+      feedback = "Закрепил на сегодня.";
+      contextAction = "callback_today_set";
+    }
+  } else if (action === "vital") {
+    if (callbackTask.isVital) {
+      callbackRoute = { type: "unset_vital", taskRef: "", source: "callback" };
+      feedback = "Снял критичный приоритет.";
+      contextAction = "callback_vital_unset";
+    } else {
+      callbackRoute = { type: "set_vital", taskRef: "", source: "callback" };
+      feedback = "Пометил как критичную.";
+      contextAction = "callback_vital_set";
+    }
+  } else {
+    return {
+      errorText: "Неизвестное действие.",
+      callbackRoute: null,
+      feedback: "",
+      plannerData: null,
+      suppressMessages: true,
+    };
+  }
+
+  return {
+    errorText: "",
+    callbackRoute,
+    feedback,
+    plannerData: plannerDataWithContextTask(plannerData, callbackTask, contextAction),
+    suppressMessages,
+  };
+}
+
+async function handleCallback(chatId, callbackQuery) {
+  const {
+    errorText,
+    callbackRoute,
+    feedback,
+    plannerData,
+    suppressMessages,
+  } = await resolveUnifiedCallbackRoute(callbackQuery);
+
+  if (errorText) {
+    await answerCallback(callbackQuery.id, errorText);
     return;
   }
 
-  let feedback = "Сделано.";
-  let panicTask = null;
-  let completedTask = null;
-
-  await mutatePlanner(userId, (current) => {
-    const nextTasks = current.tasks.map((task) => {
-      if (task.id !== taskId) return task;
-
-      if (action === "done") {
-        feedback = "Задача отправлена в выполненные.";
-        completedTask = {
-          ...task,
-          status: "completed",
-          isToday: false,
-          deadAt: null,
-          heatBase: 100,
-          heatCurrent: 100,
-          lastUpdated: Date.now(),
-        };
-        return completedTask;
-      }
-
-      if (action === "today") {
-        const nextValue = !task.isToday;
-        feedback = nextValue ? "Закрепил на сегодня." : "Открепил от сегодня.";
-        return { ...task, isToday: nextValue, lastUpdated: Date.now() };
-      }
-
-      if (action === "vital") {
-        const nextValue = !task.isVital;
-        feedback = nextValue ? "Пометил как критичную." : "Снял критичный приоритет.";
-        return {
-          ...task,
-          isVital: nextValue,
-          urgency: nextValue ? "high" : task.urgency,
-          lastUpdated: Date.now(),
-        };
-      }
-
-      if (action === "panic") {
-        const firstOpenSubtask = getFirstOpenSubtask(task);
-        feedback = firstOpenSubtask
-          ? `Первый шаг: ${firstOpenSubtask.text}`
-          : "Открой всё по задаче и сделай один кривой шаг на 2 минуты.";
-        panicTask = task;
-        return task;
-      }
-
-      return task;
-    });
-
-    return {
-      ...current,
-      tasks: nextTasks,
-      telegramContext:
-        completedTask
-          ? buildTelegramContext(completedTask, "done")
-          : panicTask
-            ? buildTelegramContext(panicTask, "panic")
-            : current.telegramContext,
-    };
-  }, {
-    source: "telegram",
-    reason: `callback_${action || "unknown"}`,
+  await safeWriteTelegramLog({
+    kind: "intent",
+    chatId: String(chatId),
+    callbackData: String(callbackQuery.data || ""),
+    intent: callbackRoute,
   });
 
+  await runPlannerRoute(chatId, callbackRoute, {
+    plannerData: plannerData || undefined,
+    suppressMessages: Boolean(suppressMessages),
+  });
   await answerCallback(callbackQuery.id, feedback);
-
-  if (action === "panic" && panicTask) {
-    await sendText(chatId, buildPanicText(panicTask), {
-      reply_markup: plannerTaskKeyboard(panicTask.id),
-    });
-  }
-
-  if (action === "done" && completedTask) {
-    await sendText(
-      chatId,
-      `☁️ <b>${escapeHtml(completedTask.text)}</b> теперь в раю. Если это была ошибка, верни её кнопкой ниже.`,
-      { reply_markup: completedTaskKeyboard(completedTask.id) },
-    );
-  }
-
 }
 
 module.exports = async function handler(req, res) {
@@ -1021,23 +1196,13 @@ module.exports = async function handler(req, res) {
     }
 
     const text = String(message?.text || "").trim();
-    const { command, argText } = parseCommand(text);
+    const { command } = parseCommand(text);
 
     if (command === "/start") {
-      await handleStart(chatId);
-    } else if (command === "/today") {
-      await handleToday(chatId);
-    } else if (command === "/completed") {
-      await handleCompleted(chatId);
-    } else if (command === "/panic") {
-      await handlePanic(chatId);
+      const canLinkChat = Boolean(message?.from?.id || message?.from?.username);
+      await handleStart(chatId, { linkChat: canLinkChat });
     } else if (command === "/calendar") {
       await handleCalendar(chatId);
-    } else if (command === "/add") {
-      await handleAdd(chatId, argText, {
-        telegramMessageId: message?.message_id || null,
-        telegramUpdateId: update?.update_id || null,
-      });
     } else if (text) {
       await handlePlainCapture(chatId, text, {
         telegramMessageId: message?.message_id || null,
