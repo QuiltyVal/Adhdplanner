@@ -53,6 +53,7 @@ Companion file:
 - As of 2026-04-19, Angel Lab default mode is `simple` (brain-dump to new create-cards only, no merge logic); optional smart mode remains available via env `ANGEL_LAB_MODE=smart`.
 - As of 2026-04-19, task schema now supports Phase-4 angel fields (`angelPinned`, `angelScore`, `angelReason`) and Telegram `/today` can display a short angel reason when current top task is angel-pinned.
 - As of 2026-04-19, `/today` now also resolves/reuses daily angel decisions in `Users/{uid}/angelDecisions/{dateKey}` and syncs pin fields to active tasks before rendering digest.
+- As of 2026-04-19, daily decision reuse has basic override refresh: if a hard-deadline active task is outside selection (`hard_deadline`) or selected pins became fewer than expected (`pin_gap`), day-decision is recalculated.
 - This is only the first ingestion slice:
   - no daily angel decision job yet
   - task enrichment exists only for Telegram task create/update flows, not for web or MCP capture paths yet

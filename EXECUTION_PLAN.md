@@ -178,7 +178,8 @@ Goal: make one stable daily decision instead of constantly re-deciding and thras
 
 Notes:
 - As of 2026-04-19, server now writes/reuses `Users/{uid}/angelDecisions/{dateKey}` when `/today` runs and syncs `angelPinned/angelReason/angelScore` into active tasks.
-- Override rules and a dedicated scheduler are still pending.
+- As of 2026-04-19, override rule now refreshes day-decision when a hard-deadline task is outside current selection or when selected pins become fewer than expected (`pin_gap`).
+- Manual dismissal and emergency override are still pending, as well as a dedicated scheduler.
 
 Done when:
 - the system can explain why it is pushing exactly these tasks today

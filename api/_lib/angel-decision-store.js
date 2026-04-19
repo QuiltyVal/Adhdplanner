@@ -12,6 +12,12 @@ function getBerlinDateKey(now = new Date()) {
   return BERLIN_DATE_FORMAT.format(now);
 }
 
+function getDayNumberFromIsoDate(isoDate) {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate))) return null;
+  const [year, month, day] = String(isoDate).split("-").map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000));
+}
+
 function angelDecisionsCol(userId) {
   return getDb().collection("Users").doc(userId).collection("angelDecisions");
 }
@@ -82,6 +88,36 @@ function normalizeExistingDecision(existing = null, taskById = new Map(), maxPri
   return normalized;
 }
 
+function isHardDeadlineTask(task = {}, dateKey = "") {
+  const deadline = String(task?.deadlineAt || "").trim();
+  if (!deadline) return false;
+  const deadlineDay = getDayNumberFromIsoDate(deadline);
+  const todayDay = getDayNumberFromIsoDate(dateKey);
+  if (deadlineDay === null || todayDay === null) return false;
+  return deadlineDay <= todayDay;
+}
+
+function getDecisionOverrideReason(existingItems = [], tasks = [], dateKey = "", maxPrimary = 2) {
+  const active = (Array.isArray(tasks) ? tasks : []).filter((task) => task?.status === "active");
+  if (!active.length) return "empty";
+
+  const selectedIds = new Set(
+    (Array.isArray(existingItems) ? existingItems : [])
+      .map((item) => String(item?.taskId || "").trim())
+      .filter(Boolean),
+  );
+
+  const hardDeadlineOutsideSelection = active.some((task) => (
+    isHardDeadlineTask(task, dateKey) && !selectedIds.has(String(task.id || ""))
+  ));
+  if (hardDeadlineOutsideSelection) return "hard_deadline";
+
+  const expectedCount = Math.min(Math.max(1, Number(maxPrimary) || 2), active.length);
+  if (selectedIds.size < expectedCount) return "pin_gap";
+
+  return "";
+}
+
 async function resolveDailyAngelDecision(userId, tasks = [], options = {}) {
   const dateKey = String(options.dateKey || getBerlinDateKey());
   const maxPrimary = Math.max(1, Math.min(3, Number(options.maxPrimary) || 2));
@@ -101,7 +137,8 @@ async function resolveDailyAngelDecision(userId, tasks = [], options = {}) {
   }
 
   const reusedItems = normalizeExistingDecision(existing, taskById, maxPrimary);
-  if (reusedItems) {
+  const overrideReason = getDecisionOverrideReason(reusedItems, tasks, dateKey, maxPrimary);
+  if (reusedItems && !overrideReason) {
     return {
       dateKey,
       reused: true,
@@ -122,6 +159,7 @@ async function resolveDailyAngelDecision(userId, tasks = [], options = {}) {
   const docPayload = {
     dateKey,
     source,
+    overrideReason: overrideReason || "",
     decidedAt: Date.now(),
     items,
     selectedTaskIds: items.map((item) => item.taskId),
@@ -138,6 +176,7 @@ async function resolveDailyAngelDecision(userId, tasks = [], options = {}) {
     dateKey,
     reused: false,
     source,
+    overrideReason: overrideReason || "",
     items,
     selectedTaskIds: items.map((item) => item.taskId),
   };
@@ -147,4 +186,3 @@ module.exports = {
   getBerlinDateKey,
   resolveDailyAngelDecision,
 };
-

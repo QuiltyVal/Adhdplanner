@@ -31,6 +31,21 @@ Entry template:
 
 ## 2026-04-19 Europe/Berlin - Codex
 
+- Summary: Added first override behavior for daily angel decision refresh to reduce stale day-plans when urgent context changes.
+- Changed:
+  - `api/_lib/angel-decision-store.js` — added override detection for day decision reuse:
+    - `hard_deadline`: recalc if overdue/today-deadline active task is outside current day selection
+    - `pin_gap`: recalc if selected pinned tasks became fewer than expected (e.g. completed/inactive)
+  - `api/_lib/angel-decision-store.js` — decision docs now store `overrideReason` when recalculated
+  - `EXECUTION_PLAN.md` — Phase 5 notes updated with implemented override scope
+- Verified:
+  - code integration + deploy/push in this session
+- Risks / follow-up:
+  - manual dismiss and emergency override are not implemented yet
+  - day decision is still refreshed lazily on `/today` (no separate scheduler yet)
+
+## 2026-04-19 Europe/Berlin - Codex
+
 - Summary: Added first working daily angel-decision persistence layer: `/today` now resolves/reuses a day decision document and syncs angel pin fields to active tasks.
 - Changed:
   - `api/_lib/angel-decision-store.js` — new daily decision store in `Users/{uid}/angelDecisions/{dateKey}` with deterministic 1-2 task selection, reason, and score
