@@ -110,6 +110,9 @@ function normalizeTaskForFingerprint(task = {}) {
     deadlineAt: String(task.deadlineAt || ""),
     lifeArea: String(task.lifeArea || ""),
     commitmentIds: normalizeTaskCommitmentIds(task.commitmentIds),
+    angelPinned: Boolean(task.angelPinned),
+    angelScore: Number.isFinite(Number(task.angelScore)) ? Number(task.angelScore) : 0,
+    angelReason: String(task.angelReason || ""),
     source: String(task.source || ""),
     subtasks: Array.isArray(task.subtasks)
       ? task.subtasks.map(normalizeSubtaskForFingerprint)
@@ -286,6 +289,12 @@ function getMissionSelection(tasks = []) {
     return { task: candidates[0] || null, reason: "today_shortlist", candidates };
   }
 
+  const angelPinnedTasks = activeTasks.filter((task) => task.angelPinned);
+  if (angelPinnedTasks.length > 0) {
+    const candidates = sortTasksForMission(angelPinnedTasks);
+    return { task: candidates[0] || null, reason: "angel_pinned", candidates };
+  }
+
   const criticalTasks = activeTasks.filter((task) => task.isVital);
   if (criticalTasks.length > 0) {
     const candidates = sortTasksForMission(criticalTasks);
@@ -309,6 +318,7 @@ function buildTelegramTaskLine(task) {
   const bits = [];
 
   if (task.isVital) bits.push("🚨 критично");
+  if (task.angelPinned) bits.push("🤖 ангел");
   if (task.isToday) bits.push("📌 сегодня");
   if (deadlineInfo) bits.push(`📅 ${deadlineInfo.label}`);
   if (task.urgency === "high") bits.push("⏰ срочно");
@@ -369,6 +379,9 @@ function createTask(text, options = {}) {
     deadlineAt: options.deadlineAt || "",
     lifeArea: options.lifeArea || "",
     commitmentIds: normalizeTaskCommitmentIds(options.commitmentIds),
+    angelPinned: Boolean(options.angelPinned),
+    angelScore: Number.isFinite(Number(options.angelScore)) ? Number(options.angelScore) : 0,
+    angelReason: String(options.angelReason || ""),
     source: options.source || "telegram",
   };
 }

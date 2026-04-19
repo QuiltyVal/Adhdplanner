@@ -353,6 +353,13 @@ function buildImportantNowReferenceText(importantCount = 0) {
   ].join("\n");
 }
 
+function buildAngelReasonText(task = null) {
+  if (!task || !task.angelPinned) return "";
+  const reason = String(task.angelReason || "").trim();
+  if (!reason) return "🤖 Ангел выбрал это как приоритет сейчас.";
+  return `🤖 Почему ангел выбрал это: ${escapeHtml(reason)}`;
+}
+
 function buildCommitmentGapText(commitments = []) {
   if (!Array.isArray(commitments) || commitments.length === 0) return "";
 
@@ -403,6 +410,11 @@ async function sendTodayDigest(adapter, plannerData) {
       reply_markup: adapter.taskKeyboard(topTask.id),
     },
   );
+
+  const angelReasonText = buildAngelReasonText(topTask);
+  if (angelReasonText) {
+    await adapter.sendText(angelReasonText);
+  }
 
   return topTask;
 }
@@ -478,7 +490,9 @@ async function executePlannerAction({
       ? plannerData.tasks.filter((task) => task?.status === "active")
       : [];
     const todayTopTasks = sortTasksByPriority(activeTasks).slice(0, 3);
-    const explicitImportant = sortTasksByPriority(activeTasks.filter((task) => isImportantNowTask(task)));
+    const explicitImportant = sortTasksByPriority(
+      activeTasks.filter((task) => isImportantNowTask(task) || task.angelPinned),
+    );
     const importantNow = (explicitImportant.length > 0 ? explicitImportant : sortTasksByPriority(activeTasks)).slice(0, 2);
     const repeatsTopPrefix = importantNow.every((task, index) => todayTopTasks[index]?.id === task.id);
     if (importantNow.length > 0 && !repeatsTopPrefix) {

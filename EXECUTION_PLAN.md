@@ -135,7 +135,7 @@ Notes:
 
 Goal: let the system choose what to push today without stealing the user's own shortlist field.
 
-- [ ] Extend task docs with the planned angel fields:
+- [~] Extend task docs with the planned angel fields:
   - `angelPinned`
   - `angelScore`
   - `angelReason`
@@ -154,6 +154,9 @@ Goal: let the system choose what to push today without stealing the user's own s
   - identity importance
   - overload penalty
 - [ ] Let the LLM explain and classify, but keep final ranking grounded in explicit score inputs.
+
+Notes:
+- As of 2026-04-19, server task docs now persist `angelPinned`, `angelScore`, and `angelReason` (creation + fingerprint + Telegram rendering); remaining phase fields (`angelPressure`, `angelDecidedAt`, `angelReviewAt`) are still pending.
 
 Done when:
 - the planner can show "what the user picked" and "what the angel picked" as separate concepts

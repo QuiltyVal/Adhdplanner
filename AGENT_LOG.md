@@ -31,6 +31,20 @@ Entry template:
 
 ## 2026-04-19 Europe/Berlin - Codex
 
+- Summary: Started Phase 4 angel-pin layer on server: tasks now support angel markers, and Telegram `/today` can surface angel-selected focus with explicit reason text.
+- Changed:
+  - `api/_lib/planner-store.js` — added task fields `angelPinned`, `angelScore`, `angelReason` to `createTask(...)` and planner fingerprint normalization; mission selection now considers `angelPinned` after manual `isToday` shortlist
+  - `api/_lib/planner-store.js` — Telegram task line now shows `🤖 ангел` marker for angel-pinned tasks
+  - `api/_lib/planner-action-executor.js` — `/today` now includes angel-pinned tasks in “Важное сейчас” and sends short “почему ангел выбрал” text when top task is angel-pinned
+  - `EXECUTION_PLAN.md` — Phase 4 field item marked in-progress with note about partial implementation
+- Verified:
+  - code integration only; no tests in this session
+- Risks / follow-up:
+  - fields `angelPressure`, `angelDecidedAt`, `angelReviewAt` are not implemented yet
+  - no dedicated decision writer exists yet; current change only prepares schema + rendering path
+
+## 2026-04-19 Europe/Berlin - Codex
+
 - Summary: Switched Angel Lab default behavior to simple brain-dump mode (`dump -> create cards`) so it focuses on turning chaotic text into clear new tasks without merge complexity.
 - Changed:
   - `api/captures.js` — added default mode switch `ANGEL_LAB_MODE` (`simple` by default, `smart` opt-in)

@@ -51,6 +51,7 @@ Companion file:
 - As of 2026-04-18, `/today` now can surface high-cost commitments that have no active linked next step for too long (`needsTaskIfSilentDays` rule).
 - As of 2026-04-19, Angel Lab `create` cards auto-preselect up to 1-2 highest-confidence subtasks by default (beta); quick rollback switch is env `ANGEL_LAB_CREATE_AUTO_PRESELECT=0`.
 - As of 2026-04-19, Angel Lab default mode is `simple` (brain-dump to new create-cards only, no merge logic); optional smart mode remains available via env `ANGEL_LAB_MODE=smart`.
+- As of 2026-04-19, task schema now supports Phase-4 angel fields (`angelPinned`, `angelScore`, `angelReason`) and Telegram `/today` can display a short angel reason when current top task is angel-pinned.
 - This is only the first ingestion slice:
   - no daily angel decision job yet
   - task enrichment exists only for Telegram task create/update flows, not for web or MCP capture paths yet
