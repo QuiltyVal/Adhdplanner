@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md
 
-Last updated: 2026-04-19
+Last updated: 2026-05-31
 
 This file exists so the project can survive context loss and switching between Codex, Claude, or another coding agent.
 
@@ -54,9 +54,13 @@ Companion file:
 - As of 2026-04-19, task schema now supports Phase-4 angel fields (`angelPinned`, `angelScore`, `angelReason`) and Telegram `/today` can display a short angel reason when current top task is angel-pinned.
 - As of 2026-04-19, `/today` now also resolves/reuses daily angel decisions in `Users/{uid}/angelDecisions/{dateKey}` and syncs pin fields to active tasks before rendering digest.
 - As of 2026-04-19, daily decision reuse has basic override refresh: if a hard-deadline active task is outside selection (`hard_deadline`) or selected pins became fewer than expected (`pin_gap`), day-decision is recalculated.
+- As of 2026-05-31, the recovered big plan is reconciled in `EXECUTION_PLAN.md`. The plan is still the angel/memory roadmap, now aligned with later Planner Engine, public demo, Angel Entry, Quest Relation Director, Not Your Move, report/outbox, and Angel Lab draft-quality work.
+- As of 2026-05-31, active mission/rescue decisions should be treated as Planner Engine projections in `plannerMeta`. `api/_lib/angel-decision-store.js` is legacy and should not receive new mission/rescue behavior.
+- As of 2026-05-31, the next safest product slice is decision visibility and safety: show what the Engine/angel chose, why, when it changed, and whether it left an event/report/outbox/delivery trace before adding more autonomous pressure.
+- As of 2026-05-31, public `/demo` is a portfolio entrypoint for Today Mission -> Rescue -> one tiny step, with demo Angel Lab parsing tuned for the portfolio story.
 - This is only the first ingestion slice:
   - no daily angel decision job yet
-  - task enrichment exists only for Telegram task create/update flows, not for web or MCP capture paths yet
+  - task enrichment exists for Telegram create/update and the web capture safe-upsert path, but MCP-originated capture enrichment is still missing
   - extractor is heuristic only, not LLM-backed
 
 ## Current reality
@@ -98,6 +102,7 @@ Companion file:
 
 ## Very recent commits
 
+- `bc49fe4` Polish public planner demo loop
 - `b665569` Clarify today mission rules
 - `406f2b4` Improve Telegram task context and logging
 - `00e97a4` Fix deadline and Telegram task actions
@@ -123,9 +128,9 @@ Important:
    - The bot now has more context, but natural language can still misfire.
    - Telegram flows now share one action-executor path, but intent quality still needs ongoing prompt/routing tuning with real messages.
 
-2. Cron nudges are still on Vercel.
-   - Timing is not trustworthy to the exact minute.
-   - If exact `09:00` matters, move nudges to Hetzner.
+2. Scheduled nudges need deployment verification before being trusted.
+   - Later work moved Telegram nudges to Hetzner while Vercel still hosts the sending route.
+   - Verify Hetzner cron, Vercel route, and outbox/delivery status before treating timing as reliable.
 
 3. Heat model is still product-incomplete.
    - `deadlineAt` affects mission priority and nudges

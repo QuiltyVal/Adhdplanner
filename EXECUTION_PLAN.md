@@ -1,6 +1,6 @@
 # ADHD Planner Execution Plan
 
-Last updated: 2026-04-19
+Last updated: 2026-05-31
 
 This is the working execution plan for the next product layer.
 
@@ -33,6 +33,45 @@ It turns the "angel / executive-function companion" direction into concrete deli
 - [x] Today mission logic already exists in web and server code.
 - [x] Newer `planner-agent-router` / `planner-action-executor` modules already exist in repo for the Telegram migration path.
 - [x] Panic / rescue flow already exists and can be reused for micro-steps.
+- [x] Planner Engine now projects mission/rescue, events, reports, outbox, delivery status, and health snapshots through `plannerMeta`.
+- [x] Public `/demo` now exists as a portfolio demo entrypoint for the core loop: Today Mission -> Rescue -> one tiny step, plus demo Angel Lab.
+
+## 2026-05-31 roadmap reconciliation
+
+The original angel / memory plan is still valid. It should not be replaced by the later public-demo work.
+
+Since this file was first written, a second product track became explicit:
+- public portfolio demo readiness
+- Planner Engine as the single brain
+- Angel Entry / Companion Prompt
+- Quest Relation Director
+- Not Your Move / waiting-state check-ins
+- report, outbox, delivery-health, and Progress/debug surfaces
+- Angel Lab draft-quality and one-safe-default-step work
+
+This later track is not separate from Phase 4-8. It is the set of surfaces and contracts that Phase 4-8 should now use.
+
+Current decision boundary:
+- Active mission/rescue decisions should come from Planner Engine projections in `plannerMeta`.
+- `api/_lib/angel-decision-store.js` is a legacy module. Do not add new mission/rescue behavior there.
+- Delivery should go through Engine/outbox contracts, not ad hoc Telegram/email renderers.
+
+Next recommended vertical slice:
+
+**Decision visibility and safety surface before more autonomous pressure.**
+
+Build enough UI/debug/report surface that the user can answer:
+- what did the planner/angel choose?
+- why did it choose that?
+- when did it change?
+- was anything delivered or queued?
+- did this mutate a task, or only suggest a next move?
+
+Done for this slice when:
+- the main app or Progress/debug view shows the latest Engine decision, reason, delivery status, and report/outbox trace without opening Firestore
+- manual `isToday` and system-selected mission/angel pressure are visually distinct
+- no new pressure/nudge path ships without an event/report/outbox trace
+- the manual QA path covers capture -> decision -> visible reason -> delivery/debug status
 
 ## Phase 0 - Foundation guardrails
 
@@ -44,8 +83,8 @@ Goal: make sure the new memory layer is built on safe mutation rules instead of 
   - `commitments`
   - `angelDecisions`
 - [x] Explicitly document that new angel features must not depend on legacy `Users/{uid}.tasks`.
-- [ ] Add or reuse a server-side safe per-task writer for any new agent/angel mutations instead of batch planner rewrites.
-- [ ] Define the minimal observability needed to debug angel actions:
+- [~] Add or reuse a server-side safe per-task writer for any new agent/angel mutations instead of batch planner rewrites.
+- [~] Define the minimal observability needed to debug angel actions:
   - decision log
   - capture processing log
   - task mutation trace
@@ -53,6 +92,10 @@ Goal: make sure the new memory layer is built on safe mutation rules instead of 
   - server/domain is the source of business truth (selection, pressure, reopen/complete semantics)
   - web and future Android are thin clients
   - no new feature ships with logic locked inside React-only components
+
+Notes:
+- As of 2026-05-31, `mutatePlanner`, `PlannerCommandService`, events, report projection, outbox, and health snapshots cover many paths, but direct/legacy writers still exist. New behavior should route through command/domain services or a documented stale-safe writer.
+- Event/report/outbox/health observability exists. Capture-processing and per-task mutation traces still need to become one coherent user/debug story.
 
 Done when:
 - a new agent can implement on top of this plan without guessing where state is allowed to live
@@ -143,7 +186,7 @@ Goal: let the system choose what to push today without stealing the user's own s
   - `angelDecidedAt`
   - `angelReviewAt`
   - `lastAngelNudgedAt`
-- [ ] Keep `isToday` manual and separate from `angelPinned`.
+- [~] Keep `isToday` manual and separate from `angelPinned`.
 - [ ] Define `Boss Score` inputs at the product level:
   - external consequence
   - deadline pressure
@@ -153,10 +196,12 @@ Goal: let the system choose what to push today without stealing the user's own s
   - avoidance
   - identity importance
   - overload penalty
-- [ ] Let the LLM explain and classify, but keep final ranking grounded in explicit score inputs.
+- [~] Let the LLM explain and classify, but keep final ranking grounded in explicit score inputs.
 
 Notes:
 - As of 2026-04-19, server task docs now persist `angelPinned`, `angelScore`, and `angelReason` (creation + fingerprint + Telegram rendering); remaining phase fields (`angelPressure`, `angelDecidedAt`, `angelReviewAt`) are still pending.
+- As of 2026-05-31, active mission/rescue choice is expected to come from Planner Engine `plannerMeta`, with `isToday` remaining a manual user signal. The older `angelDecisions` store must not become a second brain.
+- The product still needs clearer UI language that distinguishes "you pinned this for today" from "the system is surfacing this now."
 
 Done when:
 - the planner can show "what the user picked" and "what the angel picked" as separate concepts
@@ -165,12 +210,12 @@ Done when:
 
 Goal: make one stable daily decision instead of constantly re-deciding and thrashing.
 
-- [~] Add `Users/{uid}/angelDecisions/{dateKey}` schema.
-- [ ] Generate at most 1-2 primary angel picks per day; 3 is the hard cap.
-- [ ] Persist reasons for each selected task.
+- [~] Add/reconcile persisted daily decision state (`Users/{uid}/angelDecisions/{dateKey}` exists, but active Engine decision snapshots now live in `plannerMeta`).
+- [~] Generate at most 1-2 primary angel picks per day; 3 is the hard cap.
+- [x] Persist reasons for each selected task.
 - [ ] Persist the outbound morning message body or message template inputs.
-- [ ] Prevent decision thrash by reusing the stored decision for the day unless a real override condition happens.
-- [ ] Add explicit override rules for:
+- [~] Prevent decision thrash by reusing the stored decision for the day unless a real override condition happens.
+- [~] Add explicit override rules for:
   - hard new deadline
   - completed angel task
   - user manual dismissal
@@ -180,6 +225,7 @@ Notes:
 - As of 2026-04-19, server now writes/reuses `Users/{uid}/angelDecisions/{dateKey}` when `/today` runs and syncs `angelPinned/angelReason/angelScore` into active tasks.
 - As of 2026-04-19, override rule now refreshes day-decision when a hard-deadline task is outside current selection or when selected pins become fewer than expected (`pin_gap`).
 - Manual dismissal and emergency override are still pending, as well as a dedicated scheduler.
+- As of 2026-05-31, `api/_lib/angel-decision-store.js` is explicitly marked legacy. The remaining work is to make Planner Engine decisions stable and inspectable enough for daily behavior, not to expand the legacy store.
 
 Done when:
 - the system can explain why it is pushing exactly these tasks today
@@ -189,17 +235,21 @@ Done when:
 
 Goal: turn decisions into actual follow-through, not just metadata.
 
-- [ ] Deliver daily angel nudges through the right channel, with Telegram first.
+- [~] Deliver daily angel nudges through the right channel, with Telegram first.
 - [ ] Support pressure modes:
   - `soft`
   - `boss`
   - `emergency`
   - micro-step fallback
-- [ ] Reuse existing panic/rescue behavior for "just give me the first ugly step".
+- [x] Reuse existing panic/rescue behavior for "just give me the first ugly step".
 - [ ] Escalate only after repeated non-response, not immediately.
 - [ ] Add evening follow-up behavior:
   - keep pressure on unfinished critical items
   - shrink to a micro-step for tomorrow when needed
+
+Notes:
+- As of 2026-05-31, outbox, delivery runtime, scheduled nudge payloads, death notifications, delivery watchdog, and delivery health snapshots exist. This is infrastructure, not a finished daily angel pressure loop.
+- Any next Telegram/email pressure work should be wired through Planner Engine and outbox; do not add a new ad hoc sender that decides independently.
 
 Done when:
 - the system can pick, explain, pressure, and narrow one important thing instead of dumping a todo pile
@@ -208,16 +258,21 @@ Done when:
 
 Goal: expose the angel layer where the user already lives instead of creating a detached feature island.
 
-- [ ] Show `angelPinned` and `angelReason` in the main planner UI.
-- [ ] Keep Angel Lab voice path on browser STT by default, and add optional server fallback via OpenAI Whisper when budget allows.
-- [ ] Angel Lab (beta): for `create` cards, preselect up to 1-2 highest-confidence subtasks by default.
+- [~] Show `angelPinned` and `angelReason` in the main planner UI.
+- [~] Keep Angel Lab voice path on OpenAI speech recognition as the product default, with browser STT only as fallback/debug helper.
+- [x] Angel Lab (beta): for `create` cards, preselect exactly one safe default subtask by default.
   - Must stay reversible: if suggestion quality/noise gets worse, switch back to strict manual subtask selection (no preselected checkboxes).
-- [ ] Show angel picks in Telegram as part of the daily loop.
-- [ ] Keep mission UI, panic mode, and angel pressure consistent instead of inventing competing flows.
-- [ ] Add enough UI/debug surface to inspect:
+- [~] Show angel picks in Telegram as part of the daily loop.
+- [~] Keep mission UI, panic mode, and angel pressure consistent instead of inventing competing flows.
+- [~] Add enough UI/debug surface to inspect:
   - latest capture
   - latest angel decision
   - latest reason for pinning
+
+Notes:
+- As of 2026-05-31, the public `/demo` route demonstrates Today Mission -> Rescue -> one tiny step and demo Angel Lab. This supports portfolio/demo readiness, but it is not the full production angel loop.
+- Angel Entry / Companion Prompt, Quest Relation Director, and Not Your Move now give the product a safer surface for pressure and waiting-state behavior.
+- The next UI work should make Engine decisions/reasons visible in the main app or Progress/debug view, not create another standalone panel.
 
 Done when:
 - the angel feels like an extension of the existing planner, not a separate half-built product inside it
@@ -226,32 +281,32 @@ Done when:
 
 Goal: prove this layer works in real life without reintroducing data loss.
 
-- [ ] Define a manual verification checklist for:
+- [~] Define a manual verification checklist for:
   - capture ingestion
   - extraction
   - commitment linking
   - angel pinning
   - Telegram delivery
   - refresh / cross-device persistence
-- [ ] Add regression checks for stale writes on any new task mutation path.
+- [~] Add regression checks for stale writes on any new task mutation path.
 - [ ] Add a lightweight recovery/debug path for bad angel decisions or accidental bad extraction.
-- [ ] Record live risks in `SESSION_HANDOFF.md` after each meaningful angel-layer rollout.
+- [~] Record live risks in `SESSION_HANDOFF.md` after each meaningful angel-layer rollout.
+
+Notes:
+- Server regression tests now cover several planner action, delivery runtime, webhook security, and Angel Lab draft-quality paths.
+- Browser QA has covered the public demo path, but the production capture -> Engine decision -> delivery/report path still needs one explicit end-to-end checklist.
+- Recovery/debug is partial: logs, events, reports, health snapshots, and local demo resets exist, but there is not yet a clear user-facing undo/recover path for a bad extraction or bad angel decision.
 
 Done when:
 - new memory/angel behavior can be tested without guessing
 - rollback/debug steps exist before wider rollout
 
-## Suggested build order
+## Suggested build order from 2026-05-31
 
-1. Phase 0 - Foundation guardrails
-2. Phase 1 - Brain-dump intake
-3. Phase 2 - Extraction pipeline
-4. Phase 3 - Commitment memory
-5. Phase 4 - Angel pin layer
-6. Phase 5 - Daily angel decisions
-7. Phase 6 - Delivery loop and pressure style
-8. Phase 7 - Product surfaces
-9. Phase 8 - Validation and safety
+1. Phase 7/8 - Decision visibility and safety surface.
+2. Phase 6 - Daily Telegram/email pressure only through Planner Engine + outbox.
+3. Phase 4/5 - Reconcile remaining angel fields and stable daily decision semantics around Engine projections.
+4. Phase 1/2/3 - Fill remaining MCP capture/enrichment gaps after the visible/debug surface can explain changes.
 
 ## Agent discipline for this plan
 

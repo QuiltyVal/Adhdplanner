@@ -1,3 +1,14 @@
+## 2026-05-31 22:22 Europe/Berlin - Codex
+
+- Summary: Reconciled the recovered big Planner roadmap after the old `PLANNER` thread became unavailable. The plan now explicitly keeps the angel/memory roadmap, aligns it with Planner Engine/public demo/Angel Entry/Quest Relation work, and names decision visibility + safety as the next product slice before more autonomous pressure.
+- Changed:
+  - `EXECUTION_PLAN.md` — updated phase statuses, documented `plannerMeta`/Planner Engine as the active decision source, marked `angel-decision-store.js` as legacy, and added the next vertical slice.
+  - `SESSION_HANDOFF.md` — updated current handoff state so future agents do not treat the public demo polish as the whole product goal.
+- Verified:
+  - `git diff --check`
+- Risks / follow-up:
+  - This was a docs-only roadmap reconciliation. The next code slice should make Engine decisions/reasons/outbox status visible in the app or Progress/debug surface.
+
 - 2026-05-30 00:40 Europe/Berlin - Codex: Made Angel Lab Clarify this idempotent so the same clarification prompt cannot be appended repeatedly. Files: src/AngelLabScreen.js, docs/angel-engagement-loop.md.
 - 2026-05-30 00:25 Europe/Berlin - Codex: Changed Angel Lab needsClarification fallback add copy to Add title only / Добавить только название. Files: src/AngelLabScreen.js, docs/angel-engagement-loop.md.
 - 2026-05-30 00:10 Europe/Berlin - Codex: Added visible feedback for Angel Lab Clarify this action with textarea highlight and short local notice. Files: src/AngelLabScreen.js, src/AngelLabScreen.css, docs/angel-engagement-loop.md.
