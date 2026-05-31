@@ -1736,3 +1736,9 @@ For the safe portfolio dump about mail, cat food, app demo, and portfolio, `/dem
 The public `/demo` Progress tab now includes a safe Decision Trace. It shows the current mission, the selection reason, the rescue step, the manual Today boundary, and the fact that demo mode does not send Telegram/email. This lets a portfolio visitor see the "why did the planner choose this?" story without exposing production debug controls or live delivery actions.
 
 When Progress is open, the floating companion prompt/avatars are suppressed so they do not cover the trace on narrow screens.
+
+### 2026-05-31 - Decision Trace becomes the first Progress surface
+
+The Progress tab now shows Decision Trace for both demo and normal planner sessions before Delivery Health. This makes the user-facing question "what is the planner pushing, why, and what trace did it leave?" separate from technical diagnostics.
+
+Delivery Health still carries Telegram/email state and manual debug actions for authenticated users, but Engine diagnostics are now visually separated from the primary decision explanation.

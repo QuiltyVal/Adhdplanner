@@ -1,3 +1,20 @@
+## 2026-05-31 23:02 Europe/Berlin - Codex
+
+- Summary: Promoted Decision Trace from demo-only into the first Progress surface for normal planner sessions too.
+- Changed:
+  - `src/App.js` — builds shared decision-trace rows for mission, reason, rescue, manual Today boundary, delivery state, and report/event trace; renders them before Delivery Health.
+  - `src/App.js` — keeps Delivery Health focused on Telegram/email state and separates Engine diagnostics from user-facing decision explanation.
+  - `src/App.css` — adds shared Decision Trace and diagnostics panel styling.
+  - `docs/angel-engagement-loop.md` and `EXECUTION_PLAN.md` — documented the Decision Trace product surface.
+- Verified:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1`: Progress shows shared `Decision trace` with 6 rows including Trace.
+  - Browser QA at `http://localhost:3001/demo?reset=1`: companion prompt and avatars remain suppressed on Progress.
+- Risks / follow-up:
+  - Browser QA covered demo/local. The normal authenticated session path is build-verified but still needs live-auth visual QA when a logged-in session is available.
+
 ## 2026-05-31 22:32 Europe/Berlin - Codex
 
 - Summary: Started the decision-visibility slice in the public demo by adding a safe Decision Trace to the Progress tab.

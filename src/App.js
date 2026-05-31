@@ -12817,6 +12817,73 @@ export default function App() {
             sourceMigration: isEnglishStats ? "migration" : "миграция",
             sourceManual: isEnglishStats ? "manual" : "ручной",
           };
+          const decisionTraceRows = (() => {
+            const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
+            const missionCopy = buildMissionCopy(rescueTask, missionReason, language);
+            const reasonLabel = getMissionReasonLabel(missionReason, language);
+            const openStep = rescueTask?.subtasks?.find((subtask) => !subtask.completed)?.text || panicPlan?.steps?.[0] || "";
+            const isManualToday = Boolean(rescueTask?.isToday);
+            const deliverySummary = isDemoRoute
+              ? null
+              : getDeliveryHealthSummary({ deliveryStatus: deliveryStatusForUi, plannerMeta, plannerEvents, language });
+            const engineDecisionCount = plannerEngineDecisions.length;
+            const reportCount = plannerReportHistoryEvents.length;
+            const eventCount = humanPlannerEvents.length;
+            return [
+              {
+                key: "mission",
+                persona: "angel",
+                label: language === "en" ? "Mission" : "Цель",
+                text: missionTitle
+                  ? (language === "en" ? `Angel is holding one quest: “${missionTitle}”.` : `Ангел держит один квест: «${missionTitle}».`)
+                  : (language === "en" ? "No mission is selected." : "Цель не выбрана."),
+              },
+              {
+                key: "reason",
+                persona: "system",
+                label: language === "en" ? "Reason" : "Причина",
+                text: missionExplanation || `${reasonLabel}: ${missionCopy}`,
+              },
+              {
+                key: "rescue",
+                persona: "angel",
+                label: "Rescue",
+                text: openStep
+                  ? (language === "en" ? `If stuck, the next visible move is: ${openStep}.` : `Если застряло, следующий видимый ход: ${openStep}.`)
+                  : (language === "en" ? "Rescue will ask for one tiny move, not a full task rewrite." : "Rescue попросит один маленький ход, не переписывание всей задачи."),
+              },
+              {
+                key: "boundary",
+                persona: "system",
+                label: language === "en" ? "Boundary" : "Граница",
+                text: isManualToday
+                  ? (language === "en" ? "Today is still a manual pin; the system explains selection without silently changing that field." : "Today остаётся ручным пином; система объясняет выбор и не меняет это поле молча.")
+                  : (language === "en" ? "This is a system suggestion, separate from the manual Today pin." : "Это системная подсказка отдельно от ручного Today-пина."),
+              },
+              {
+                key: "delivery",
+                persona: "system",
+                label: language === "en" ? "Delivery" : "Доставка",
+                text: isDemoRoute
+                  ? (language === "en"
+                    ? "Demo mode does not send Telegram/email. Production pressure must leave event, report, and outbox traces."
+                    : "Демо не отправляет Telegram/email. В проде давление должно оставлять event, report и outbox следы.")
+                  : `${deliverySummary?.title || (language === "en" ? "Delivery state" : "Состояние доставки")}: ${deliverySummary?.body || (language === "en" ? "No delivery signal yet." : "Пока нет сигнала доставки.")}`,
+              },
+              {
+                key: "trace",
+                persona: "system",
+                label: language === "en" ? "Trace" : "След",
+                text: isDemoRoute
+                  ? (language === "en"
+                    ? "This trace is local demo data; it shows the intended production audit shape."
+                    : "Это локальный demo trace; он показывает форму будущего production-аудита.")
+                  : (language === "en"
+                    ? `Engine snapshot: ${engineDecisionCount || "no"} visible decision(s). Reports: ${reportCount}. Human events: ${eventCount}.`
+                    : `Снимок движка: ${engineDecisionCount || "нет"} видим. решений. Отчёты: ${reportCount}. Человеческие события: ${eventCount}.`),
+              },
+            ];
+          })();
           const resolveStatsTimestamp = (...values) => {
             for (const value of values) {
               if (!value) continue;
@@ -12991,82 +13058,37 @@ export default function App() {
                 </p>
               )}
 
-              {isDemoRoute && (
-                <div className="stats-top-section">
-                  <section className="delivery-health-panel demo-decision-trace-panel animated-fade-in" aria-label={language === "en" ? "Demo decision trace" : "След решения демо"}>
-                    <div className="delivery-health-header">
-                      <span>{language === "en" ? "Decision trace" : "След решения"}</span>
-                      <small>
-                        {language === "en"
+              <div className="stats-top-section">
+                <section className={`delivery-health-panel decision-trace-panel ${isDemoRoute ? "demo-decision-trace-panel" : ""} animated-fade-in`} aria-label={language === "en" ? "Decision trace" : "След решения"}>
+                  <div className="delivery-health-header">
+                    <span>{language === "en" ? "Decision trace" : "След решения"}</span>
+                    <small>
+                      {isDemoRoute
+                        ? (language === "en"
                           ? "why this demo starts with one mission"
-                          : "почему демо начинает с одной цели"}
-                      </small>
+                          : "почему демо начинает с одной цели")
+                        : (language === "en"
+                          ? "what the planner is pushing and what trace it leaves"
+                          : "что планер сейчас пушит и какой след оставляет")}
+                    </small>
+                  </div>
+                  <div className="engine-decisions-panel decision-trace-list-panel">
+                    <div className="engine-decisions-title">
+                      {isDemoRoute
+                        ? (language === "en" ? "Planner Engine preview" : "Preview движка планера")
+                        : (language === "en" ? "Planner Engine trace" : "Trace движка планера")}
                     </div>
-                    {(() => {
-                      const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
-                      const missionCopy = buildMissionCopy(rescueTask, missionReason, language);
-                      const reasonLabel = getMissionReasonLabel(missionReason, language);
-                      const openStep = rescueTask?.subtasks?.find((subtask) => !subtask.completed)?.text || panicPlan?.steps?.[0] || "";
-                      const isManualToday = Boolean(rescueTask?.isToday);
-                      const decisionRows = [
-                        {
-                          key: "demo-mission",
-                          persona: "angel",
-                          label: language === "en" ? "Mission" : "Цель",
-                          text: missionTitle
-                            ? (language === "en" ? `Angel is holding one quest: “${missionTitle}”.` : `Ангел держит один квест: «${missionTitle}».`)
-                            : (language === "en" ? "No mission is selected." : "Цель не выбрана."),
-                        },
-                        {
-                          key: "demo-reason",
-                          persona: "system",
-                          label: language === "en" ? "Reason" : "Причина",
-                          text: missionExplanation || `${reasonLabel}: ${missionCopy}`,
-                        },
-                        {
-                          key: "demo-rescue",
-                          persona: "angel",
-                          label: "Rescue",
-                          text: openStep
-                            ? (language === "en" ? `If stuck, the next visible move is: ${openStep}.` : `Если застряло, следующий видимый ход: ${openStep}.`)
-                            : (language === "en" ? "Rescue will ask for one tiny move, not a full task rewrite." : "Rescue попросит один маленький ход, не переписывание всей задачи."),
-                        },
-                        {
-                          key: "demo-boundary",
-                          persona: "system",
-                          label: language === "en" ? "Boundary" : "Граница",
-                          text: isManualToday
-                            ? (language === "en" ? "Today is still a manual pin; the system explains selection without silently changing that field." : "Today остаётся ручным пином; система объясняет выбор и не меняет это поле молча.")
-                            : (language === "en" ? "This is a system suggestion, separate from the manual Today pin." : "Это системная подсказка отдельно от ручного Today-пина."),
-                        },
-                        {
-                          key: "demo-delivery",
-                          persona: "system",
-                          label: language === "en" ? "Delivery" : "Доставка",
-                          text: language === "en"
-                            ? "Demo mode does not send Telegram/email. Production pressure must leave event, report, and outbox traces."
-                            : "Демо не отправляет Telegram/email. В проде давление должно оставлять event, report и outbox следы.",
-                        },
-                      ];
-                      return (
-                        <div className="engine-decisions-panel demo-engine-decisions-panel">
-                          <div className="engine-decisions-title">
-                            {language === "en" ? "Planner Engine preview" : "Preview движка планера"}
-                          </div>
-                          <div className="engine-decisions-list">
-                            {decisionRows.map((decision) => (
-                              <div key={decision.key} className={`engine-decision engine-decision-${decision.persona}`}>
-                                <span className="engine-decision-label">{decision.label}</span>
-                                <span className="engine-decision-text">{decision.text}</span>
-                              </div>
-                            ))}
-                          </div>
+                    <div className="engine-decisions-list">
+                      {decisionTraceRows.map((decision) => (
+                        <div key={decision.key} className={`engine-decision engine-decision-${decision.persona}`}>
+                          <span className="engine-decision-label">{decision.label}</span>
+                          <span className="engine-decision-text">{decision.text}</span>
                         </div>
-                      );
-                    })()}
-                  </section>
-                </div>
-              )}
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              </div>
 
               {!isDemoRoute && (
                 <div className="stats-top-section">
@@ -13173,8 +13195,6 @@ export default function App() {
                       ))}
                     </div>
                     {(() => {
-                      const decisions = getPlannerEngineDecisions(plannerMeta, language);
-                      const inboxItems = getPlannerEngineInbox(plannerMeta, language);
                       const engineLock = getPlannerEngineLock(plannerMeta, language);
                       const contractStatus = getPlannerEngineContractStatus(plannerMeta, language);
                       const clientContractStatus = getPlannerClientContractStatus(plannerClientContractStatus, language);
@@ -13182,39 +13202,12 @@ export default function App() {
                       const outboxQueue = getPlannerOutboxQueue(plannerMeta, language);
                       const commandHealth = getPlannerCommandHealth(plannerMeta, language);
                       const commandHistory = getPlannerCommandHistory(plannerMeta, language);
-                      if (!decisions.length && !inboxItems.length && !engineLock && !contractStatus && !clientContractStatus && !commandHealth && !commandHistory.length && !outboxQueue.length && !debugRuns.engine.length && !debugRuns.outbox.length && !auth.currentUser) return null;
+                      if (!engineLock && !contractStatus && !clientContractStatus && !commandHealth && !commandHistory.length && !outboxQueue.length && !debugRuns.engine.length && !debugRuns.outbox.length && !auth.currentUser) return null;
                       return (
-                        <div className="engine-decisions-panel">
-                          {decisions.length > 0 && (
-                            <>
-                              <div className="engine-decisions-title">
-                                {language === "en" ? "Latest engine decisions" : "Последние решения движка"}
-                              </div>
-                              <div className="engine-decisions-list">
-                                {decisions.map((decision) => (
-                                  <div key={decision.key} className={`engine-decision engine-decision-${decision.persona}`}>
-                                    <span className="engine-decision-label">{decision.label}</span>
-                                    <span className="engine-decision-text">{decision.text}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </>
-                          )}
-                          {inboxItems.length > 0 && (
-                            <>
-                              <div className="engine-decisions-title engine-inbox-title">
-                                {language === "en" ? "Engine inbox" : "Inbox движка"}
-                              </div>
-                              <div className="engine-decisions-list">
-                                {inboxItems.map((item) => (
-                                  <div key={item.key} className={`engine-decision engine-inbox-item engine-decision-${item.persona} engine-inbox-severity-${item.severity}`}>
-                                    <span className="engine-decision-label">{item.label}</span>
-                                    <span className="engine-decision-text">{item.text}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </>
-                          )}
+                        <div className="engine-decisions-panel engine-diagnostics-panel">
+                          <div className="engine-decisions-title">
+                            {language === "en" ? "Engine diagnostics" : "Диагностика движка"}
+                          </div>
                           {engineLock && (
                             <div className={`engine-lock-card engine-lock-card-${engineLock.tone}`}>
                               <span>{engineLock.title}</span>

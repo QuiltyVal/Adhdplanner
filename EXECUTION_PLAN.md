@@ -273,6 +273,7 @@ Notes:
 - As of 2026-05-31, the public `/demo` route demonstrates Today Mission -> Rescue -> one tiny step and demo Angel Lab. This supports portfolio/demo readiness, but it is not the full production angel loop.
 - Angel Entry / Companion Prompt, Quest Relation Director, and Not Your Move now give the product a safer surface for pressure and waiting-state behavior.
 - The next UI work should make Engine decisions/reasons visible in the main app or Progress/debug view, not create another standalone panel.
+- As of 2026-05-31, Progress has a Decision Trace panel for demo and normal planner sessions. It shows the current mission, reason, rescue step, manual Today boundary, delivery state, and report/event trace separately from Delivery Health diagnostics.
 
 Done when:
 - the angel feels like an extension of the existing planner, not a separate half-built product inside it

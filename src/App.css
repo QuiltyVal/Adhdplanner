@@ -1159,6 +1159,7 @@
   color: var(--apus-ink, #2a241e);
 }
 
+.decision-trace-panel,
 .demo-decision-trace-panel {
   border-color: rgba(232, 182, 36, 0.24);
   background:
@@ -1409,9 +1410,14 @@
     rgba(255, 255, 255, 0.56);
 }
 
-.demo-engine-decisions-panel {
+.decision-trace-list-panel {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 251, 235, 0.6));
+}
+
+.engine-diagnostics-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.66), rgba(239, 246, 255, 0.5));
 }
 
 .engine-decisions-title {
