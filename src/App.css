@@ -2743,6 +2743,8 @@ button.panic-timer-panel.apus-rescue-timer:active {
 
 /* Tabs Navigation */
 .tabs-navigation {
+  position: relative;
+  z-index: 120;
   display: flex;
   gap: 6px;
   margin-bottom: 20px;

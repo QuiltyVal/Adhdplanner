@@ -4,6 +4,7 @@
 - Changed:
   - `src/App.js` — adds a normal-session `Latest engine evidence` disclosure inside Decision Trace for Planner Engine decisions and inbox items.
   - `src/App.css` — styles the evidence disclosure without changing the demo's six-row public trace.
+  - `src/App.css` — keeps tab navigation clickable above floating companions when avatars overlap the lower viewport.
   - `docs/angel-engagement-loop.md` and `EXECUTION_PLAN.md` — documented the compact explanation plus raw-evidence split.
 - Verified:
   - `git diff --check`
@@ -11,6 +12,7 @@
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
   - Browser QA at `http://localhost:3001/demo?reset=1`: public demo still shows the compact six-row Decision Trace.
   - Browser QA at `http://localhost:3001/demo?reset=1`: demo does not show the normal-session evidence disclosure, and Progress still suppresses companion prompt/avatars.
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=tabs`: when the Progress tab sits under the companion layer, `elementFromPoint` now resolves to the Progress button and the tab opens correctly.
 - Risks / follow-up:
   - Normal-session evidence rendering is build-verified but still needs authenticated visual QA against live `plannerMeta`.
 
