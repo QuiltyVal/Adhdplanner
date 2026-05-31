@@ -1,8 +1,9 @@
 import React from "react";
 
-function ApusTodayMission({ mission, onRescue, demoMode = false }) {
+function ApusTodayMission({ mission, onRescue, demoMode = false, nudgeStatus = "" }) {
   const task = mission?.task || null;
   const rescueEnabled = Boolean(task);
+  const cleanNudgeStatus = String(nudgeStatus || "").trim();
 
   return (
     <section
@@ -42,6 +43,12 @@ function ApusTodayMission({ mission, onRescue, demoMode = false }) {
       {rescueEnabled && (
         <div className={`apus-mission__hint${demoMode ? " is-demo-guide" : ""}`}>
           {demoMode ? "start here · open rescue" : "tap when stuck"}
+        </div>
+      )}
+
+      {cleanNudgeStatus && (
+        <div className="apus-mission__status" role="status" aria-live="polite">
+          {cleanNudgeStatus}
         </div>
       )}
     </section>

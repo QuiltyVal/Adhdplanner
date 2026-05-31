@@ -973,3 +973,22 @@ Entry template:
 - Risks / follow-up:
   - Static smoke-test cannot exercise Vercel API routes; `/api/google-calendar-status` returns 404 under `python3 -m http.server`, which is expected for that test mode.
   - The raw `design/cursor-soul-planner-2026-04-24/` folder remains local but ignored.
+
+## 2026-05-31 - Codex
+
+- Summary: Tightened the public `/demo` flow around the recovered product goal: readable onboarding, visible Rescue completion, and reliable demo Angel Lab drafts.
+- Changed:
+  - `src/OnboardingOverlay.css` — fixed the mobile demo intro card so the safe-data note, product explanation, and actions fit in the first viewport.
+  - `src/App.css` — compacted mobile Apus Rescue and kept the timer plus primary action visible without overlap; widened completion banners for readable demo-loop copy.
+  - `src/App.js` — made public demo rescue completion show the existing `Today Mission -> Rescue -> one tiny step` banner; upgraded the demo-only Angel Lab parser to strip launcher/meta phrases, split independent action chunks, and return up to four portfolio-safe cards.
+  - `src/apus/ApusPlannerShell.js`, `src/apus/ApusTodayMission.js`, `src/apus/ApusShell.css` — surfaced planner nudge status inside the Apus Today Mission shell.
+  - `docs/angel-engagement-loop.md` — documented the mobile public demo and demo Angel Lab parser behavior.
+- Verified:
+  - Browser QA at `http://localhost:3001/demo?reset=1`: onboarding intro readable at 389px width.
+  - Browser QA at `http://localhost:3001/demo?reset=1`: Today Mission opens Rescue; timer and `I moved` action are visible together; completing rescue shows the demo-loop completion banner.
+  - Browser QA at `http://localhost:3001/demo?reset=1`: Angel Lab dump `мне надо разобрать почту, купить корм коту, подготовить демо приложения и отправить портфолио, но я не знаю с чего начать` produces four cards (`разобрать почту`, `купить корм коту`, `подготовить демо приложения`, `отправить портфолио`) with concrete first steps and no fake start-confusion task.
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - Local QA covered the public demo shell and demo Angel Lab path. Cloud-authenticated real-user Angel Lab still relies on `/api/captures` and should keep using the server regression suite for parser changes.

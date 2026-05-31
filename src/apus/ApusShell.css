@@ -336,7 +336,7 @@
   font-family: var(--apus-sans, sans-serif);
   font-size: clamp(1.9rem, 3.4vw, 3.25rem);
   font-weight: 800;
-  letter-spacing: -0.05em;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
@@ -409,6 +409,19 @@
 
 .apus-mission__hint.is-demo-guide::before {
   content: "👉";
+}
+
+.apus-mission__status {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(92, 139, 110, 0.2);
+  border-radius: 18px;
+  background: rgba(236, 253, 245, 0.72);
+  color: #36573e;
+  font-family: var(--apus-sans, sans-serif);
+  font-size: 0.95rem;
+  font-weight: 780;
+  line-height: 1.24;
 }
 
 @keyframes apus-mission-hint-pulse {

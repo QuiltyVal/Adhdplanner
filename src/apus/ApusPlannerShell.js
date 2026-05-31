@@ -17,6 +17,7 @@ function ApusPlannerShell({
   stats,
   mission,
   demoMode = false,
+  nudgeStatus = "",
   handlers,
   logoutNode,
 }) {
@@ -49,7 +50,13 @@ function ApusPlannerShell({
           latestDevilEvent={stats.latestDevilEvent}
           language={language}
         />
-        <ApusTodayMission key={mission?.task?.id || "empty-mission"} mission={mission} onRescue={handlers.openRescue} demoMode={demoMode} />
+        <ApusTodayMission
+          key={mission?.task?.id || "empty-mission"}
+          mission={mission}
+          onRescue={handlers.openRescue}
+          demoMode={demoMode}
+          nudgeStatus={nudgeStatus}
+        />
       </div>
     </div>
   );

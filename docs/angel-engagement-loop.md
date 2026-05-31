@@ -1718,3 +1718,15 @@ Angel Lab now normalizes `selected`, `checked`, and `selectedByDefault` flags af
 ### 2026-05-31 - Angel Lab parser trims connector tails
 
 Angel Lab fallback parsing now trims connector words such as `и/and` when splitting one dump sentence into independent action chunks. This prevents drafts like `Разобрать письма от Jobcenter и` when the next action starts after the conjunction.
+
+### 2026-05-31 - Public demo core loop is visible on mobile
+
+The `/demo` onboarding intro now fits on a narrow mobile viewport instead of clipping the first explanation card. The Today Mission -> Rescue path also keeps the rescue timer and primary actions visible together, so the visitor can complete `I moved` without hunting below the fold.
+
+After a public demo rescue shift, Apus now surfaces the existing demo-complete copy in the shell and shows a completion banner: `Core demo loop complete: Today Mission -> Rescue -> one tiny step.` This makes the intended product loop visible at the moment it succeeds.
+
+### 2026-05-31 - Demo Angel Lab parser matches the portfolio story
+
+The demo-only Angel Lab parser now cleans launcher prefixes such as `мне надо`, filters meta-confusion like `не знаю с чего начать`, and splits independent action chunks joined by `и/and` when the second chunk starts with a real action verb.
+
+For the safe portfolio dump about mail, cat food, app demo, and portfolio, `/demo` now produces four separate draft cards with concrete first steps. This keeps the public demo useful even without auth, microphone access, OpenAI transcription, or backend capture APIs.

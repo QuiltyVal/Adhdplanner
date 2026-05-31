@@ -9156,6 +9156,79 @@ export default function App() {
   const buildDemoAngelLabSuggestions = (rawText, captureId) => {
     const isEnglishUi = language === "en";
     const normalizedText = normalizeAngelLabTranscript(rawText);
+    const actionStartsPattern = "(?:купить|разобрать|подготовить|отправить|записать|написать|сделать|проверить|обновить|доделать|finish|record|write|send|buy|check|prepare|update)";
+    const hasCyrillic = (value = "") => /[а-яё]/i.test(value);
+    const stripDemoTaskPrefix = (value = "") => {
+      let next = normalizeAngelLabTranscript(value)
+        .replace(/^[,.;:\s]+/, "")
+        .replace(/^(?:и|а|но|then|and|but)\s+/i, "")
+        .trim();
+      let previous = "";
+      while (next && next !== previous) {
+        previous = next;
+        next = next
+          .replace(/^(?:мне\s+(?:надо|нужно)|я\s+(?:должна|должен|должны|должно)|надо|нужно|хочу|i\s+need\s+to|i\s+have\s+to|need\s+to|have\s+to)\s+/i, "")
+          .trim();
+      }
+      return next;
+    };
+    const isDemoMetaNoise = (value = "") => {
+      const clean = value.toLowerCase();
+      return !clean ||
+        /не\s+знаю\s+с\s+чего\s+начать/.test(clean) ||
+        /с\s+чего\s+начать/.test(clean) ||
+        /не\s+понятно\s+с\s+чего/.test(clean) ||
+        /don't\s+know\s+where\s+to\s+start/.test(clean) ||
+        /do\s+not\s+know\s+where\s+to\s+start/.test(clean) ||
+        /where\s+to\s+start/.test(clean);
+    };
+    const splitDemoTaskChunk = (value = "") => {
+      const clean = stripDemoTaskPrefix(value);
+      if (!clean || isDemoMetaNoise(clean)) return [];
+      const connectorPattern = new RegExp(`\\s+(?:и|and)\\s+(?=${actionStartsPattern}(?:\\s|$))`, "gi");
+      return clean
+        .split(connectorPattern)
+        .map(stripDemoTaskPrefix)
+        .filter((item) => item.length >= 4 && !isDemoMetaNoise(item));
+    };
+    const buildDemoSteps = (title = "") => {
+      const lower = title.toLowerCase();
+      const ru = hasCyrillic(title);
+      if (/почт|mail|email|inbox/.test(lower)) {
+        return ru
+          ? ["Открыть почту и найти 3 важных письма.", "Ответить только на одно письмо."]
+          : ["Open the inbox and find 3 important emails.", "Reply to only one email."];
+      }
+      if (/корм|cat food|pet food/.test(lower)) {
+        return ru
+          ? ["Проверить, какой корм нужен.", "Заказать один подходящий вариант."]
+          : ["Check which food is needed.", "Order one suitable option."];
+      }
+      if (/демо|demo|walkthrough/.test(lower)) {
+        return ru
+          ? ["Открыть демо и проверить первый экран.", "Записать 90-секундный walkthrough."]
+          : ["Open the demo and check the first screen.", "Record a 90-second walkthrough."];
+      }
+      if (/портфолио|portfolio/.test(lower)) {
+        return ru
+          ? ["Открыть портфолио и выбрать одну ссылку.", "Отправить портфолио в одно место."]
+          : ["Open the portfolio and pick one link.", "Send the portfolio to one place."];
+      }
+      if (/application|отклик|заявк/.test(lower)) {
+        return ru
+          ? ["Выбрать один отклик для отправки.", "Написать короткое первое сообщение."]
+          : ["Pick one application to send.", "Write the short first message."];
+      }
+      return isEnglishUi
+        ? [
+          `Open this and write the first visible next action for "${title}".`,
+          "Make it smaller until it fits into 2 minutes.",
+        ]
+        : [
+          `Открыть это и записать первый видимый следующий шаг для «${title}».`,
+          "Уменьшить до шага на 2 минуты.",
+        ];
+    };
     const fallbackItems = isEnglishUi
       ? [
         "Prepare one portfolio demo block",
@@ -9169,24 +9242,17 @@ export default function App() {
       ];
     const parsedItems = normalizedText
       .split(/\n|[;•]+|,(?=\s)/)
-      .map((item) => normalizeAngelLabTranscript(item)
-        .replace(/^(надо|нужно|я должна|мне нужно|i need to|need to|have to)\s+/i, "")
-        .trim())
+      .flatMap(splitDemoTaskChunk)
       .filter((item) => item.length >= 4)
       .filter((item, index, list) => list.findIndex((candidate) => (
         candidate.toLowerCase() === item.toLowerCase()
       )) === index)
-      .slice(0, 3);
-    const items = (parsedItems.length > 0 ? parsedItems : fallbackItems).slice(0, 3);
+      .slice(0, 4);
+    const items = (parsedItems.length > 0 ? parsedItems : fallbackItems).slice(0, 4);
 
     return items.map((title, index) => {
       const cleanTitle = title.length > 96 ? `${title.slice(0, 93)}...` : title;
-      const firstStep = isEnglishUi
-        ? `Open this and write the first visible next action for "${cleanTitle}".`
-        : `Открыть это и записать первый видимый следующий шаг для «${cleanTitle}».`;
-      const secondStep = isEnglishUi
-        ? "Make it smaller until it fits into 2 minutes."
-        : "Уменьшить до шага на 2 минуты.";
+      const [firstStep, secondStep] = buildDemoSteps(cleanTitle);
 
       return {
         id: `${captureId}-demo-task-${index + 1}`,
@@ -12146,6 +12212,9 @@ export default function App() {
         ? "Shift counted. That is enough for today's momentum."
         : "Сдвиг засчитан. Этого уже достаточно для сегодняшнего импульса.");
     closePanicMode();
+    if (isPublicDemoRoute) {
+      showCompletionBanner(rescueDoneMessage);
+    }
     if (runCloudTaskPayloadAction({
       action: PLANNER_ACTIONS.RESCUE_SHIFT_RECORDED,
       taskId: panicTask.id,
@@ -12357,6 +12426,7 @@ export default function App() {
             urgencyLabel: getUrgencyLabel(rescueTask?.urgency, language),
             resistanceLabel: getResistanceLabel(rescueTask?.resistance, language),
           }}
+          nudgeStatus={nudgeStatus}
           handlers={{
             toggleTheme,
             setLanguage,

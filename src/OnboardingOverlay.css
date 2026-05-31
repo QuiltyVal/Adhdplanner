@@ -339,7 +339,7 @@
   font-family: var(--apus-sans, sans-serif);
   font-size: clamp(1.45rem, 2.75vw, 2.55rem);
   font-weight: 850;
-  letter-spacing: -0.055em;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
@@ -448,7 +448,10 @@
   }
 
   .onboarding-card.is-demo-intro .onboarding-body {
-    display: block;
+    display: grid;
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 10px 12px;
+    align-items: start;
     padding: 8px 0 10px;
   }
 
@@ -460,17 +463,28 @@
   }
 
   .onboarding-card.is-demo-intro .onboarding-welcome-mascot {
-    float: left;
-    width: min(88px, 23vw);
-    margin: 0 10px 4px 0;
+    grid-row: 1 / span 2;
+    float: none;
+    width: 86px;
+    max-width: 100%;
+    margin: 0;
   }
 
   .onboarding-card.is-demo-intro .onboarding-demo-badge {
+    grid-column: 2;
     margin: 0 0 8px;
   }
 
+  .onboarding-card.is-demo-intro .onboarding-copy {
+    grid-column: 1 / -1;
+  }
+
   .onboarding-card.is-demo-intro .onboarding-copy h2 {
-    font-size: clamp(1.16rem, 6.3vw, 1.82rem);
+    font-size: clamp(1.14rem, 5.7vw, 1.64rem);
+  }
+
+  .onboarding-card.is-demo-intro .onboarding-copy p {
+    font-size: 0.94rem;
   }
 
   .onboarding-companion-bubbles {
@@ -541,5 +555,44 @@
 
   .onboarding-red-arrow {
     display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .onboarding-card.is-demo-intro {
+    top: calc(18px + env(safe-area-inset-top)) !important;
+    bottom: auto !important;
+    max-height: calc(100vh - 36px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .onboarding-card.is-demo-intro {
+    left: 8px !important;
+    right: 8px !important;
+    padding: 12px;
+  }
+
+  .onboarding-card.is-demo-intro .onboarding-body {
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 8px 10px;
+  }
+
+  .onboarding-card.is-demo-intro .onboarding-welcome-mascot {
+    width: 78px;
+    border-radius: 18px;
+  }
+
+  .onboarding-card.is-demo-intro .onboarding-demo-badge {
+    padding: 9px 10px;
+  }
+
+  .onboarding-card.is-demo-intro .onboarding-demo-badge strong {
+    font-size: 0.68rem;
+  }
+
+  .onboarding-card.is-demo-intro .onboarding-demo-badge span,
+  .onboarding-card.is-demo-intro .onboarding-demo-badge em {
+    font-size: 0.76rem;
   }
 }
