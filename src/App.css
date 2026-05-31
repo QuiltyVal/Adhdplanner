@@ -1159,6 +1159,13 @@
   color: var(--apus-ink, #2a241e);
 }
 
+.demo-decision-trace-panel {
+  border-color: rgba(232, 182, 36, 0.24);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(254, 240, 138, 0.22), transparent 34%),
+    linear-gradient(145deg, rgba(255, 252, 242, 0.92), rgba(245, 247, 255, 0.76));
+}
+
 .delivery-health-header {
   display: flex;
   align-items: baseline;
@@ -1400,6 +1407,11 @@
   background:
     radial-gradient(circle at 100% 0%, rgba(254, 240, 138, 0.22), transparent 32%),
     rgba(255, 255, 255, 0.56);
+}
+
+.demo-engine-decisions-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 251, 235, 0.6));
 }
 
 .engine-decisions-title {

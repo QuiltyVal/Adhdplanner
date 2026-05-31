@@ -6296,8 +6296,9 @@ export default function App() {
     : (todayMissionShouldShrink || todayMissionShouldClarify || todayMissionMayBeWaiting)
       ? todayMissionCompanionPrompt
       : angelOpeningMovePrompt || todayMissionCompanionPrompt;
+  const visibleCompanionPrompt = activeTab === "stats" ? null : companionPrompt;
   const companionPromptActiveRef = useRef(false);
-  companionPromptActiveRef.current = Boolean(companionPrompt);
+  companionPromptActiveRef.current = Boolean(visibleCompanionPrompt);
   const plannerReportDigest = plannerReport?.events?.length
     ? buildPlannerReportDigest(plannerReport.events, language, plannerEngineDecisions)
     : null;
@@ -12990,6 +12991,83 @@ export default function App() {
                 </p>
               )}
 
+              {isDemoRoute && (
+                <div className="stats-top-section">
+                  <section className="delivery-health-panel demo-decision-trace-panel animated-fade-in" aria-label={language === "en" ? "Demo decision trace" : "След решения демо"}>
+                    <div className="delivery-health-header">
+                      <span>{language === "en" ? "Decision trace" : "След решения"}</span>
+                      <small>
+                        {language === "en"
+                          ? "why this demo starts with one mission"
+                          : "почему демо начинает с одной цели"}
+                      </small>
+                    </div>
+                    {(() => {
+                      const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
+                      const missionCopy = buildMissionCopy(rescueTask, missionReason, language);
+                      const reasonLabel = getMissionReasonLabel(missionReason, language);
+                      const openStep = rescueTask?.subtasks?.find((subtask) => !subtask.completed)?.text || panicPlan?.steps?.[0] || "";
+                      const isManualToday = Boolean(rescueTask?.isToday);
+                      const decisionRows = [
+                        {
+                          key: "demo-mission",
+                          persona: "angel",
+                          label: language === "en" ? "Mission" : "Цель",
+                          text: missionTitle
+                            ? (language === "en" ? `Angel is holding one quest: “${missionTitle}”.` : `Ангел держит один квест: «${missionTitle}».`)
+                            : (language === "en" ? "No mission is selected." : "Цель не выбрана."),
+                        },
+                        {
+                          key: "demo-reason",
+                          persona: "system",
+                          label: language === "en" ? "Reason" : "Причина",
+                          text: missionExplanation || `${reasonLabel}: ${missionCopy}`,
+                        },
+                        {
+                          key: "demo-rescue",
+                          persona: "angel",
+                          label: "Rescue",
+                          text: openStep
+                            ? (language === "en" ? `If stuck, the next visible move is: ${openStep}.` : `Если застряло, следующий видимый ход: ${openStep}.`)
+                            : (language === "en" ? "Rescue will ask for one tiny move, not a full task rewrite." : "Rescue попросит один маленький ход, не переписывание всей задачи."),
+                        },
+                        {
+                          key: "demo-boundary",
+                          persona: "system",
+                          label: language === "en" ? "Boundary" : "Граница",
+                          text: isManualToday
+                            ? (language === "en" ? "Today is still a manual pin; the system explains selection without silently changing that field." : "Today остаётся ручным пином; система объясняет выбор и не меняет это поле молча.")
+                            : (language === "en" ? "This is a system suggestion, separate from the manual Today pin." : "Это системная подсказка отдельно от ручного Today-пина."),
+                        },
+                        {
+                          key: "demo-delivery",
+                          persona: "system",
+                          label: language === "en" ? "Delivery" : "Доставка",
+                          text: language === "en"
+                            ? "Demo mode does not send Telegram/email. Production pressure must leave event, report, and outbox traces."
+                            : "Демо не отправляет Telegram/email. В проде давление должно оставлять event, report и outbox следы.",
+                        },
+                      ];
+                      return (
+                        <div className="engine-decisions-panel demo-engine-decisions-panel">
+                          <div className="engine-decisions-title">
+                            {language === "en" ? "Planner Engine preview" : "Preview движка планера"}
+                          </div>
+                          <div className="engine-decisions-list">
+                            {decisionRows.map((decision) => (
+                              <div key={decision.key} className={`engine-decision engine-decision-${decision.persona}`}>
+                                <span className="engine-decision-label">{decision.label}</span>
+                                <span className="engine-decision-text">{decision.text}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </section>
+                </div>
+              )}
+
               {!isDemoRoute && (
                 <div className="stats-top-section">
                   <section className="delivery-health-panel animated-fade-in" aria-label={statsCopy.deliveryTitle}>
@@ -13515,10 +13593,10 @@ export default function App() {
         calendarToken={calendarToken}
         companionFlash={companionFlash}
         language={language}
-        companionPrompt={companionPrompt}
+        companionPrompt={visibleCompanionPrompt}
         idleEnabled={!onboardingOpen}
-        suppressAngelAvatar={Boolean(plannerReport && plannerReportModalOpen)}
-        suppressDevilAvatar={Boolean(plannerReport && plannerReportModalOpen)}
+        suppressAngelAvatar={activeTab === "stats" || Boolean(plannerReport && plannerReportModalOpen)}
+        suppressDevilAvatar={activeTab === "stats" || Boolean(plannerReport && plannerReportModalOpen)}
         onCompanionPromptStart={handleCompanionPromptStart}
         onCompanionPromptConfirmCemetery={handleStickyKillConfirmCemetery}
         onCompanionPromptDismiss={handleCompanionPromptDismiss}

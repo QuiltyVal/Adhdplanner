@@ -1,3 +1,19 @@
+## 2026-05-31 22:32 Europe/Berlin - Codex
+
+- Summary: Started the decision-visibility slice in the public demo by adding a safe Decision Trace to the Progress tab.
+- Changed:
+  - `src/App.js` — renders a demo-only Decision Trace with mission, reason, rescue step, manual Today boundary, and delivery/no-send boundary.
+  - `src/App.css` — adds light styling for the demo Decision Trace panel.
+  - `docs/angel-engagement-loop.md` — documents the public demo Decision Trace.
+- Verified:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1`: Progress shows `Decision trace` with mission, reason, rescue, boundary, and delivery rows.
+  - Browser QA at `http://localhost:3001/demo?reset=1`: companion prompt and avatars are suppressed on Progress so they do not cover the trace on mobile width.
+- Risks / follow-up:
+  - This makes the portfolio demo explainable, but production users still need a tighter first-class decision surface in the main app/Progress view.
+
 ## 2026-05-31 22:22 Europe/Berlin - Codex
 
 - Summary: Reconciled the recovered big Planner roadmap after the old `PLANNER` thread became unavailable. The plan now explicitly keeps the angel/memory roadmap, aligns it with Planner Engine/public demo/Angel Entry/Quest Relation work, and names decision visibility + safety as the next product slice before more autonomous pressure.

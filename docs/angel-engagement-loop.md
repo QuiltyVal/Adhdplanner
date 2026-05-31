@@ -1730,3 +1730,9 @@ After a public demo rescue shift, Apus now surfaces the existing demo-complete c
 The demo-only Angel Lab parser now cleans launcher prefixes such as `мне надо`, filters meta-confusion like `не знаю с чего начать`, and splits independent action chunks joined by `и/and` when the second chunk starts with a real action verb.
 
 For the safe portfolio dump about mail, cat food, app demo, and portfolio, `/demo` now produces four separate draft cards with concrete first steps. This keeps the public demo useful even without auth, microphone access, OpenAI transcription, or backend capture APIs.
+
+### 2026-05-31 - Public demo Decision Trace
+
+The public `/demo` Progress tab now includes a safe Decision Trace. It shows the current mission, the selection reason, the rescue step, the manual Today boundary, and the fact that demo mode does not send Telegram/email. This lets a portfolio visitor see the "why did the planner choose this?" story without exposing production debug controls or live delivery actions.
+
+When Progress is open, the floating companion prompt/avatars are suppressed so they do not cover the trace on narrow screens.
