@@ -1,6 +1,8 @@
 const { getDb, admin } = require("./firebase-admin");
 const { getCommitmentsByIds, upsertCommitmentsFromExtraction } = require("./commitment-store");
-const { mutatePlanner } = require("./planner-store");
+const { getPlannerData } = require("./planner-store");
+const { executePlannerActionCommand } = require("./planner-command-runner");
+const { buildApplyExtractionHintsCommand } = require("./planner-command-builders");
 const { getTaskTextSimilarity } = require("./angel-lab-core");
 
 const LIFE_AREA_RULES = [
@@ -235,65 +237,72 @@ async function applyExtractionTaskHints(userId, extraction = {}, commitments = [
 
   const updatedTaskIds = new Set();
   const updatedTaskMeta = new Map();
-  await mutatePlanner(userId, (current) => {
-    const activeTasks = Array.isArray(current?.tasks)
-      ? current.tasks.filter((task) => task?.status === "active")
-      : [];
-    if (!activeTasks.length) return current;
+  const plannerData = await getPlannerData(userId);
+  const activeTasks = Array.isArray(plannerData?.tasks)
+    ? plannerData.tasks.filter((task) => task?.status === "active")
+    : [];
 
-    const taskById = new Map(activeTasks.map((task) => [String(task.id), task]));
-    for (const candidate of candidates) {
-      const candidateText = String(candidate?.text || "").trim();
-      if (!candidateText) continue;
+  if (!activeTasks.length) {
+    return {
+      updatedTaskIds: [],
+      updatedCount: 0,
+      candidateCount: candidates.length,
+    };
+  }
 
-      const patch = normalizeCandidatePatch(candidate, commitments);
-      if (!patch) continue;
+  const taskById = new Map(activeTasks.map((task) => [String(task.id), task]));
+  for (const candidate of candidates) {
+    const candidateText = String(candidate?.text || "").trim();
+    if (!candidateText) continue;
 
-      const ranked = activeTasks
-        .map((task) => ({
-          id: String(task.id),
-          score: getTaskTextSimilarity(candidateText, task.text || ""),
-        }))
-        .sort((left, right) => right.score - left.score);
+    const patch = normalizeCandidatePatch(candidate, commitments);
+    if (!patch) continue;
 
-      const best = ranked[0];
-      const second = ranked[1];
-      if (!best || best.score < 0.62) continue;
-      if (second && best.score < 0.9 && (best.score - second.score) < 0.12) continue;
+    const ranked = [...taskById.values()]
+      .map((task) => ({
+        id: String(task.id),
+        score: getTaskTextSimilarity(candidateText, task.text || ""),
+      }))
+      .sort((left, right) => right.score - left.score);
 
-      const targetTask = taskById.get(best.id);
-      if (!targetTask) continue;
+    const best = ranked[0];
+    const second = ranked[1];
+    if (!best || best.score < 0.62) continue;
+    if (second && best.score < 0.9 && (best.score - second.score) < 0.12) continue;
 
-      const merged = mergeCandidatePatchIntoTask(targetTask, patch);
-      if (!merged || !merged.task) continue;
+    const targetTask = taskById.get(best.id);
+    if (!targetTask) continue;
 
-      taskById.set(best.id, merged.task);
-      updatedTaskIds.add(best.id);
-      const existingMeta = updatedTaskMeta.get(best.id) || {
-        id: best.id,
-        text: String((merged.task && merged.task.text) || targetTask.text || candidateText || "").trim(),
-        changedFields: new Set(),
-      };
-      for (const fieldName of (Array.isArray(merged.changedFields) ? merged.changedFields : [])) {
-        if (fieldName) existingMeta.changedFields.add(fieldName);
-      }
-      updatedTaskMeta.set(best.id, existingMeta);
-    }
-
-    if (!updatedTaskIds.size) return current;
-    const nextTasks = (Array.isArray(current?.tasks) ? current.tasks : []).map((task) => {
-      const replacement = taskById.get(String(task.id));
-      return replacement || task;
+    const idempotencyKey = `capture_hint_${best.id}_${normalizeText(candidateText)}_${JSON.stringify(patch)}`;
+    const route = {
+      type: "TASK_APPLY_EXTRACTION_HINTS",
+      taskId: best.id,
+      ...patch,
+      source: "capture_extractor",
+      idempotencyKey,
+    };
+    const commandResult = await executePlannerActionCommand({
+      userId,
+      command: buildApplyExtractionHintsCommand(route),
+      route,
+      actorType: "engine",
     });
 
-    return {
-      ...current,
-      tasks: nextTasks,
+    const updatedTask = commandResult?.task || null;
+    if (!updatedTask || commandResult?.outcome === "noop") continue;
+
+    taskById.set(best.id, updatedTask);
+    updatedTaskIds.add(best.id);
+    const existingMeta = updatedTaskMeta.get(best.id) || {
+      id: best.id,
+      text: String(updatedTask.text || targetTask.text || candidateText || "").trim(),
+      changedFields: new Set(),
     };
-  }, {
-    source: "capture_extractor",
-    reason: "capture_hint_upsert",
-  });
+    for (const fieldName of (Array.isArray(commandResult.changedFields) ? commandResult.changedFields : [])) {
+      if (fieldName) existingMeta.changedFields.add(fieldName);
+    }
+    updatedTaskMeta.set(best.id, existingMeta);
+  }
 
   return {
     updatedTaskIds: [...updatedTaskIds],

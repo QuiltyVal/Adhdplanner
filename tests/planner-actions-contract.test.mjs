@@ -45,13 +45,32 @@ assertValid("valid add_task", {
   },
 });
 
-assertValid("valid reopen_task without taskRef (latest)", {
+assertInvalid("invalid reopen_task without taskRef", {
   action: "reopen_task",
   payload: {},
 });
 
+assertValid("valid reopen_task with explicit taskRef", {
+  action: "reopen_task",
+  payload: {
+    taskRef: "Buy groceries",
+  },
+});
+
 assertValid("valid complete_task with explicit taskRef", {
   action: "complete_task",
+  payload: {
+    taskRef: "Buy groceries",
+  },
+});
+
+assertInvalid("invalid kill_task without taskRef", {
+  action: "kill_task",
+  payload: {},
+});
+
+assertValid("valid kill_task with explicit taskRef", {
+  action: "kill_task",
   payload: {
     taskRef: "Buy groceries",
   },

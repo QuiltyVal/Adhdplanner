@@ -1,12 +1,32 @@
-const { buildTelegramContext, buildTelegramTaskLine, createTask, escapeHtml, getFirstOpenSubtask, getNonActiveTasks, getTaskById, getPlannerData, linkTelegramChat, mutatePlanner, pickRescueTask, sortTasksByPriority, writeTelegramLog } = require("./_lib/planner-store");
-const { buildGoogleCalendarConnectUrl, createCalendarEvent, hasGoogleCalendarConnection } = require("./_lib/google-calendar");
+const {
+  buildTelegramContext,
+  escapeHtml,
+  getTaskById,
+  getPlannerData,
+  writeTelegramLog,
+} = require("./_lib/planner-store");
+const { getDb } = require("./_lib/firebase-admin");
+const {
+  buildSkipPostCommandHookRoute,
+  executePlannerActionCommand,
+} = require("./_lib/planner-command-runner");
+const { buildLinkTelegramChatCommand } = require("./_lib/planner-command-builders");
+const { writeEventDirect } = require("./_lib/planner-event-contract");
+const { PLANNER_ACTIONS } = require("./_lib/planner-action-types");
+const { buildGoogleCalendarConnectUrl } = require("./_lib/google-calendar");
 const { buildTaskMemoryEnrichment, mergeTelegramTaskMemoryIntoRoute, processTelegramTaskCapture } = require("./_lib/telegram-task-memory");
 const { routePlannerAgentInput } = require("./_lib/planner-agent-router");
 const { executePlannerAction } = require("./_lib/planner-action-executor");
+const { runPlannerTick } = require("./_lib/planner-engine");
 const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
 
 const DEFAULT_USER_ID = process.env.PLANNER_DEFAULT_USER_ID;
 const ALLOWED_CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID || "";
+const AI_CONFIRMATION_ROUTE_SOURCES = new Set(["ai_router", "deterministic_router", "natural_text"]);
+const CONFIRMABLE_AI_ACTIONS = new Set([
+  PLANNER_ACTIONS.COMPLETE_TASK,
+  PLANNER_ACTIONS.KILL_TASK,
+]);
 
 function getTargetUserId() {
   if (!DEFAULT_USER_ID) {
@@ -15,9 +35,44 @@ function getTargetUserId() {
   return DEFAULT_USER_ID;
 }
 
-function isAllowedChat(chatId) {
-  if (!ALLOWED_CHAT_ID) return true;
-  return String(chatId) === String(ALLOWED_CHAT_ID);
+function isAllowedChat(chatId, allowedChatId = ALLOWED_CHAT_ID) {
+  const allowed = String(allowedChatId || "").trim();
+  if (!allowed) return true;
+  return String(chatId) === allowed;
+}
+
+function buildTelegramSecurityDecision({ chatId, text = "", callbackData = "", allowedChatId = ALLOWED_CHAT_ID } = {}) {
+  if (!chatId) {
+    return {
+      allowed: false,
+      rejected: false,
+      reason: "missing_chat",
+      command: "",
+      canLinkChat: false,
+    };
+  }
+
+  const { command } = parseCommand(String(text || ""));
+  const allowed = isAllowedChat(chatId, allowedChatId);
+  if (!allowed) {
+    return {
+      allowed: false,
+      rejected: true,
+      reason: "rejected_unknown_chat",
+      command,
+      callbackData: String(callbackData || ""),
+      canLinkChat: false,
+    };
+  }
+
+  return {
+    allowed: true,
+    rejected: false,
+    reason: "",
+    command,
+    callbackData: String(callbackData || ""),
+    canLinkChat: command === "/start",
+  };
 }
 
 function parseCommand(text = "") {
@@ -31,7 +86,14 @@ function parseCommand(text = "") {
 }
 
 function normalizeTaskText(text = "") {
-  return String(text).trim().toLowerCase().replace(/\s+/g, " ");
+  return String(text || "")
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[«»"'`]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\b(мне|надо|нужно|хочу|задача|задачу|пожалуйста)\b/giu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function parseNaturalReopen(text = "") {
@@ -75,205 +137,6 @@ function parseNaturalReopen(text = "") {
   return { isReopen: true, taskRef: cleaned };
 }
 
-function findTaskByText(tasks = [], query, allowedStatuses = ["active"]) {
-  const normalizedQuery = normalizeTaskText(query);
-  if (!normalizedQuery) return null;
-
-  return (
-    tasks.find(
-      (task) =>
-        allowedStatuses.includes(task.status) &&
-        normalizeTaskText(task.text) === normalizedQuery,
-    ) ||
-    tasks.find(
-      (task) =>
-        allowedStatuses.includes(task.status) &&
-        normalizeTaskText(task.text).includes(normalizedQuery),
-    ) ||
-    null
-  );
-}
-
-function findSubtaskByText(subtasks = [], query) {
-  const normalizedQuery = normalizeTaskText(query);
-  if (!normalizedQuery) return null;
-
-  return (
-    subtasks.find((subtask) => normalizeTaskText(subtask.text) === normalizedQuery) ||
-    subtasks.find((subtask) => normalizeTaskText(subtask.text).includes(normalizedQuery)) ||
-    null
-  );
-}
-
-function getUrgencyRank(urgency) {
-  if (urgency === "high") return 3;
-  if (urgency === "medium") return 2;
-  return 1;
-}
-
-function pickMergedUrgency(existingUrgency, incomingUrgency) {
-  return getUrgencyRank(incomingUrgency) > getUrgencyRank(existingUrgency)
-    ? incomingUrgency
-    : existingUrgency;
-}
-
-function mergeDeadline(existingDeadline, incomingDeadline) {
-  if (!existingDeadline) return incomingDeadline || "";
-  if (!incomingDeadline) return existingDeadline;
-  return incomingDeadline < existingDeadline ? incomingDeadline : existingDeadline;
-}
-
-function getResistanceRank(resistance) {
-  if (resistance === "high") return 3;
-  if (resistance === "medium") return 2;
-  return 1;
-}
-
-function pickMergedResistance(existingResistance, incomingResistance) {
-  return getResistanceRank(incomingResistance) > getResistanceRank(existingResistance)
-    ? incomingResistance
-    : existingResistance;
-}
-
-function normalizeCommitmentIds(value = []) {
-  return [...new Set(
-    (Array.isArray(value) ? value : [])
-      .map((item) => String(item || "").trim())
-      .filter(Boolean),
-  )].slice(0, 10);
-}
-
-function mergeCommitmentIds(existingIds = [], incomingIds = []) {
-  return normalizeCommitmentIds([...(existingIds || []), ...(incomingIds || [])]);
-}
-
-function buildSubtask(text, seed) {
-  return {
-    id: `${seed}-${Math.random().toString(36).slice(2, 8)}`,
-    text,
-    completed: false,
-  };
-}
-
-function mergeIncomingIntoTask(task, incoming) {
-  const existingSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
-  const existingSubtaskTexts = new Set(
-    existingSubtasks.map((subtask) => normalizeTaskText(subtask.text)),
-  );
-
-  const incomingSubtasks = Array.isArray(incoming.subtasks) ? incoming.subtasks : [];
-  const appendedSubtasks = incomingSubtasks
-    .map((text) => String(text).trim())
-    .filter(Boolean)
-    .filter((text) => {
-      const normalized = normalizeTaskText(text);
-      if (existingSubtaskTexts.has(normalized)) return false;
-      existingSubtaskTexts.add(normalized);
-      return true;
-    })
-    .map((text, index) => buildSubtask(text, `${task.id}-sub-${Date.now()}-${index + 1}`));
-
-  return {
-    ...task,
-    urgency: pickMergedUrgency(task.urgency || "medium", incoming.urgency || task.urgency || "medium"),
-    resistance: pickMergedResistance(task.resistance || "medium", incoming.resistance || task.resistance || "medium"),
-    isToday: task.isToday || Boolean(incoming.isToday),
-    isVital: task.isVital || Boolean(incoming.isVital),
-    deadlineAt: mergeDeadline(task.deadlineAt || "", incoming.deadlineAt || ""),
-    lifeArea: incoming.lifeArea || task.lifeArea || "",
-    commitmentIds: mergeCommitmentIds(task.commitmentIds || [], incoming.commitmentIds || []),
-    subtasks: [...existingSubtasks, ...appendedSubtasks],
-    lastUpdated: Date.now(),
-  };
-}
-
-async function upsertTask(chatId, incoming) {
-  const userId = getTargetUserId();
-  const normalizedIncomingText = normalizeTaskText(incoming.text);
-  let outcome = null;
-
-  await mutatePlanner(userId, (current) => {
-    const existingIndex = current.tasks.findIndex(
-      (task) => task.status === "active" && normalizeTaskText(task.text) === normalizedIncomingText,
-    );
-
-    if (existingIndex !== -1) {
-      const existingTask = current.tasks[existingIndex];
-      const updatedTask = mergeIncomingIntoTask(existingTask, incoming);
-      const tasks = [...current.tasks];
-      tasks[existingIndex] = updatedTask;
-      outcome = { type: "updated", task: updatedTask };
-      return {
-        ...current,
-        tasks,
-        telegramContext: buildTelegramContext(updatedTask, "upsert"),
-      };
-    }
-
-    const created = createTask(incoming.text, {
-      source: incoming.source || "telegram",
-      deadlineAt: incoming.deadlineAt || "",
-      urgency: incoming.urgency || "medium",
-      resistance: incoming.resistance || "medium",
-      isToday: incoming.isToday,
-      isVital: incoming.isVital,
-      lifeArea: incoming.lifeArea || "",
-      commitmentIds: incoming.commitmentIds || [],
-    });
-
-    if (Array.isArray(incoming.subtasks) && incoming.subtasks.length > 0) {
-      created.subtasks = incoming.subtasks.map((text, index) => ({
-        id: `${created.id}-sub-${index + 1}`,
-        text,
-        completed: false,
-      }));
-    }
-
-    outcome = { type: "created", task: created };
-    return {
-      ...current,
-      tasks: [created, ...current.tasks],
-      telegramContext: buildTelegramContext(created, "upsert"),
-    };
-  }, {
-    source: "telegram",
-    reason: "upsert_task",
-  });
-
-  const task = outcome?.task;
-  const meta = [];
-  if (task?.deadlineAt) meta.push(`📅 до ${escapeHtml(task.deadlineAt)}`);
-  if (task?.isToday) meta.push("📌 сегодня");
-  if (task?.isVital) meta.push("🚨 критично");
-  if (task?.urgency === "high") meta.push("⏰ срочно");
-  if (task?.subtasks?.length) meta.push(`🪜 шагов: ${task.subtasks.length}`);
-
-  if (outcome?.type === "updated") {
-    await sendText(
-      chatId,
-      [
-        `🧩 Такая активная задача уже была. Я обновила её: <b>${escapeHtml(task.text)}</b>`,
-        meta.length ? meta.join(" · ") : "",
-      ].filter(Boolean).join("\n"),
-      {
-        reply_markup: plannerTaskKeyboard(task.id),
-      },
-    );
-    return;
-  }
-
-  await sendText(
-    chatId,
-    [
-      `➕ Добавила задачу: <b>${escapeHtml(task.text)}</b>`,
-      meta.length ? meta.join(" · ") : "",
-    ].filter(Boolean).join("\n"),
-    {
-      reply_markup: plannerTaskKeyboard(task.id),
-    },
-  );
-}
-
 function resolveContextTask(plannerData, { statuses = ["active"], fallbackLatest = true } = {}) {
   const tasks = Array.isArray(plannerData?.tasks) ? plannerData.tasks : [];
   const lastTaskId = plannerData?.telegramContext?.lastTaskId;
@@ -288,6 +151,105 @@ function resolveContextTask(plannerData, { statuses = ["active"], fallbackLatest
   return [...tasks]
     .filter((task) => statuses.includes(task.status))
     .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))[0] || null;
+}
+
+function findTaskByText(tasks = [], query = "", allowedStatuses = ["active"]) {
+  const normalizedQuery = normalizeTaskText(query);
+  if (!normalizedQuery) return null;
+
+  const candidates = (Array.isArray(tasks) ? tasks : []).filter((task) => allowedStatuses.includes(task.status));
+  return (
+    candidates.find((task) => String(task.id || "") === String(query || "")) ||
+    candidates.find((task) => normalizeTaskText(task.text) === normalizedQuery) ||
+    candidates.find((task) => normalizeTaskText(task.text).includes(normalizedQuery)) ||
+    null
+  );
+}
+
+function resolveConfirmationTask(plannerData, route = {}) {
+  const tasks = Array.isArray(plannerData?.tasks) ? plannerData.tasks : [];
+  const taskRef = String(route.taskRef || route.taskText || "").trim();
+  if (taskRef) {
+    const explicitTask = findTaskByText(tasks, taskRef, ["active"]);
+    if (explicitTask) return explicitTask;
+  }
+  return resolveContextTask(plannerData, { statuses: ["active"] });
+}
+
+function buildAiActionConfirmationKeyboard(routeType, taskId) {
+  const safeTaskId = String(taskId || "").trim();
+  if (routeType === PLANNER_ACTIONS.KILL_TASK) {
+    return {
+      inline_keyboard: [
+        [{ text: "🪦 Yes, Cemetery", callback_data: `confirm_kill:${safeTaskId}` }],
+        [
+          { text: "🆘 Make smaller", callback_data: `panic:${safeTaskId}` },
+          { text: "Cancel", callback_data: `cancel:${safeTaskId}` },
+        ],
+      ],
+    };
+  }
+
+  return {
+    inline_keyboard: [
+      [{ text: "✅ Yes, done", callback_data: `confirm_done:${safeTaskId}` }],
+      [
+        { text: "🆘 Rescue instead", callback_data: `panic:${safeTaskId}` },
+        { text: "Cancel", callback_data: `cancel:${safeTaskId}` },
+      ],
+    ],
+  };
+}
+
+function buildAiActionConfirmationText(route = {}, task = {}) {
+  const taskText = escapeHtml(task?.text || "this task");
+  if (route.type === PLANNER_ACTIONS.KILL_TASK) {
+    return [
+      "I read this as: move a task to Cemetery.",
+      "",
+      `<b>${taskText}</b>`,
+      "",
+      "I will not bury it from an AI guess. Confirm, shrink it, or cancel.",
+    ].join("\n");
+  }
+
+  return [
+    "I read this as: mark a task done.",
+    "",
+    `<b>${taskText}</b>`,
+    "",
+    "I will not complete it from an AI guess. Confirm, rescue it, or cancel.",
+  ].join("\n");
+}
+
+async function maybeSendAiActionConfirmation(chatId, route = {}, plannerData = null) {
+  const routeType = String(route?.type || "");
+  const source = String(route?.source || "");
+  if (!CONFIRMABLE_AI_ACTIONS.has(routeType)) return false;
+  if (!AI_CONFIRMATION_ROUTE_SOURCES.has(source)) return false;
+
+  const data = plannerData || await getPlannerData(getTargetUserId());
+  const task = resolveConfirmationTask(data, route);
+  if (!task?.id) return false;
+
+  await sendText(chatId, buildAiActionConfirmationText(route, task), {
+    reply_markup: buildAiActionConfirmationKeyboard(routeType, task.id),
+  });
+
+  await safeWriteTelegramTrace(getTargetUserId(), {
+    type: "telegram_ai_action_confirmation_sent",
+    event_type: "TELEGRAM_AI_ACTION_CONFIRMATION_SENT",
+    entity_id: `${routeType}_${task.id}`,
+    message: `Telegram AI-routed ${routeType} held for confirmation.`,
+    payload: {
+      routeType,
+      routeSource: source,
+      taskId: task.id,
+      taskText: String(task.text || "").slice(0, 160),
+    },
+  });
+
+  return true;
 }
 
 async function sendText(chatId, text, extra = {}) {
@@ -315,6 +277,51 @@ async function safeWriteTelegramLog(payload) {
   }
 }
 
+async function safeWriteTelegramTrace(userId, payload = {}) {
+  try {
+    const now = Date.now();
+    const eventType = String(payload.event_type || payload.type || "TELEGRAM_TRACE").toUpperCase();
+    const entityId = String(payload.entity_id || payload.telegramMessageId || payload.telegramUpdateId || payload.callbackData || now);
+    const id = String(payload.id || `${eventType.toLowerCase()}_${entityId}_${now}`).replace(/[\/#?\[\]]/g, "_").slice(0, 180);
+    await writeEventDirect(getDb().collection("Users").doc(String(userId)), {
+      id,
+      type: String(payload.type || eventType.toLowerCase()),
+      event_type: eventType,
+      actor_type: "system",
+      actor_ref: "telegram_webhook",
+      source: "telegram_webhook",
+      entity_type: "telegram",
+      entity_id: entityId,
+      taskId: null,
+      taskText: "",
+      message: String(payload.message || "Telegram webhook trace."),
+      payload: payload.payload && typeof payload.payload === "object" ? payload.payload : {},
+      visible_in_feed: payload.visible_in_feed !== false,
+      visible_in_report: false,
+      debug_only: true,
+      createdAt: now,
+    }, { merge: true });
+  } catch (error) {
+    console.error("[telegram-trace]", error);
+  }
+}
+
+async function linkTelegramChatViaCommand(userId, chatId, source = "telegram_webhook") {
+  const route = buildSkipPostCommandHookRoute({
+    type: "LINK_TELEGRAM_CHAT",
+    source,
+    chatId: String(chatId),
+    idempotencyKey: `link_telegram_chat:${chatId}`,
+  });
+  return executePlannerActionCommand({
+    userId,
+    command: buildLinkTelegramChatCommand(route),
+    route,
+    actorType: "system",
+    now: Date.now(),
+  });
+}
+
 function buildPlannerActionAdapter(chatId, options = {}) {
   const suppressMessages = options.suppressMessages === true;
   return {
@@ -337,7 +344,22 @@ function plannerDataWithContextTask(plannerData, task, action = "callback_contex
 
 async function runPlannerRoute(chatId, route, options = {}) {
   const userId = getTargetUserId();
-  const plannerData = options.plannerData || await getPlannerData(userId);
+  const needsFreshProjection = ["show_today", "panic"].includes(String(route?.type || ""));
+  if (needsFreshProjection) {
+    try {
+      await runPlannerTick({
+        userId,
+        now: Date.now(),
+        trigger: `telegram_${route.type}`,
+        allowScheduledNudge: false,
+      });
+    } catch (error) {
+      console.warn("[telegram-webhook] projection refresh failed:", error);
+    }
+  }
+  const plannerData = needsFreshProjection || !options.plannerData
+    ? await getPlannerData(userId)
+    : options.plannerData;
   await executePlannerAction({
     userId,
     chatId,
@@ -346,134 +368,47 @@ async function runPlannerRoute(chatId, route, options = {}) {
     adapter: buildPlannerActionAdapter(chatId, { suppressMessages: options.suppressMessages }),
     log: safeWriteTelegramLog,
   });
-}
-
-async function sendTodayDigest(chatId, plannerData) {
-  const activeTasks = plannerData.tasks.filter((task) => task.status === "active");
-  const topTasks = sortTasksByPriority(activeTasks).slice(0, 3);
-
-  if (topTasks.length === 0) {
-    await sendText(chatId, "Сегодня активных задач нет. Можно выдохнуть или добавить новую.");
-    return null;
-  }
-
-  const [topTask, ...restTasks] = topTasks;
-  const header = [
-    "☀️ <b>Что у тебя сегодня горит</b>",
-    "",
-    ...topTasks.map((task, index) => `${index + 1}. ${buildTelegramTaskLine(task).slice(2)}`),
-  ].join("\n");
-
-  await sendText(chatId, header);
-
-  await sendText(
-    chatId,
-    [
-      `🎯 <b>Главная сейчас:</b> ${escapeHtml(topTask.text)}`,
-      restTasks.length ? `Ещё в фоне: ${restTasks.map((task) => escapeHtml(task.text)).join(" · ")}` : "Если хочется только одного действия, жми Panic.",
-    ].join("\n"),
-    {
-      reply_markup: plannerTaskKeyboard(topTask.id),
+  await safeWriteTelegramTrace(userId, {
+    type: "telegram_route_executed",
+    event_type: "TELEGRAM_ROUTE_EXECUTED",
+    entity_id: `${String(route?.type || "unknown")}_${Date.now()}`,
+    message: `Telegram route executed: ${String(route?.type || "unknown")}.`,
+    payload: {
+      routeType: String(route?.type || ""),
+      routeSource: String(route?.source || ""),
+      suppressMessages: Boolean(options.suppressMessages),
     },
-  );
-
-  return topTask;
-}
-
-function buildPanicText(task) {
-  const firstOpenSubtask = getFirstOpenSubtask(task);
-  const lines = [
-    "🆘 <b>Panic mode</b>",
-    "",
-    `Берём: <b>${escapeHtml(task.text)}</b>`,
-  ];
-
-  if (firstOpenSubtask) {
-    lines.push(`Первый шаг: ${escapeHtml(firstOpenSubtask.text)}`);
-    lines.push("Сделай только это и остановись, если захочешь.");
-  } else {
-    lines.push("Подзадач пока нет. Открой всё, что связано с задачей, и сделай один кривой шаг на 2 минуты.");
-  }
-
-  return lines.join("\n");
+  });
 }
 
 async function handleStart(chatId, options = {}) {
   const shouldLinkChat = options.linkChat !== false;
   const userId = getTargetUserId();
   if (shouldLinkChat) {
-    await linkTelegramChat(userId, chatId);
+    await linkTelegramChatViaCommand(userId, chatId, "telegram_start");
   }
   await sendText(
     chatId,
       [
-        "Я привязал этот Telegram к planner.",
+        "This chat is now connected to Apus Planner nudges.",
         "",
-        "Команды:",
-        "/today — показать 1-3 главные задачи",
-        "/completed — показать завершённые и вернуть ошибочно закрытую",
-        "/reopen — вернуть последнюю завершённую задачу",
-        "/reopen [название] — вернуть задачу по названию",
-        "/panic — выбрать одну задачу и один микрошаг",
-        "/add текст — добавить задачу",
+        "Commands:",
+        "/today — show 1-3 main tasks",
+        "/completed — show completed tasks and restore one if needed",
+        "/reopen — restore the last completed task",
+        "/reopen [title] — restore a task by title",
+        "/panic — pick one task and one tiny step",
+        "/add text — add a task",
         "",
-        "Любое обычное сообщение я пока тоже складываю как новую задачу.",
+        "Any plain message is also saved as a new task for now.",
       ].join("\n"),
   );
-}
-
-async function handleToday(chatId) {
-  await runPlannerRoute(chatId, {
-    type: "show_today",
-    source: "slash_command",
-  });
-}
-
-async function handleCompleted(chatId) {
-  await runPlannerRoute(chatId, {
-    type: "show_completed",
-    source: "slash_command",
-  });
-}
-
-async function handlePanic(chatId) {
-  await runPlannerRoute(chatId, {
-    type: "panic",
-    source: "slash_command",
-  });
-}
-
-async function handleAdd(chatId, argText, options = {}) {
-  if (!argText) {
-    await sendText(chatId, "Напиши так: /add купить корм");
-    return;
+  if (shouldLinkChat) {
+    await sendText(
+      chatId,
+      `Apus Planner diagnostic ping · ${new Date().toISOString()}`,
+    );
   }
-
-  const userId = getTargetUserId();
-  const processing = await processTelegramTaskCapture({
-    userId,
-    chatId,
-    rawText: argText,
-    intent: "add_task",
-    taskText: argText,
-    telegramMessageId: options.telegramMessageId || null,
-    telegramUpdateId: options.telegramUpdateId || null,
-    writeLog: safeWriteTelegramLog,
-  });
-  const baseRoute = {
-    type: "add_task",
-    taskText: argText,
-    rawText: argText,
-    source: "slash_command",
-    urgency: "medium",
-    resistance: "",
-    isToday: false,
-    isVital: false,
-    deadlineAt: "",
-    subtasks: [],
-  };
-  const enrichedRoute = mergeTelegramTaskMemoryIntoRoute(baseRoute, processing);
-  await runPlannerRoute(chatId, enrichedRoute);
 }
 
 async function handleCalendar(chatId) {
@@ -481,7 +416,7 @@ async function handleCalendar(chatId) {
   const url = buildGoogleCalendarConnectUrl(userId);
   await sendText(
     chatId,
-    "Открой кнопку ниже, дай доступ к Google Calendar, и после этого я смогу ставить туда задачи прямо из Telegram.",
+    "Open the button below and grant Google Calendar access. After that I can schedule tasks there from Telegram.",
     {
       reply_markup: calendarConnectKeyboard(url),
     },
@@ -498,7 +433,7 @@ async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
     if (command === "/today") {
       return {
         route: {
-          type: "show_today",
+          type: PLANNER_ACTIONS.SHOW_TODAY,
           source: "slash_command",
           rawText: cleaned,
         },
@@ -511,7 +446,7 @@ async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
     if (command === "/completed") {
       return {
         route: {
-          type: "show_completed",
+          type: PLANNER_ACTIONS.SHOW_COMPLETED,
           source: "slash_command",
           rawText: cleaned,
         },
@@ -524,7 +459,7 @@ async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
     if (command === "/reopen") {
       return {
         route: {
-          type: "reopen_task",
+          type: PLANNER_ACTIONS.REOPEN_TASK,
           taskRef: argText || "",
           source: "slash_command",
           rawText: cleaned,
@@ -538,7 +473,9 @@ async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
     if (command === "/panic") {
       return {
         route: {
-          type: "panic",
+          type: argText ? "panic_task" : "panic",
+          taskRef: argText || "",
+          taskText: argText || "",
           source: "slash_command",
           rawText: cleaned,
         },
@@ -554,7 +491,7 @@ async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
           route: null,
           plannerData: null,
           prefaceText: "",
-          errorText: "Напиши так: /add купить корм",
+          errorText: "Write it like this: /add buy cat food",
         };
       }
 
@@ -571,7 +508,7 @@ async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
       });
 
       const baseRoute = {
-        type: "add_task",
+        type: PLANNER_ACTIONS.ADD_TASK,
         taskText: argText,
         rawText: argText,
         source: "slash_command",
@@ -608,7 +545,7 @@ async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
     if (naturalReopen.taskRef) {
       return {
         route: {
-          type: "reopen_task",
+          type: PLANNER_ACTIONS.REOPEN_TASK,
           taskRef: naturalReopen.taskRef,
           source: "natural_text",
           rawText: cleaned,
@@ -621,12 +558,12 @@ async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
 
     return {
       route: {
-        type: "show_completed",
+        type: PLANNER_ACTIONS.SHOW_COMPLETED,
         source: "natural_text",
         rawText: cleaned,
       },
       plannerData: null,
-      prefaceText: "Поняла. Хочешь вернуть задачу из завершённых. Вот последние, выбери нужную:",
+      prefaceText: "Understood. You want to restore a completed task. Choose one from the latest:",
       errorText: "",
     };
   }
@@ -666,324 +603,6 @@ async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
   };
 }
 
-// Kept for reference — plain-text reopen now goes through handleReopenTask via LLM intent
-async function _unusedHandleReopenLatestCompleted(chatId, plannerData) {
-  const latestCompleted = resolveContextTask(plannerData, { statuses: ["completed"] });
-  if (!latestCompleted) {
-    await sendText(chatId, "В раю сейчас нечего возвращать. Завершённых задач нет.");
-    return;
-  }
-  await handleReopenTask(chatId, plannerData, latestCompleted.text);
-}
-
-async function handleDeleteSubtaskRequest(chatId, plannerData, request) {
-  const task = findTaskByText(plannerData.tasks, request.taskText, ["active", "completed", "dead"]);
-  if (!task) {
-    await sendText(chatId, `Не нашла задачу: <b>${escapeHtml(request.taskText)}</b>`);
-    return;
-  }
-
-  const subtask = findSubtaskByText(task.subtasks || [], request.subtaskText);
-  if (!subtask) {
-    await sendText(
-      chatId,
-      `В задаче <b>${escapeHtml(task.text)}</b> не нашла подзадачу: <b>${escapeHtml(request.subtaskText)}</b>`,
-    );
-    return;
-  }
-
-  await mutatePlanner(
-    getTargetUserId(),
-    (current) => {
-      const tasks = current.tasks.map((currentTask) => {
-        if (currentTask.id !== task.id) return currentTask;
-        return {
-          ...currentTask,
-          subtasks: (currentTask.subtasks || []).filter((item) => item.id !== subtask.id),
-          lastUpdated: Date.now(),
-        };
-      });
-
-      return {
-        ...current,
-        tasks,
-        telegramContext: buildTelegramContext(task, "delete_subtask"),
-      };
-    },
-    {
-      source: "telegram",
-      reason: "delete_subtask",
-    },
-  );
-
-  await sendText(
-    chatId,
-    `🗑️ Удалила подзадачу <b>${escapeHtml(subtask.text)}</b> из <b>${escapeHtml(task.text)}</b>.`,
-  );
-
-  await safeWriteTelegramLog({
-    kind: "action",
-    action: "delete_subtask",
-    chatId: String(chatId),
-    taskId: task.id,
-    taskText: task.text,
-    subtaskId: subtask.id,
-    subtaskText: subtask.text,
-  });
-}
-
-async function handleCompleteTaskRequest(chatId, plannerData, taskQuery = "") {
-  const task =
-    (taskQuery && findTaskByText(plannerData.tasks, taskQuery, ["active"])) ||
-    resolveContextTask(plannerData, { statuses: ["active"] });
-
-  if (!task) {
-    await sendText(chatId, "Не нашла активную задачу, которую нужно отправить в рай.");
-    return;
-  }
-
-  let completedTask = null;
-  await mutatePlanner(
-    getTargetUserId(),
-    (current) => {
-      const tasks = current.tasks.map((currentTask) => {
-        if (currentTask.id !== task.id) return currentTask;
-        completedTask = {
-          ...currentTask,
-          status: "completed",
-          isToday: false,
-          lastUpdated: Date.now(),
-        };
-        return completedTask;
-      });
-
-      return {
-        ...current,
-        tasks,
-        telegramContext: buildTelegramContext(completedTask || task, "complete"),
-      };
-    },
-    {
-      source: "telegram",
-      reason: "complete_from_text",
-    },
-  );
-
-  if (!completedTask) {
-    await sendText(chatId, "Не смогла отправить задачу в рай.");
-    return;
-  }
-
-  await sendText(
-    chatId,
-    `☁️ <b>${escapeHtml(completedTask.text)}</b> теперь в раю. Если это была ошибка, верни её кнопкой ниже.`,
-    { reply_markup: completedTaskKeyboard(completedTask.id) },
-  );
-
-  await safeWriteTelegramLog({
-    kind: "action",
-    action: "complete_from_text",
-    chatId: String(chatId),
-    taskId: completedTask.id,
-    taskText: completedTask.text,
-  });
-}
-
-async function handleSuggestUnpin(chatId, plannerData) {
-  const userId = getTargetUserId();
-  const todayTasks = plannerData.tasks.filter((t) => t.status === "active" && t.isToday);
-
-  if (todayTasks.length === 0) {
-    await sendText(chatId, "Сейчас нет задач, закреплённых на сегодня.");
-    return;
-  }
-
-  const suggestedTaskTexts = todayTasks.map((t) => t.text);
-
-  await sendText(
-    chatId,
-    [
-      "📌 <b>Задачи на сегодня:</b>",
-      "",
-      ...todayTasks.map((t, i) => `${i + 1}. ${escapeHtml(t.text)}`),
-      "",
-      "Напиши номер или название — и я открепю.",
-    ].join("\n"),
-  );
-
-  await mutatePlanner(userId, (current) => ({
-    ...current,
-    telegramContext: buildTelegramContext(todayTasks[0], "suggest_unpin", { suggestedTaskTexts }),
-  }), { source: "telegram", reason: "suggest_unpin" });
-}
-
-async function handleSetToday(chatId, plannerData, taskRef) {
-  const task =
-    (taskRef && findTaskByText(plannerData.tasks, taskRef, ["active"])) ||
-    resolveContextTask(plannerData, { statuses: ["active"] });
-
-  if (!task) {
-    await sendText(chatId, taskRef
-      ? `Не нашла задачу: <b>${escapeHtml(taskRef)}</b>`
-      : "Не нашла активную задачу, чтобы закрепить на сегодня.");
-    return;
-  }
-
-  let updated = null;
-  await mutatePlanner(getTargetUserId(), (current) => {
-    const tasks = current.tasks.map((t) => {
-      if (t.id !== task.id) return t;
-      updated = { ...t, isToday: true, lastUpdated: Date.now() };
-      return updated;
-    });
-    return { ...current, tasks, telegramContext: buildTelegramContext(updated || task, "set_today") };
-  }, { source: "telegram", reason: "set_today" });
-
-  await sendText(chatId, `📌 Закрепила на сегодня: <b>${escapeHtml(task.text)}</b>`, {
-    reply_markup: plannerTaskKeyboard(task.id),
-  });
-}
-
-async function handleUnsetToday(chatId, plannerData, taskRef) {
-  const task =
-    (taskRef && findTaskByText(plannerData.tasks, taskRef, ["active"])) ||
-    resolveContextTask(plannerData, { statuses: ["active"] });
-
-  if (!task) {
-    await sendText(chatId, taskRef
-      ? `Не нашла задачу: <b>${escapeHtml(taskRef)}</b>`
-      : "Не нашла задачу, чтобы открепить от сегодня.");
-    return;
-  }
-
-  if (!task.isToday) {
-    await sendText(chatId, `<b>${escapeHtml(task.text)}</b> и так не закреплена на сегодня.`);
-    return;
-  }
-
-  let updated = null;
-  await mutatePlanner(getTargetUserId(), (current) => {
-    const tasks = current.tasks.map((t) => {
-      if (t.id !== task.id) return t;
-      updated = { ...t, isToday: false, lastUpdated: Date.now() };
-      return updated;
-    });
-    return { ...current, tasks, telegramContext: buildTelegramContext(updated || task, "unset_today") };
-  }, { source: "telegram", reason: "unset_today" });
-
-  await sendText(chatId, `🔓 Откреплена от сегодня: <b>${escapeHtml(task.text)}</b>`, {
-    reply_markup: plannerTaskKeyboard(task.id),
-  });
-}
-
-async function handleSetVital(chatId, plannerData, taskRef) {
-  const task =
-    (taskRef && findTaskByText(plannerData.tasks, taskRef, ["active"])) ||
-    resolveContextTask(plannerData, { statuses: ["active"] });
-
-  if (!task) {
-    await sendText(chatId, taskRef
-      ? `Не нашла задачу: <b>${escapeHtml(taskRef)}</b>`
-      : "Не нашла активную задачу, чтобы пометить критичной.");
-    return;
-  }
-
-  let updated = null;
-  await mutatePlanner(getTargetUserId(), (current) => {
-    const tasks = current.tasks.map((t) => {
-      if (t.id !== task.id) return t;
-      updated = { ...t, isVital: true, urgency: "high", lastUpdated: Date.now() };
-      return updated;
-    });
-    return { ...current, tasks, telegramContext: buildTelegramContext(updated || task, "set_vital") };
-  }, { source: "telegram", reason: "set_vital" });
-
-  await sendText(chatId, `🚨 Пометила как критичную: <b>${escapeHtml(task.text)}</b>`, {
-    reply_markup: plannerTaskKeyboard(task.id),
-  });
-}
-
-async function handleAddSubtask(chatId, plannerData, taskRef, subtaskText) {
-  if (!subtaskText) {
-    await sendText(chatId, "Напиши текст подзадачи. Например: добавь шаг «открыть сайт» к задаче «подать заявку».");
-    return;
-  }
-
-  const task =
-    (taskRef && findTaskByText(plannerData.tasks, taskRef, ["active"])) ||
-    resolveContextTask(plannerData, { statuses: ["active"] });
-
-  if (!task) {
-    await sendText(chatId, taskRef
-      ? `Не нашла задачу: <b>${escapeHtml(taskRef)}</b>`
-      : "Не нашла активную задачу для добавления подзадачи.");
-    return;
-  }
-
-  const newSubtask = {
-    id: `${task.id}-sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    text: subtaskText,
-    completed: false,
-  };
-
-  let updated = null;
-  await mutatePlanner(getTargetUserId(), (current) => {
-    const tasks = current.tasks.map((t) => {
-      if (t.id !== task.id) return t;
-      updated = { ...t, subtasks: [...(t.subtasks || []), newSubtask], lastUpdated: Date.now() };
-      return updated;
-    });
-    return { ...current, tasks, telegramContext: buildTelegramContext(updated || task, "add_subtask") };
-  }, { source: "telegram", reason: "add_subtask" });
-
-  await sendText(chatId, `🪜 Добавила шаг «<b>${escapeHtml(subtaskText)}</b>» к задаче <b>${escapeHtml(task.text)}</b>.`, {
-    reply_markup: plannerTaskKeyboard(task.id),
-  });
-}
-
-async function handleReopenTask(chatId, plannerData, taskRef) {
-  const userId = getTargetUserId();
-  // getPlannerData only fetches active tasks; completed/dead must be fetched separately
-  const nonActiveTasks = await getNonActiveTasks(userId);
-  const task =
-    (taskRef && findTaskByText(nonActiveTasks, taskRef, ["completed", "dead"])) ||
-    nonActiveTasks
-      .filter((t) => t.status === "completed")
-      .sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0))[0] || null;
-
-  if (!task) {
-    await sendText(chatId, taskRef
-      ? `Не нашла завершённую или удалённую задачу: <b>${escapeHtml(taskRef)}</b>`
-      : "В раю сейчас нечего возвращать.");
-    return;
-  }
-
-  let reopenedTask = null;
-  await mutatePlanner(userId, (current) => {
-    // Task is not in current.tasks (completed), so add it as active
-    reopenedTask = {
-      ...task,
-      __baseLastUpdated: typeof task?.lastUpdated === "number" ? task.lastUpdated : 0,
-      status: "active",
-      isToday: false,
-      deadAt: null,
-      heatBase: typeof task.heatBase === "number" ? task.heatBase : 35,
-      heatCurrent: typeof task.heatCurrent === "number" ? task.heatCurrent : (typeof task.heatBase === "number" ? task.heatBase : 35),
-      lastUpdated: Date.now(),
-    };
-    return { ...current, tasks: [reopenedTask, ...current.tasks], telegramContext: buildTelegramContext(reopenedTask, "reopen") };
-  }, { source: "telegram", reason: "reopen_task" });
-
-  if (!reopenedTask) {
-    await sendText(chatId, "Не смогла вернуть задачу.");
-    return;
-  }
-
-  await sendText(chatId, `↩️ Вернула в активные: <b>${escapeHtml(reopenedTask.text)}</b>`, {
-    reply_markup: plannerTaskKeyboard(reopenedTask.id),
-  });
-}
-
 async function handlePlainCapture(chatId, text, options = {}) {
   const cleaned = String(text || "").trim();
   if (!cleaned) return;
@@ -1002,14 +621,43 @@ async function handlePlainCapture(chatId, text, options = {}) {
     messageText: cleaned,
     intent: route,
   });
+  await safeWriteTelegramTrace(getTargetUserId(), {
+    type: "telegram_route_resolved",
+    event_type: "TELEGRAM_ROUTE_RESOLVED",
+    entity_id: options.telegramUpdateId || options.telegramMessageId || Date.now(),
+    message: `Telegram message routed as ${String(route?.type || "unknown")}.`,
+    payload: {
+      routeType: String(route?.type || ""),
+      routeSource: String(route?.source || ""),
+      textPreview: cleaned.slice(0, 120),
+      telegramMessageId: options.telegramMessageId || null,
+      telegramUpdateId: options.telegramUpdateId || null,
+    },
+  });
 
   if (prefaceText) {
     await sendText(chatId, prefaceText);
   }
 
+  if (await maybeSendAiActionConfirmation(chatId, route, plannerData)) {
+    return;
+  }
+
   await runPlannerRoute(chatId, route, {
     plannerData: plannerData || undefined,
   });
+}
+
+function buildCallbackRoute(route = {}, callbackQuery = {}, action = "", taskId = "") {
+  const callbackId = String(callbackQuery?.id || "").trim();
+  const callbackData = String(callbackQuery?.data || "").trim();
+  const messageId = callbackQuery?.message?.message_id || "";
+  return {
+    ...route,
+    idempotencyKey: callbackId
+      ? `telegram_callback:${callbackId}`
+      : `telegram_callback:${action || route.type || "action"}:${taskId || route.taskRef || "task"}:${messageId || callbackData}`,
+  };
 }
 
 async function resolveUnifiedCallbackRoute(callbackQuery) {
@@ -1018,7 +666,7 @@ async function resolveUnifiedCallbackRoute(callbackQuery) {
 
   if (!taskId) {
     return {
-      errorText: "Некорректное действие",
+      errorText: "Invalid action",
       callbackRoute: null,
       feedback: "",
       plannerData: null,
@@ -1030,7 +678,7 @@ async function resolveUnifiedCallbackRoute(callbackQuery) {
     const source = await getTaskById(userId, taskId);
     if (!source) {
       return {
-        errorText: "Задача не найдена.",
+        errorText: "Task not found.",
         callbackRoute: null,
         feedback: "",
         plannerData: null,
@@ -1041,8 +689,8 @@ async function resolveUnifiedCallbackRoute(callbackQuery) {
     const plannerData = await getPlannerData(userId);
     return {
       errorText: "",
-      callbackRoute: { type: "reopen_task", taskRef: "", source: "callback" },
-      feedback: "Вернул задачу в активные.",
+      callbackRoute: buildCallbackRoute({ type: PLANNER_ACTIONS.REOPEN_TASK, taskRef: "", source: "callback" }, callbackQuery, action, taskId),
+      feedback: "Returned the task to active.",
       plannerData: plannerDataWithContextTask({
         ...plannerData,
         tasks: [source, ...(plannerData.tasks || []).filter((task) => task.id !== source.id)],
@@ -1055,7 +703,7 @@ async function resolveUnifiedCallbackRoute(callbackQuery) {
   const callbackTask = (plannerData.tasks || []).find((task) => task.id === taskId) || null;
   if (!callbackTask) {
     return {
-      errorText: "Задача не найдена.",
+      errorText: "Task not found.",
       callbackRoute: null,
       feedback: "",
       plannerData: null,
@@ -1064,43 +712,58 @@ async function resolveUnifiedCallbackRoute(callbackQuery) {
   }
 
   let callbackRoute = null;
-  let feedback = "Сделано.";
+  let feedback = "Done.";
   let contextAction = "callback_context";
   let suppressMessages = true;
 
-  if (action === "done") {
-    callbackRoute = { type: "complete_task", taskRef: "", source: "callback" };
-    feedback = "Задача отправлена в выполненные.";
-    contextAction = "callback_done";
+  if (action === "cancel") {
+    return {
+      errorText: "Cancelled. No change.",
+      callbackRoute: null,
+      feedback: "",
+      plannerData: null,
+      suppressMessages: true,
+    };
+  }
+
+  if (action === "done" || action === "confirm_done") {
+    callbackRoute = { type: PLANNER_ACTIONS.COMPLETE_TASK, taskRef: "", source: "callback" };
+    feedback = action === "confirm_done" ? "Confirmed. Task moved to completed." : "Task moved to completed.";
+    contextAction = action === "confirm_done" ? "callback_confirm_done" : "callback_done";
+    suppressMessages = false;
+  } else if (action === "confirm_kill") {
+    callbackRoute = { type: PLANNER_ACTIONS.KILL_TASK, taskRef: "", source: "callback" };
+    feedback = "Confirmed. Task moved to Cemetery.";
+    contextAction = "callback_confirm_kill";
     suppressMessages = false;
   } else if (action === "panic") {
-    callbackRoute = { type: "panic_task", taskRef: "", source: "callback" };
-    feedback = "Показываю micro-шаг.";
+    callbackRoute = { type: PLANNER_ACTIONS.PANIC_TASK, taskRef: "", source: "callback" };
+    feedback = "Showing one tiny step.";
     contextAction = "callback_panic";
     suppressMessages = false;
   } else if (action === "today") {
     if (callbackTask.isToday) {
-      callbackRoute = { type: "unset_today", taskRef: "", source: "callback" };
-      feedback = "Открепил от сегодня.";
+      callbackRoute = { type: PLANNER_ACTIONS.UNSET_TODAY, taskRef: "", source: "callback" };
+      feedback = "Unpinned from today.";
       contextAction = "callback_today_unset";
     } else {
-      callbackRoute = { type: "set_today", taskRef: "", source: "callback" };
-      feedback = "Закрепил на сегодня.";
+      callbackRoute = { type: PLANNER_ACTIONS.SET_TODAY, taskRef: "", source: "callback" };
+      feedback = "Pinned for today.";
       contextAction = "callback_today_set";
     }
   } else if (action === "vital") {
     if (callbackTask.isVital) {
-      callbackRoute = { type: "unset_vital", taskRef: "", source: "callback" };
-      feedback = "Снял критичный приоритет.";
+      callbackRoute = { type: PLANNER_ACTIONS.UNSET_VITAL, taskRef: "", source: "callback" };
+      feedback = "Removed critical priority.";
       contextAction = "callback_vital_unset";
     } else {
-      callbackRoute = { type: "set_vital", taskRef: "", source: "callback" };
-      feedback = "Пометил как критичную.";
+      callbackRoute = { type: PLANNER_ACTIONS.SET_VITAL, taskRef: "", source: "callback" };
+      feedback = "Marked as critical.";
       contextAction = "callback_vital_set";
     }
   } else {
     return {
-      errorText: "Неизвестное действие.",
+      errorText: "Unknown action.",
       callbackRoute: null,
       feedback: "",
       plannerData: null,
@@ -1110,7 +773,7 @@ async function resolveUnifiedCallbackRoute(callbackQuery) {
 
   return {
     errorText: "",
-    callbackRoute,
+    callbackRoute: buildCallbackRoute(callbackRoute, callbackQuery, action, taskId),
     feedback,
     plannerData: plannerDataWithContextTask(plannerData, callbackTask, contextAction),
     suppressMessages,
@@ -1137,6 +800,17 @@ async function handleCallback(chatId, callbackQuery) {
     callbackData: String(callbackQuery.data || ""),
     intent: callbackRoute,
   });
+  await safeWriteTelegramTrace(getTargetUserId(), {
+    type: "telegram_callback_resolved",
+    event_type: "TELEGRAM_CALLBACK_RESOLVED",
+    entity_id: callbackQuery.id || callbackQuery.data || Date.now(),
+    message: `Telegram callback routed as ${String(callbackRoute?.type || "unknown")}.`,
+    payload: {
+      callbackData: String(callbackQuery.data || ""),
+      routeType: String(callbackRoute?.type || ""),
+      feedback: String(feedback || ""),
+    },
+  });
 
   await runPlannerRoute(chatId, callbackRoute, {
     plannerData: plannerData || undefined,
@@ -1156,6 +830,8 @@ module.exports = async function handler(req, res) {
     const message = update.message;
     const callbackQuery = update.callback_query;
     const chatId = callbackQuery?.message?.chat?.id || message?.chat?.id;
+    const text = String(message?.text || "").trim();
+    const callbackData = String(callbackQuery?.data || "");
 
     if (!chatId) {
       return res.status(200).json({ ok: true, ignored: true });
@@ -1169,13 +845,54 @@ module.exports = async function handler(req, res) {
         messageText: String(message?.text || ""),
         callbackData: String(callbackQuery?.data || ""),
       });
+      await safeWriteTelegramTrace(userId, {
+        type: callbackQuery ? "telegram_callback_inbound" : "telegram_message_inbound",
+        event_type: callbackQuery ? "TELEGRAM_CALLBACK_INBOUND" : "TELEGRAM_MESSAGE_INBOUND",
+        entity_id: update?.update_id || callbackQuery?.id || message?.message_id || Date.now(),
+        message: callbackQuery ? "Telegram callback reached webhook." : "Telegram message reached webhook.",
+        payload: {
+          hasText: Boolean(message?.text),
+          command: String(message?.text || "").trim().startsWith("/") ? parseCommand(String(message?.text || "")).command : "",
+          callbackData: String(callbackQuery?.data || ""),
+          telegramMessageId: message?.message_id || null,
+          telegramUpdateId: update?.update_id || null,
+        },
+      });
     } catch (logError) {
       console.error("[telegram-log:inbound]", logError);
     }
 
-    if (!isAllowedChat(chatId)) {
+    const securityDecision = buildTelegramSecurityDecision({
+      chatId,
+      text,
+      callbackData,
+    });
+
+    if (!securityDecision.allowed) {
+      await safeWriteTelegramLog({
+        kind: securityDecision.reason || "rejected_unknown_chat",
+        chatId: String(chatId),
+        messageText: text,
+        callbackData,
+        status: "rejected",
+      });
+      await safeWriteTelegramTrace(userId, {
+        type: securityDecision.reason || "rejected_unknown_chat",
+        event_type: "TELEGRAM_REJECTED_UNKNOWN_CHAT",
+        entity_id: update?.update_id || callbackQuery?.id || message?.message_id || Date.now(),
+        message: "Telegram update rejected because chat is not allowed.",
+        payload: {
+          reason: securityDecision.reason || "rejected_unknown_chat",
+          hasAllowedChatBinding: Boolean(ALLOWED_CHAT_ID),
+          hasText: Boolean(text),
+          command: securityDecision.command || "",
+          callbackData: callbackData ? "[redacted]" : "",
+          telegramMessageId: message?.message_id || null,
+          telegramUpdateId: update?.update_id || null,
+        },
+      });
       if (callbackQuery?.id) {
-        await answerCallback(callbackQuery.id, "Этот чат не разрешён.");
+        await answerCallback(callbackQuery.id, "This chat is not allowed.");
       }
       return res.status(200).json({ ok: true, ignored: true });
     }
@@ -1195,12 +912,11 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    const text = String(message?.text || "").trim();
-    const { command } = parseCommand(text);
+    const { command } = securityDecision;
 
     if (command === "/start") {
       const canLinkChat = Boolean(message?.from?.id || message?.from?.username);
-      await handleStart(chatId, { linkChat: canLinkChat });
+      await handleStart(chatId, { linkChat: canLinkChat && securityDecision.canLinkChat });
     } else if (command === "/calendar") {
       await handleCalendar(chatId);
     } else if (text) {
@@ -1230,9 +946,23 @@ module.exports = async function handler(req, res) {
         errorMessage: error.message || "Unknown error",
         errorStack: error.stack || "",
       });
+      await safeWriteTelegramTrace(getTargetUserId(), {
+        type: "telegram_webhook_error",
+        event_type: "TELEGRAM_WEBHOOK_ERROR",
+        entity_id: Date.now(),
+        message: `Telegram webhook error: ${error.message || "Unknown error"}.`,
+        payload: {
+          errorMessage: error.message || "Unknown error",
+        },
+      });
     } catch (logError) {
       console.error("[telegram-log:error]", logError);
     }
     return res.status(500).json({ error: error.message || "Internal error" });
   }
+};
+
+module.exports._test = {
+  buildTelegramSecurityDecision,
+  isAllowedChat,
 };

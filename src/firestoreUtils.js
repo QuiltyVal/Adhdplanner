@@ -26,6 +26,24 @@ function stripClientTaskStateList(tasks = []) {
   return tasks.map((task) => stripClientTaskState(task));
 }
 
+function isGuestUserId(userId) {
+  return !userId || String(userId).startsWith("guest_");
+}
+
+function assertDirectPlannerWriteAllowed(userId, options = {}, operation = "planner_write") {
+  if (isGuestUserId(userId)) return;
+  if (options?.allowDirectCloudWrite === true) return;
+
+  const error = new Error(`${operation} blocked for cloud users. Use /api/planner-client-actions and PlannerCommandService.`);
+  error.code = "planner/direct-cloud-write-blocked";
+  error.operation = operation;
+  console.warn("[Firestore] Direct cloud planner write blocked", {
+    operation,
+    userId,
+  });
+  throw error;
+}
+
 // ── Subcollection: subscribe to all tasks (real-time) ─────────────────────────
 export function subscribeToTasks(userId, onTasks, onError) {
   const tasksRef = collection(db, "Users", userId, "tasks");
@@ -42,8 +60,85 @@ export function subscribeToTasks(userId, onTasks, onError) {
   );
 }
 
+// ── Subcollection: planner event journal ─────────────────────────────────────
+export function subscribeToPlannerEvents(userId, onEvents, maxEvents = 8) {
+  if (!userId || String(userId).startsWith("guest_")) {
+    onEvents([]);
+    return () => {};
+  }
+
+  const eventsQuery = query(
+    collection(db, "Users", userId, "plannerEvents"),
+    orderBy("createdAt", "desc"),
+    limit(maxEvents),
+  );
+
+  return onSnapshot(
+    eventsQuery,
+    (snapshot) => {
+      onEvents(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    },
+    (error) => {
+      console.warn("[Firestore] subscribeToPlannerEvents failed:", error);
+      onEvents([]);
+    },
+  );
+}
+
+// ── Subcollection: human-readable planner report items ──────────────────────
+export function subscribeToReportItems(userId, onItems, maxItems = 12) {
+  if (!userId || String(userId).startsWith("guest_")) {
+    onItems([]);
+    return () => {};
+  }
+
+  const itemsQuery = query(
+    collection(db, "Users", userId, "reportItems"),
+    orderBy("createdAt", "desc"),
+    limit(maxItems),
+  );
+
+  return onSnapshot(
+    itemsQuery,
+    (snapshot) => {
+      onItems(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    },
+    (error) => {
+      console.warn("[Firestore] subscribeToReportItems failed:", error);
+      onItems([]);
+    },
+  );
+}
+
+export async function savePlannerEvent(userId, event = {}, options = {}) {
+  if (!userId || String(userId).startsWith("guest_")) return null;
+  assertDirectPlannerWriteAllowed(userId, options, "savePlannerEvent");
+
+  const createdAt = typeof event.createdAt === "number" ? event.createdAt : Date.now();
+  const id = String(
+    event.id ||
+    `${event.type || "planner_event"}_${event.taskId || "event"}_${createdAt}`,
+  );
+
+  const payload = {
+    id,
+    type: String(event.type || "planner_event"),
+    actor: String(event.actor || "system"),
+    source: String(event.source || "web"),
+    taskId: event.taskId ? String(event.taskId) : null,
+    taskText: String(event.taskText || ""),
+    message: String(event.message || event.taskText || "Событие планера"),
+    createdAt,
+    createdAtServer: serverTimestamp(),
+  };
+
+  await setDoc(doc(db, "Users", userId, "plannerEvents", id), payload);
+  return payload;
+}
+
 // ── Subcollection: write one task ─────────────────────────────────────────────
-export async function saveTask(userId, task) {
+export async function saveTask(userId, task, options = {}) {
+  assertDirectPlannerWriteAllowed(userId, options, "saveTask");
   const taskRef = doc(db, "Users", userId, "tasks", String(task.id));
   const baseUpdatedAt =
     typeof task?.__baseLastUpdated === "number"
@@ -96,8 +191,15 @@ export async function saveTask(userId, task) {
   return normalizedTask;
 }
 
+// ── Subcollection: delete one task permanently ───────────────────────────────
+export async function deleteTask(userId, taskId, options = {}) {
+  assertDirectPlannerWriteAllowed(userId, options, "deleteTask");
+  await deleteDoc(doc(db, "Users", userId, "tasks", String(taskId)));
+}
+
 // ── Root doc: write score ─────────────────────────────────────────────────────
-export async function saveScore(userId, score) {
+export async function saveScore(userId, score, options = {}) {
+  assertDirectPlannerWriteAllowed(userId, options, "saveScore");
   await setDoc(doc(db, "Users", userId), { score }, { merge: true });
 }
 
@@ -146,7 +248,10 @@ export async function migrateTasksToSubcollection(userId) {
     // Write each task to subcollection
     for (const task of oldTasks) {
       if (!task.id) continue;
-      await saveTask(userId, task);
+      await saveTask(userId, task, {
+        allowDirectCloudWrite: true,
+        reason: "migration_array_to_subcollection",
+      });
     }
 
     console.log(`[Migration] Moved ${oldTasks.length} tasks to subcollection`);
@@ -209,7 +314,8 @@ export async function loadTaskSnapshots(userId) {
   }
 }
 
-export async function saveTaskSnapshot(userId, tasks, score, source = "manual_web") {
+export async function saveTaskSnapshot(userId, tasks, score, source = "manual_web", options = {}) {
+  assertDirectPlannerWriteAllowed(userId, options, "saveTaskSnapshot");
   await addDoc(collection(db, "Users", userId, "taskSnapshots"), {
     source,
     kind: "manual",
@@ -223,7 +329,8 @@ export async function saveTaskSnapshot(userId, tasks, score, source = "manual_we
 
 // Restores tasks from a snapshot: writes all snapshot tasks (bypassing stale-check),
 // and deletes any current tasks not present in the snapshot.
-export async function restoreFromSnapshot(userId, currentTaskIds, snapshotTasks) {
+export async function restoreFromSnapshot(userId, currentTaskIds, snapshotTasks, options = {}) {
+  assertDirectPlannerWriteAllowed(userId, options, "restoreFromSnapshot");
   const cleanSnapshotTasks = stripClientTaskStateList(snapshotTasks);
   const snapshotIds = new Set(cleanSnapshotTasks.map(t => String(t.id)));
 

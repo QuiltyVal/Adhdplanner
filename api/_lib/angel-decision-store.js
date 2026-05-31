@@ -1,4 +1,6 @@
 const { getDb } = require("./firebase-admin");
+// Legacy module. Active mission/rescue decisions must come from Planner Engine
+// projections in plannerMeta, not from this separate angel-decision brain.
 const { sortTasksByPriority } = require("./planner-store");
 
 const BERLIN_DATE_FORMAT = new Intl.DateTimeFormat("sv-SE", {
@@ -16,6 +18,14 @@ function getDayNumberFromIsoDate(isoDate) {
   if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate))) return null;
   const [year, month, day] = String(isoDate).split("-").map(Number);
   return Math.floor(Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000));
+}
+
+function normalizeTaskIdList(value = [], limit = 24) {
+  return [...new Set(
+    (Array.isArray(value) ? value : [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean),
+  )].slice(0, limit);
 }
 
 function angelDecisionsCol(userId) {
@@ -39,16 +49,31 @@ function pickAngelScore(task = {}, index = 0) {
   return Math.min(120, score);
 }
 
-function pickDecisionCandidates(tasks = [], maxPrimary = 2) {
+function pickDecisionCandidates(tasks = [], maxPrimary = 2, options = {}) {
   const active = (Array.isArray(tasks) ? tasks : []).filter((task) => task?.status === "active");
   if (!active.length) return [];
 
-  const today = sortTasksByPriority(active.filter((task) => task?.isToday));
-  const rest = sortTasksByPriority(active.filter((task) => !task?.isToday));
-  const ordered = today.length > 0 ? [...today, ...rest] : sortTasksByPriority(active);
+  const dismissedTaskIds = new Set(normalizeTaskIdList(options.dismissedTaskIds));
+  const emergencyTaskId = String(options.emergencyTaskId || "").trim();
+
+  const selectable = active.filter((task) => !dismissedTaskIds.has(String(task?.id || "")));
+  const pool = selectable.length > 0 ? selectable : active;
+
+  const today = sortTasksByPriority(pool.filter((task) => task?.isToday));
+  const rest = sortTasksByPriority(pool.filter((task) => !task?.isToday));
+  const ordered = today.length > 0 ? [...today, ...rest] : sortTasksByPriority(pool);
 
   const selected = [];
   const seen = new Set();
+
+  if (emergencyTaskId) {
+    const emergencyTask = ordered.find((task) => String(task?.id || "") === emergencyTaskId);
+    if (emergencyTask) {
+      selected.push(emergencyTask);
+      seen.add(emergencyTaskId);
+    }
+  }
+
   for (const task of ordered) {
     const taskId = String(task?.id || "").trim();
     if (!taskId || seen.has(taskId)) continue;
@@ -97,7 +122,7 @@ function isHardDeadlineTask(task = {}, dateKey = "") {
   return deadlineDay <= todayDay;
 }
 
-function getDecisionOverrideReason(existingItems = [], tasks = [], dateKey = "", maxPrimary = 2) {
+function getDecisionOverrideReason(existingItems = [], tasks = [], dateKey = "", maxPrimary = 2, options = {}) {
   const active = (Array.isArray(tasks) ? tasks : []).filter((task) => task?.status === "active");
   if (!active.length) return "empty";
 
@@ -106,6 +131,19 @@ function getDecisionOverrideReason(existingItems = [], tasks = [], dateKey = "",
       .map((item) => String(item?.taskId || "").trim())
       .filter(Boolean),
   );
+  const dismissedTaskIds = new Set(normalizeTaskIdList(options.dismissedTaskIds));
+  const emergencyTaskId = String(options.emergencyTaskId || "").trim();
+
+  const selectedDismissed = [...selectedIds].some((taskId) => dismissedTaskIds.has(taskId));
+  if (selectedDismissed) return "manual_dismiss";
+
+  if (emergencyTaskId) {
+    const emergencyIsActive = active.some((task) => String(task?.id || "") === emergencyTaskId);
+    const emergencyDismissed = dismissedTaskIds.has(emergencyTaskId);
+    if (emergencyIsActive && !emergencyDismissed && !selectedIds.has(emergencyTaskId)) {
+      return "emergency";
+    }
+  }
 
   const hardDeadlineOutsideSelection = active.some((task) => (
     isHardDeadlineTask(task, dateKey) && !selectedIds.has(String(task.id || ""))
@@ -122,6 +160,8 @@ async function resolveDailyAngelDecision(userId, tasks = [], options = {}) {
   const dateKey = String(options.dateKey || getBerlinDateKey());
   const maxPrimary = Math.max(1, Math.min(3, Number(options.maxPrimary) || 2));
   const source = String(options.source || "system");
+  const dismissedTaskIds = normalizeTaskIdList(options.dismissedTaskIds);
+  const emergencyTaskId = String(options.emergencyTaskId || "").trim();
   const taskById = new Map(
     (Array.isArray(tasks) ? tasks : [])
       .map((task) => [String(task?.id || "").trim(), task]),
@@ -137,7 +177,10 @@ async function resolveDailyAngelDecision(userId, tasks = [], options = {}) {
   }
 
   const reusedItems = normalizeExistingDecision(existing, taskById, maxPrimary);
-  const overrideReason = getDecisionOverrideReason(reusedItems, tasks, dateKey, maxPrimary);
+  const overrideReason = getDecisionOverrideReason(reusedItems, tasks, dateKey, maxPrimary, {
+    dismissedTaskIds,
+    emergencyTaskId,
+  });
   if (reusedItems && !overrideReason) {
     return {
       dateKey,
@@ -148,7 +191,10 @@ async function resolveDailyAngelDecision(userId, tasks = [], options = {}) {
     };
   }
 
-  const picked = pickDecisionCandidates(tasks, maxPrimary);
+  const picked = pickDecisionCandidates(tasks, maxPrimary, {
+    dismissedTaskIds,
+    emergencyTaskId,
+  });
   const items = picked.map((task, index) => ({
     taskId: String(task.id),
     text: String(task.text || ""),

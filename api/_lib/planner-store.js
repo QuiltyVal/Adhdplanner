@@ -1,5 +1,7 @@
 const { randomUUID } = require("node:crypto");
 const { getDb, admin } = require("./firebase-admin");
+const { writeEventDirect } = require("./planner-event-contract");
+const { shouldExcludeFromMissionPressure } = require("./planner-not-your-move-rules");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_TASK_HEAT = 35;
@@ -77,6 +79,25 @@ function ensurePlannerDoc(data = {}, userId) {
           candidateTaskIds: [],
           updatedAt: 0,
           suggestedTaskTexts: [],
+        },
+    angelOverrides: data.angelOverrides && typeof data.angelOverrides === "object"
+      ? {
+          dateKey: String(data.angelOverrides.dateKey || ""),
+          dismissedTaskIds: Array.isArray(data.angelOverrides.dismissedTaskIds)
+            ? [...new Set(
+              data.angelOverrides.dismissedTaskIds
+                .map((value) => String(value || "").trim())
+                .filter(Boolean),
+            )].slice(0, 24)
+            : [],
+          emergencyTaskId: String(data.angelOverrides.emergencyTaskId || "").trim(),
+          updatedAt: typeof data.angelOverrides.updatedAt === "number" ? data.angelOverrides.updatedAt : 0,
+        }
+      : {
+          dateKey: "",
+          dismissedTaskIds: [],
+          emergencyTaskId: "",
+          updatedAt: 0,
         },
     id: userId,
   };
@@ -269,7 +290,9 @@ function sortTasksByPriority(tasks = []) {
 }
 
 function getMissionSelection(tasks = []) {
-  const activeTasks = tasks.filter((task) => task.status === "active");
+  const activeTasks = tasks
+    .filter((task) => task.status === "active")
+    .filter((task) => !shouldExcludeFromMissionPressure(task));
   if (activeTasks.length === 0) {
     return { task: null, reason: "empty", candidates: [] };
   }
@@ -314,53 +337,69 @@ function getFirstOpenSubtask(task) {
   return (task?.subtasks || []).find((subtask) => !subtask.completed) || null;
 }
 
+function formatTelegramDeadlineInfo(task) {
+  const info = getDeadlineInfo(task);
+  if (!info) return null;
+
+  const deadlineDate = task?.deadlineAt ? new Date(task.deadlineAt) : null;
+  const dateLabel = deadlineDate && !Number.isNaN(deadlineDate.getTime())
+    ? new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(deadlineDate)
+    : "deadline";
+
+  if (info.tone === "overdue") return { ...info, label: "Overdue · " + dateLabel };
+  if (info.tone === "today") return { ...info, label: "Due today" };
+  if (info.tone === "soon") return { ...info, label: "Due soon · " + dateLabel };
+  return { ...info, label: "Deadline · " + dateLabel };
+}
 function buildTelegramTaskLine(task) {
-  const deadlineInfo = getDeadlineInfo(task);
+  const deadlineInfo = formatTelegramDeadlineInfo(task);
   const bits = [];
 
-  if (task.isVital) bits.push("🚨 критично");
-  if (task.angelPinned) bits.push("🤖 ангел");
-  if (task.isToday) bits.push("📌 сегодня");
-  if (deadlineInfo) bits.push(`📅 ${deadlineInfo.label}`);
-  if (task.urgency === "high") bits.push("⏰ срочно");
-  if (task.resistance === "high") bits.push("🧠 страшно");
+  if (task.isVital) bits.push("🚨 critical");
+  if (task.angelPinned) bits.push("🤖 angel");
+  if (task.isToday) bits.push("📌 today");
+  if (deadlineInfo) bits.push("📅 " + deadlineInfo.label);
+  if (task.urgency === "high") bits.push("⏰ urgent");
+  if (task.resistance === "high") bits.push("🧠 scary");
 
   const openSubtasks = (task.subtasks || []).filter((subtask) => !subtask.completed).length;
-  if (openSubtasks > 0) bits.push(`шагов: ${openSubtasks}`);
+  if (openSubtasks > 0) bits.push("steps: " + openSubtasks);
 
-  return `• ${escapeHtml(task.text)}${bits.length ? `\n  ${bits.join(" · ")}` : ""}`;
+  return "• " + escapeHtml(task.text) + (bits.length ? "\n  " + bits.join(" · ") : "");
 }
 
 function buildNudgeMessage(task) {
   if (!task) {
-    return "Planner снова здесь. Открой его и выбери одну задачу.";
+    return "Planner is here again. Open it and choose one small task.";
   }
 
-  const deadlineInfo = getDeadlineInfo(task);
+  const deadlineInfo = formatTelegramDeadlineInfo(task);
   const heat = Math.floor(getTaskHeat(task));
   const openSubtask = getFirstOpenSubtask(task);
+  const taskTitle = escapeHtml(task.text);
+  const firstStep = openSubtask ? " Start with: " + escapeHtml(openSubtask.text) + "." : "";
 
   if (deadlineInfo?.tone === "overdue") {
-    return `⛔ "${task.text}" уже просрочена (${deadlineInfo.label}). Возвращайся к ней сейчас.${openSubtask ? ` Начни с: ${openSubtask.text}.` : ""}`;
+    return "⛔ \"" + taskTitle + "\" is overdue (" + deadlineInfo.label + "). Come back to it now." + firstStep;
   }
 
   if (deadlineInfo?.tone === "today") {
-    return `📅 Сегодня дедлайн по "${task.text}" (${deadlineInfo.label}).${openSubtask ? ` Первый шаг: ${openSubtask.text}.` : ""}`;
+    return "📅 \"" + taskTitle + "\" is due today." + firstStep;
   }
 
   if (deadlineInfo?.tone === "soon") {
-    return `⚠️ Срок по "${task.text}" уже рядом: ${deadlineInfo.label}.${openSubtask ? ` Первый шаг: ${openSubtask.text}.` : ""}`;
+    return "⏳ \"" + taskTitle + "\" is coming up soon (" + deadlineInfo.label + ")." + firstStep;
   }
 
-  if (heat <= 15) {
-    return `💀 "${task.text}" почти умерла. Сделай один шаг и верни ей пульс.`;
+  if (task.isVital) {
+    return "🚨 \"" + taskTitle + "\" is marked critical." + (firstStep || " Give it two imperfect minutes.");
   }
 
-  if (heat <= 35) {
-    return `🧯 "${task.text}" опасно остыла. Одного касания уже хватит, чтобы спасти.`;
+  if (heat >= 85) {
+    return "🔥 \"" + taskTitle + "\" has strong momentum (" + heat + "%). Keep it alive with one tiny move." + firstStep;
   }
 
-  return `🎯 "${task.text}" сейчас главная. Вернись и сдвинь её.`;
+  return "☁️ Soft check-in: \"" + taskTitle + "\" is still active." + (firstStep || " One tiny step is enough.");
 }
 
 function createTask(text, options = {}) {
@@ -368,10 +407,12 @@ function createTask(text, options = {}) {
   return {
     id: `${now}`,
     text,
+    createdAt: now,
     lastUpdated: now,
     heatBase: DEFAULT_TASK_HEAT,
     heatCurrent: DEFAULT_TASK_HEAT,
     status: "active",
+    position: Number.isFinite(Number(options.position)) ? Number(options.position) : now,
     subtasks: [],
     urgency: options.urgency || "medium",
     resistance: options.resistance || "medium",
@@ -430,6 +471,10 @@ async function mutatePlanner(userId, mutator, options = {}) {
 
   const currentFingerprint = buildPlannerFingerprint(current);
   const nextFingerprint = buildPlannerFingerprint(nextSafe);
+  const allowsLegacyTaskMutation = options.allowLegacyTaskMutation === true;
+  if (currentFingerprint !== nextFingerprint && !allowsLegacyTaskMutation) {
+    throw new Error("Legacy mutatePlanner task writes are blocked; use PlannerCommandService");
+  }
   const currentTaskVersionById = new Map(
     current.tasks.map((task) => [
       String(task.id),
@@ -570,6 +615,29 @@ async function writeTelegramLog(userId, payload = {}) {
   });
 }
 
+async function writePlannerEvent(userId, payload = {}) {
+  const createdAt = typeof payload.createdAt === "number" ? payload.createdAt : Date.now();
+  const id = String(
+    payload.id ||
+    `${payload.type || "planner_event"}_${payload.taskId || "event"}_${createdAt}`,
+  ).replace(/[\/#?\[\]]/g, "_").slice(0, 180);
+
+  return writeEventDirect(userDoc(userId), {
+    id,
+    type: String(payload.type || "planner_event"),
+    actor_type: String(payload.actor_type || payload.actor || "system"),
+    actor_ref: String(payload.actor_ref || payload.source || "server"),
+    source: String(payload.source || "server"),
+    taskId: payload.taskId ? String(payload.taskId) : null,
+    taskText: String(payload.taskText || ""),
+    message: String(payload.message || payload.taskText || "Событие планера"),
+    payload: payload.payload && typeof payload.payload === "object" ? payload.payload : {},
+    visible_in_feed: payload.visible_in_feed !== false,
+    visible_in_report: Boolean(payload.visible_in_report),
+    createdAt,
+  });
+}
+
 async function writeCapture(userId, payload = {}) {
   const rawText = String(payload.rawText || "").trim();
   const transcript = String(payload.transcript || "").trim();
@@ -652,5 +720,6 @@ module.exports = {
   getMissionSelection,
   sortTasksByPriority,
   writeCapture,
+  writePlannerEvent,
   writeTelegramLog,
 };

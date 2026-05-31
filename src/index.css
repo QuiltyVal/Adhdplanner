@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@400;700&family=Orbitron:wght@400;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Press+Start+2P&family=VT323&family=Inter:wght@400;500;600;700&family=Pixelify+Sans:wght@400;700&family=Orbitron:wght@400;600;700;900&display=swap');
 
 @font-face {
   font-family: 'GuildensternNbp';
@@ -9,6 +9,11 @@
 }
 
 :root {
+  --apus-display: 'Space Grotesk', 'Nunito Sans', system-ui, sans-serif;
+  --apus-sans: 'Nunito Sans', 'Space Grotesk', system-ui, sans-serif;
+  --apus-serif: 'Nunito Sans', 'Space Grotesk', system-ui, sans-serif;
+  --apus-mono: 'Space Grotesk', 'Nunito Sans', system-ui, sans-serif;
+  --apus-pixel: 'GuildensternNbp', 'Press Start 2P', cursive;
   --bg-gradient: radial-gradient(ellipse at bottom, #1a0000 0%, #050505 100%);
   --glass-bg: rgba(10, 10, 10, 0.95);
   --glass-bg-hover: rgba(20, 20, 20, 0.95);
@@ -36,7 +41,7 @@ html, body {
 }
 
 body {
-  font-family: 'GuildensternNbp', 'VT323', monospace;
+  font-family: var(--apus-sans, 'Nunito Sans', system-ui, sans-serif);
   background: #050505;
   background-attachment: fixed;
   color: #ffffff;
@@ -61,8 +66,12 @@ body::after {
   z-index: 9999;
 }
 
+body.onboarding-companions-front::after {
+  display: none;
+}
+
 input, button, textarea {
-  font-family: 'GuildensternNbp', 'VT323', monospace;
+  font-family: var(--apus-sans, 'Nunito Sans', system-ui, sans-serif);
 }
 
 button {
@@ -89,7 +98,7 @@ input, textarea {
   background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 50%, #ede7f6 100%);
   background-attachment: fixed;
   color: #2d1b4e;
-  font-family: 'GuildensternNbp', 'VT323', monospace;
+  font-family: var(--apus-sans, 'Nunito Sans', system-ui, sans-serif);
 }
 
 /* No CRT scanlines in light mode */
@@ -431,16 +440,16 @@ input, textarea {
 
 /* Companions */
 [data-theme="light"] .avatar {
-  background: #ffffff;
-  border-radius: 50%;
+  background: transparent;
+  border-radius: 0;
 }
 [data-theme="light"] .angel-avatar {
-  border-color: #fbbf24;
-  box-shadow: 3px 3px 0 rgba(251,191,36,0.15), 0 0 20px rgba(251,191,36,0.3);
+  border-color: transparent;
+  box-shadow: none;
 }
 [data-theme="light"] .devil-avatar {
-  border-color: #f472b6;
-  box-shadow: 3px 3px 0 rgba(244,114,182,0.15), 0 0 20px rgba(244,114,182,0.3);
+  border-color: transparent;
+  box-shadow: none;
 }
 [data-theme="light"] .speech-bubble {
   background: #ffffff;
@@ -697,16 +706,16 @@ input, textarea {
 
 /* Companions */
 [data-theme="neon"] .avatar {
-  border-radius: 12px;
-  background: rgba(14, 0, 40, 0.9);
+  border-radius: 0;
+  background: transparent;
 }
 [data-theme="neon"] .angel-avatar {
-  border-color: rgba(0, 229, 255, 0.5);
-  box-shadow: 0 0 20px rgba(0, 229, 255, 0.4), 0 0 40px rgba(0, 229, 255, 0.15);
+  border-color: transparent;
+  box-shadow: none;
 }
 [data-theme="neon"] .devil-avatar {
-  border-color: rgba(255, 45, 120, 0.5);
-  box-shadow: 0 0 20px rgba(255, 45, 120, 0.4), 0 0 40px rgba(255, 45, 120, 0.15);
+  border-color: transparent;
+  box-shadow: none;
 }
 [data-theme="neon"] .speech-bubble {
   background: rgba(14, 0, 40, 0.95);
@@ -752,6 +761,88 @@ input, textarea {
 [data-theme="neon"] .subtask-edit-input:focus {
   border-color: #ff2d78;
   box-shadow: 0 0 8px rgba(255, 45, 120, 0.25);
+}
+
+/* Neon is a dark theme too: keep task cards readable on purple/black surfaces. */
+[data-theme="neon"] body::after {
+  opacity: 0.28;
+}
+
+[data-theme="neon"] .task-card {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(255, 45, 120, 0.18), transparent 42%),
+    radial-gradient(circle at 0% 100%, rgba(0, 229, 255, 0.1), transparent 45%),
+    linear-gradient(145deg, rgba(28, 7, 59, 0.96), rgba(12, 3, 28, 0.98)) !important;
+  border-color: rgba(255, 45, 120, 0.44) !important;
+  color: #f8eaff !important;
+}
+
+[data-theme="neon"] .task-card.is-vital {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(255, 45, 120, 0.24), transparent 42%),
+    radial-gradient(circle at 0% 100%, rgba(255, 200, 0, 0.1), transparent 45%),
+    linear-gradient(145deg, rgba(36, 4, 52, 0.97), rgba(13, 3, 28, 0.98)) !important;
+  border-color: rgba(255, 45, 120, 0.62) !important;
+}
+
+[data-theme="neon"] .task-card .task-text,
+[data-theme="neon"] .task-card .task-text-content,
+[data-theme="neon"] .task-card .task-title,
+[data-theme="neon"] .task-card .task-text-edit-input,
+[data-theme="neon"] .task-card .subtask-edit-input {
+  color: #fff7ff !important;
+  text-shadow: 0 1px 14px rgba(255, 45, 120, 0.22);
+}
+
+[data-theme="neon"] .task-card .task-next-step {
+  border: 1px solid rgba(255, 230, 255, 0.18) !important;
+  color: #f7e7ff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="neon"] .task-card .task-next-step strong {
+  color: #ffffff !important;
+}
+
+[data-theme="neon"] .task-card .task-passive-chip,
+[data-theme="neon"] .task-card .deadline-badge,
+[data-theme="neon"] .task-card .days-alive {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #f4e8ff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-theme="neon"] .task-card .deadline-badge.overdue,
+[data-theme="neon"] .task-card .task-passive-chip.is-vital {
+  border-color: rgba(255, 45, 120, 0.48) !important;
+  color: #ffd6e7 !important;
+  background: rgba(255, 45, 120, 0.18) !important;
+}
+
+[data-theme="neon"] .task-card .heat-label,
+[data-theme="neon"] .task-card .heat-value,
+[data-theme="neon"] .task-card .timer-row,
+[data-theme="neon"] .task-card .timer-total {
+  color: rgba(248, 234, 255, 0.72) !important;
+}
+
+[data-theme="neon"] .task-card .subtasks-container,
+[data-theme="neon"] .task-card .subtask-item {
+  color: #f7e7ff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="neon"] .task-card .action-btn {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #f8eaff !important;
+  background: rgba(255, 255, 255, 0.11) !important;
+}
+
+[data-theme="neon"] .task-card .action-btn.complete {
+  border-color: rgba(0, 255, 200, 0.34) !important;
+  color: #061a16 !important;
+  background: linear-gradient(135deg, #a7fff0, #00ffc8) !important;
+  text-shadow: none !important;
 }
 
 /* Nudge / status */

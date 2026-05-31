@@ -1,8 +1,13 @@
-const { buildNudgeMessage, getPlannerData, pickRescueTask } = require("./_lib/planner-store");
-const { plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
+const {
+  buildPlannerWorkerErrorResponse,
+  buildPlannerWorkerSuccessResponse,
+} = require("./_lib/planner-worker-response-contract");
+const { drainOutbox, runPlannerTick } = require("./_lib/planner-engine");
+const { getDb } = require("./_lib/firebase-admin");
+const { runPlannerSelfTest } = require("./_lib/planner-self-test");
+const { telegramRequest } = require("./_lib/telegram");
 
 const DEFAULT_USER_ID = process.env.PLANNER_DEFAULT_USER_ID;
-const NUDGE_TIMEZONE = "Europe/Berlin";
 
 function isAuthorized(req) {
   const cronSecret = process.env.CRON_SECRET;
@@ -23,85 +28,125 @@ function isAuthorized(req) {
   return false;
 }
 
-function getBerlinHour(now = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: NUDGE_TIMEZONE,
-    hour: "2-digit",
-    hour12: false,
-  }).formatToParts(now);
-
-  const hourPart = parts.find((part) => part.type === "hour");
-  return Number(hourPart?.value || "0");
-}
-
-function getNudgeSlot(now = new Date()) {
-  return getBerlinHour(now) < 13 ? "morning" : "evening";
-}
-
 function normalizeRequestedSlot(value = "") {
   const lowered = String(value || "").trim().toLowerCase();
   if (lowered === "morning" || lowered === "evening") return lowered;
   return null;
 }
 
-function buildScheduledNudgeMessage(task, slot) {
-  const base = buildNudgeMessage(task);
-
-  if (slot === "morning") {
-    return [
-      "🌅 Утренний пинок.",
-      base,
-      task ? "Сделай один шаг до того, как день размажет внимание." : "",
-    ].filter(Boolean).join("\n");
-  }
-
-  return [
-    "🌙 Вечерний пинок.",
-    base,
-    task ? "Если сил мало, жми Panic и сделай один кривой шаг." : "Если день разъехался, открой planner и выбери одну живую задачу.",
-  ].join("\n");
+function wantsForcedNudge(req, action, requestedSlot) {
+  const forceValue = req.query?.force ?? req.body?.force;
+  if (forceValue === "1" || forceValue === 1 || forceValue === true || forceValue === "true") return true;
+  if (action === "manual-force") return true;
+  if (requestedSlot) return false;
+  if (req.method === "POST" && action !== "maintenance" && action !== "outbox-drain") return false;
+  return false;
 }
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST" && req.method !== "GET") {
     res.setHeader("Allow", "GET, POST");
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json(buildPlannerWorkerErrorResponse({
+      action: "method_not_allowed",
+      error: "Method not allowed",
+    }));
   }
 
   if (!isAuthorized(req)) {
-    return res.status(401).json({ error: "Unauthorized" });
+    return res.status(401).json(buildPlannerWorkerErrorResponse({
+      action: "unauthorized",
+      error: "Unauthorized",
+    }));
   }
 
   if (!DEFAULT_USER_ID) {
-    return res.status(500).json({ error: "PLANNER_DEFAULT_USER_ID is not configured" });
+    return res.status(500).json(buildPlannerWorkerErrorResponse({
+      action: "misconfigured",
+      error: "PLANNER_DEFAULT_USER_ID is not configured",
+    }));
   }
 
+  const action = String(req.query?.action || req.body?.action || "").trim();
+
   try {
-    const plannerData = await getPlannerData(DEFAULT_USER_ID);
-    const chatId = plannerData.telegramChatId || process.env.TELEGRAM_ALLOWED_CHAT_ID;
-    if (!chatId) {
-      return res.status(400).json({ error: "No Telegram chat is linked yet" });
+    if (action === "task-death-notify") {
+      return res.status(410).json(buildPlannerWorkerErrorResponse({
+        action,
+        error: "Deprecated endpoint. System cemetery notifications are emitted by Planner Engine outbox only.",
+      }));
     }
 
-    const task = pickRescueTask(plannerData.tasks);
+    if (action === "planner-self-test") {
+      const selfTest = await runPlannerSelfTest({
+        userId: "planner_worker_self_test",
+        now: Date.now(),
+      });
+      return res.status(selfTest.ok ? 200 : 500).json(buildPlannerWorkerSuccessResponse({
+        action,
+        extra: { selfTest },
+      }));
+    }
+
+    if (action === "outbox-drain") {
+      const outbox = await drainOutbox({
+        userId: DEFAULT_USER_ID,
+        limit: Number(req.query?.limit || req.body?.limit || 20),
+      });
+      return res.status(200).json(buildPlannerWorkerSuccessResponse({
+        action: "outbox-drain",
+        extra: { outbox },
+      }));
+    }
+
+    if (action === "telegram-ping") {
+      const userSnap = await getDb().collection("Users").doc(DEFAULT_USER_ID).get();
+      const rootData = userSnap.exists ? userSnap.data() || {} : {};
+      const chatId = process.env.TELEGRAM_ALLOWED_CHAT_ID || rootData.telegramChatId || "";
+      if (!chatId) {
+        return res.status(500).json(buildPlannerWorkerErrorResponse({
+          action,
+          error: "Telegram chat id is not configured",
+        }));
+      }
+
+      const result = await telegramRequest("sendMessage", {
+        chat_id: chatId,
+        text: `ADHD Planner delivery ping · ${new Date().toISOString()}`,
+      });
+
+      return res.status(200).json(buildPlannerWorkerSuccessResponse({
+        action,
+        extra: {
+          telegram: {
+            ok: true,
+            messageId: result?.message_id || null,
+            date: result?.date || null,
+            chatType: result?.chat?.type || "",
+          },
+        },
+      }));
+    }
+
     const requestedSlot = normalizeRequestedSlot(req.query?.slot || req.body?.slot);
-    const slot = requestedSlot || getNudgeSlot();
-    const text = buildScheduledNudgeMessage(task, slot);
-
-    await telegramRequest("sendMessage", {
-      chat_id: chatId,
-      text,
-      reply_markup: task ? plannerTaskKeyboard(task.id) : undefined,
+    const forceNudge = wantsForcedNudge(req, action, requestedSlot);
+    const tick = await runPlannerTick({
+      userId: DEFAULT_USER_ID,
+      trigger: action === "maintenance" ? "telegram_nudge_maintenance" : "telegram_nudge",
+      forceNudge,
+      slot: requestedSlot,
+      allowScheduledNudge: action !== "maintenance",
     });
+    const outbox = await drainOutbox({ userId: DEFAULT_USER_ID, limit: 20 });
 
-    return res.status(200).json({
-      ok: true,
-      slot,
-      taskId: task?.id || null,
-      text,
-    });
+    return res.status(200).json(buildPlannerWorkerSuccessResponse({
+      action: action || "planner_tick",
+      extra: { tick, outbox },
+    }));
   } catch (error) {
     console.error("[telegram-nudge]", error);
-    return res.status(500).json({ error: error.message || "Internal error" });
+    return res.status(500).json(buildPlannerWorkerErrorResponse({
+      action: action || "planner_tick",
+      error: error.message || "Internal error",
+    }));
   }
 };

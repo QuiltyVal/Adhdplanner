@@ -1,6 +1,15 @@
 const { executePlannerAction } = require("./planner-action-executor");
-const { getNonActiveTasks, getPlannerData } = require("./planner-store");
-const { calendarConnectKeyboard, plannerTaskKeyboard } = require("./telegram");
+const { buildSkipPostCommandHookRoute } = require("./planner-command-runner");
+const { getPlannerBootstrap } = require("./planner-engine");
+const {
+  runAndWritePostCommandStatus,
+} = require("./planner-post-command-hook");
+const {
+  buildPlannerRouteRuntimeResult,
+  buildPlannerRouteState,
+} = require("./planner-route-result-contract");
+const { getPlannerData } = require("./planner-store");
+const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard } = require("./telegram");
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -37,7 +46,26 @@ function buildActionAdapter(messages = []) {
       });
     },
     taskKeyboard: plannerTaskKeyboard,
+    completedTaskKeyboard,
     calendarConnectKeyboard,
+  };
+}
+
+function getShortRouteCommandBucket(now = Date.now(), windowMs = 4000) {
+  return Math.floor(Number(now || Date.now()) / windowMs);
+}
+
+function buildRoutePostCommandKey(route = {}, chatId = "") {
+  const explicitKey = route.idempotencyKey || route.commandId || route.id || "";
+  if (explicitKey) return String(explicitKey);
+  const routeType = String(route.type || route.action || "unknown");
+  const target = String(route.taskId || route.targetTaskId || route.task_id || "");
+  return `route:${routeType}:${target}:${chatId || "planner_actions_api"}:${getShortRouteCommandBucket()}`;
+}
+
+function buildRoutePostCommandDescriptor(route = {}, chatId = "") {
+  return {
+    idempotencyKey: buildRoutePostCommandKey(route, chatId),
   };
 }
 
@@ -56,50 +84,52 @@ async function runPlannerRouteForUser({
     userId,
     chatId: String(chatId || "planner_actions_api"),
     plannerData: initialPlannerData,
-    route,
+    route: buildSkipPostCommandHookRoute(route),
     adapter: buildActionAdapter(messages),
     log: typeof log === "function" ? log : null,
   });
 
+  const { postCommand, postCommandWrite } = await runAndWritePostCommandStatus({
+    userId,
+    command: buildRoutePostCommandDescriptor(route, chatId),
+    trigger: "command",
+    logPrefix: "planner-actions-runtime",
+  });
+  const engineResult = postCommand?.engine || null;
+
   if (!includeState) {
-    return {
+    return buildPlannerRouteRuntimeResult({
       route,
       messages,
+      engine: engineResult,
+      postCommand,
+      postCommandWrite,
       state: null,
-    };
+    });
   }
 
-  const plannerData = await getPlannerData(userId);
-  const nonActiveTasks = includeNonActive ? await getNonActiveTasks(userId) : [];
-  const completedCount = includeNonActive
-    ? nonActiveTasks.filter((task) => task.status === "completed").length
-    : null;
-  const deadCount = includeNonActive
-    ? nonActiveTasks.filter((task) => task.status === "dead").length
-    : null;
-
-  return {
+  const bootstrap = await getPlannerBootstrap(userId, { reportLimit: 10 });
+  return buildPlannerRouteRuntimeResult({
     route,
     messages,
-    state: {
+    engine: engineResult,
+    postCommand,
+    postCommandWrite,
+    bootstrap,
+    state: buildPlannerRouteState({
       userId,
-      score: typeof plannerData?.score === "number" ? plannerData.score : 0,
-      telegramContext: plannerData?.telegramContext || null,
-      tasks: Array.isArray(plannerData?.tasks) ? plannerData.tasks : [],
-      nonActiveTasks,
-      counts: {
-        active: Array.isArray(plannerData?.tasks) ? plannerData.tasks.length : 0,
-        completed: completedCount,
-        dead: deadCount,
-      },
-    },
-  };
+      bootstrap,
+      initialPlannerData,
+      includeNonActive,
+    }),
+  });
 }
 
 module.exports = {
   isPlainObject,
   parseBody,
   parseBooleanFlag,
+  buildRoutePostCommandDescriptor,
+  buildRoutePostCommandKey,
   runPlannerRouteForUser,
 };
-

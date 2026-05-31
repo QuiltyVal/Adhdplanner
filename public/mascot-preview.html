@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>APUS Mascot Preview</title>
+  <style>
+    :root {
+      --ink: #2b211e;
+      --muted: #7b6b61;
+      --gold: #f2c84b;
+      --pink: #ff5aa8;
+      --violet: #8b4cf6;
+      --paper: rgba(255, 253, 248, 0.92);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      color: var(--ink);
+      font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 16% 20%, rgba(255, 97, 172, 0.22), transparent 34%),
+        radial-gradient(circle at 84% 12%, rgba(255, 216, 86, 0.26), transparent 30%),
+        linear-gradient(135deg, #fff5ef 0%, #f7edff 52%, #fff8df 100%);
+    }
+
+    .phone {
+      width: min(420px, 100%);
+      min-height: 760px;
+      border-radius: 42px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 28px 90px rgba(88, 38, 116, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 10px 18px;
+      color: var(--muted);
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+
+    .score {
+      letter-spacing: 0;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: white;
+      border: 1px solid rgba(139, 76, 246, 0.18);
+      box-shadow: 0 8px 24px rgba(139, 76, 246, 0.12);
+      font-weight: 800;
+      color: var(--violet);
+    }
+
+    .hero {
+      position: relative;
+      border-radius: 34px;
+      padding: 26px 22px 22px;
+      background:
+        linear-gradient(155deg, rgba(255,255,255,.96), rgba(255,248,225,.88)),
+        radial-gradient(circle at 80% 6%, rgba(255, 222, 102, .38), transparent 38%);
+      border: 1px solid rgba(232, 211, 174, 0.78);
+      box-shadow: 0 20px 64px rgba(92, 55, 21, 0.11);
+      overflow: hidden;
+    }
+
+    .kicker {
+      color: var(--pink);
+      text-transform: uppercase;
+      letter-spacing: .22em;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(40px, 12vw, 64px);
+      line-height: .92;
+      letter-spacing: -0.07em;
+      max-width: 310px;
+    }
+
+    .copy {
+      margin: 16px 0 0;
+      font-family: Georgia, serif;
+      font-size: 22px;
+      line-height: 1.25;
+      color: #6f6157;
+      font-style: italic;
+    }
+
+    .mascot-stage {
+      height: 260px;
+      margin: 20px -8px 6px;
+      display: grid;
+      place-items: center;
+      border-radius: 30px;
+      background:
+        radial-gradient(circle at center, rgba(255, 214, 87, .34), transparent 46%),
+        linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.18));
+      overflow: hidden;
+    }
+
+    video {
+      width: 280px;
+      max-width: 92%;
+      height: 280px;
+      object-fit: contain;
+      filter: drop-shadow(0 20px 28px rgba(70, 42, 18, .20));
+      border-radius: 28px;
+      mix-blend-mode: normal;
+    }
+
+    .mission-card {
+      margin-top: 14px;
+      padding: 18px;
+      border-radius: 28px;
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 14px 38px rgba(63, 38, 25, .08);
+      border: 1px solid rgba(236, 225, 205, .8);
+    }
+
+    .mission-card small {
+      display: block;
+      color: #c09217;
+      text-transform: uppercase;
+      letter-spacing: .2em;
+      font-weight: 900;
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+
+    .mission-card strong {
+      display: block;
+      font-size: 25px;
+      line-height: 1.05;
+      margin-bottom: 10px;
+    }
+
+    .step {
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: #fff8df;
+      color: #6d5b42;
+      line-height: 1.35;
+    }
+
+    .cta {
+      width: 100%;
+      margin-top: 18px;
+      border: 0;
+      border-radius: 999px;
+      padding: 16px 18px;
+      background: linear-gradient(90deg, #fff0aa, #ffe8ef);
+      color: #a15c00;
+      font-weight: 950;
+      font-size: 15px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      box-shadow: inset 0 0 0 1px rgba(222, 170, 50, .32), 0 12px 30px rgba(206, 148, 31, .16);
+    }
+
+    .note {
+      margin: 16px 6px 0;
+      color: rgba(43, 33, 30, .52);
+      font-size: 13px;
+      line-height: 1.45;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main class="phone">
+    <div class="topbar">
+      <span>APUS · preview</span>
+      <span class="score">⚡ 728</span>
+    </div>
+
+    <section class="hero">
+      <div class="kicker">rescue session</div>
+      <h1>Я с тобой. Давай одну.</h1>
+      <p class="copy">Не надо делать всю задачу. Только первый мягкий шаг.</p>
+
+      <div class="mascot-stage">
+        <video src="/mascots/angel-preview.mp4" autoplay loop muted playsinline></video>
+      </div>
+
+      <div class="mission-card">
+        <small>сейчас разбираем</small>
+        <strong>улучшить приложение</strong>
+        <div class="step">Первый шаг: открыть задачу и выбрать один маленький кусок.</div>
+      </div>
+
+      <button class="cta">мягкий старт · 2:00</button>
+    </section>
+
+    <p class="note">Это отдельный preview. Основной планер не изменён.</p>
+  </main>
+</body>
+</html>

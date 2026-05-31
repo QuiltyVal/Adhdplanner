@@ -5,7 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { sortTasksByOrder } from "./taskOrderUtils";
 import "./TaskColumn.css";
 
-function DraggableTask({ id, children }) {
+function DraggableTask({ id, children, dragTitle = "Drag" }) {
   const { attributes, listeners, setNodeRef: setDraggableNodeRef, transform, isDragging } = useDraggable({ id });
   const { isOver, setNodeRef: setDropNodeRef } = useDroppable({ id: `task-drop-${id}` });
   const setTaskNodeRef = React.useCallback(
@@ -30,7 +30,7 @@ function DraggableTask({ id, children }) {
         className="drag-handle"
         {...listeners}
         style={{ touchAction: 'none' }}
-        title="Перетащить"
+        title={dragTitle}
       >⠿</div>
       {children}
     </div>
@@ -66,8 +66,9 @@ function getTodayIsoDate() {
   return `${year}-${month}-${day}`;
 }
 
-function getDeadlineBadge(deadlineAt) {
+function getDeadlineBadge(deadlineAt, language = "ru") {
   if (!deadlineAt) return null;
+  const isEnglish = language === "en";
 
   const [year, month, day] = deadlineAt.split("-").map(Number);
   const deadline = new Date(year, month - 1, day);
@@ -77,28 +78,28 @@ function getDeadlineBadge(deadlineAt) {
   const todayDayNumber = getDayNumberFromIsoDate(getTodayIsoDate());
   if (deadlineDayNumber === null || todayDayNumber === null) return null;
   const daysLeft = deadlineDayNumber - todayDayNumber;
-  const shortDate = deadline.toLocaleDateString("ru-RU", {
+  const shortDate = deadline.toLocaleDateString(isEnglish ? "en-US" : "ru-RU", {
     day: "numeric",
     month: "short",
   });
 
   if (daysLeft < 0) {
-    return { tone: "overdue", label: `Просрочено · ${shortDate}` };
+    return { tone: "overdue", label: `${isEnglish ? "Overdue" : "Просрочено"} · ${shortDate}` };
   }
 
   if (daysLeft === 0) {
-    return { tone: "today", label: `Сегодня · ${shortDate}` };
+    return { tone: "today", label: `${isEnglish ? "Today" : "Сегодня"} · ${shortDate}` };
   }
 
   if (daysLeft === 1) {
-    return { tone: "soon", label: `Завтра · ${shortDate}` };
+    return { tone: "soon", label: `${isEnglish ? "Tomorrow" : "Завтра"} · ${shortDate}` };
   }
 
   if (daysLeft <= 7) {
-    return { tone: "watch", label: `${daysLeft} дн. · ${shortDate}` };
+    return { tone: "watch", label: `${daysLeft}${isEnglish ? "d" : " дн."} · ${shortDate}` };
   }
 
-  return { tone: "calm", label: `До ${shortDate}` };
+  return { tone: "calm", label: `${isEnglish ? "By" : "До"} ${shortDate}` };
 }
 
 function getDaysAlive(task) {
@@ -108,15 +109,139 @@ function getDaysAlive(task) {
   return Math.max(0, Math.floor((Date.now() - createdAt) / (24 * 60 * 60 * 1000)));
 }
 
-function formatMs(ms) {
+function formatMs(ms, language = "ru") {
   if (!ms || ms <= 0) return null;
+  const isEnglish = language === "en";
   const totalSec = Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  if (h > 0) return `${h}ч ${m}м`;
-  if (m > 0) return `${m}м ${s}с`;
-  return `${s}с`;
+  if (h > 0) return `${h}${isEnglish ? "h" : "ч"} ${m}${isEnglish ? "m" : "м"}`;
+  if (m > 0) return `${m}${isEnglish ? "m" : "м"} ${s}${isEnglish ? "s" : "с"}`;
+  return `${s}${isEnglish ? "s" : "с"}`;
+}
+
+function toMillis(value) {
+  if (!value) return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value?.toMillis === "function") return value.toMillis();
+  if (typeof value?.seconds === "number") return value.seconds * 1000;
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getNotYourMoveMetadata(task = {}) {
+  const blocked = task?.blocked && typeof task.blocked === "object" ? task.blocked : {};
+  const legacy = task?.notYourMove && typeof task.notYourMove === "object" ? task.notYourMove : {};
+  const metadata = { ...legacy, ...blocked };
+  return String(metadata.status || "").toLowerCase() === "not_your_move" ? metadata : null;
+}
+
+function formatCheckInDate(value, language = "ru") {
+  const timestamp = toMillis(value);
+  if (!timestamp) return "";
+  return new Date(timestamp).toLocaleDateString(language === "en" ? "en-US" : "ru-RU", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function getQuestRelationBadge(relationMemory = null, language = "ru", hasNotYourMoveState = false) {
+  const signal = String(relationMemory?.lastSignal || "").trim().toLowerCase();
+  if (!signal) return null;
+  if (hasNotYourMoveState && (signal === "not_my_move" || signal === "still_waiting")) return null;
+  const isEnglish = language === "en";
+  const labels = {
+    too_big: isEnglish ? "sticky: too big" : "липко: большое",
+    unclear: isEnglish ? "sticky: unclear" : "липко: мутно",
+    not_my_move: isEnglish ? "not your move? confirm" : "не твой ход? подтвердить",
+    still_waiting: isEnglish ? "waiting check-in" : "проверить ожидание",
+    kill_without_guilt: isEnglish ? "asked to die" : "просилось в кладбище",
+    not_now: isEnglish ? "cooling down" : "пауза",
+    rescue_later: isEnglish ? "rescue paused" : "rescue на паузе",
+    microstep_completed: isEnglish ? "movement counted" : "сдвиг засчитан",
+  };
+  const label = labels[signal];
+  if (!label) return null;
+  const tone = signal === "microstep_completed"
+    ? "moved"
+    : signal === "not_my_move" || signal === "still_waiting"
+      ? "waiting"
+      : signal === "kill_without_guilt"
+        ? "cemetery"
+        : signal === "not_now" || signal === "rescue_later"
+          ? "cooldown"
+          : "sticky";
+  return { signal, label, tone };
+}
+
+function getQuestRelationStatusNote(signal = "", language = "ru", context = {}) {
+  const normalized = String(signal || "").trim().toLowerCase();
+  const isEnglish = language === "en";
+  const isConfirmedCemetery = Boolean(
+    context?.cemeteryConfirmed ||
+    context?.taskStatus === "dead" ||
+    context?.status === "dead"
+  );
+  const notes = {
+    too_big: {
+      tone: "sticky",
+      title: isEnglish ? "Angel read: too big" : "Ангел понял: слишком большое",
+      body: isEnglish
+        ? "Do not push the whole quest. Shrink it before rescue."
+        : "Не давим на весь квест. Сначала сжимаем его до маленького входа.",
+      cta: isEnglish ? "Tap to make it smaller." : "Нажми, чтобы уменьшить.",
+    },
+    unclear: {
+      tone: "sticky",
+      title: isEnglish ? "Angel read: foggy" : "Ангел понял: мутно",
+      body: isEnglish
+        ? "Do not force action yet. Clarify the first visible move."
+        : "Пока не заставляем действовать. Сначала ищем первый видимый ход.",
+      cta: isEnglish ? "Tap to clarify." : "Нажми, чтобы прояснить.",
+    },
+    kill_without_guilt: {
+      tone: "cemetery",
+      title: isConfirmedCemetery
+        ? (isEnglish ? "Buried, not deleted" : "Похоронено, не удалено")
+        : (isEnglish ? "Cemetery request" : "Просится в кладбище"),
+      body: isConfirmedCemetery
+        ? (isEnglish
+          ? "This quest was moved to Cemetery without deleting it forever."
+          : "Квест перенесён на кладбище без удаления навсегда.")
+        : (isEnglish
+          ? "This is not deleted automatically. Angel will ask for confirmation first."
+          : "Это не удаляется автоматически. Ангел сначала попросит подтверждение."),
+      cta: isConfirmedCemetery
+        ? (isEnglish ? "Restore if needed." : "Можно вернуть, если понадобится.")
+        : (isEnglish ? "Tap to choose safely." : "Нажми, чтобы выбрать безопасно."),
+    },
+    not_now: {
+      tone: "cooldown",
+      title: isEnglish ? "Pressure lowered" : "Давление снижено",
+      body: isEnglish
+        ? "You said not now. Angel should not repeat the same direct push immediately."
+        : "Ты сказала не сейчас. Ангел не должен сразу повторять тот же прямой заход.",
+      cta: isEnglish ? "Tap when you want a gentler route." : "Нажми, когда нужен мягкий маршрут.",
+    },
+    rescue_later: {
+      tone: "cooldown",
+      title: isEnglish ? "Rescue paused" : "Rescue на паузе",
+      body: isEnglish
+        ? "The rescue entry did not open yet. Try a smaller or clearer route next."
+        : "Спасательный вход пока не открылся. Дальше лучше уменьшить или прояснить.",
+      cta: isEnglish ? "Tap to pick another entry." : "Нажми, чтобы выбрать другой вход.",
+    },
+    microstep_completed: {
+      tone: "moved",
+      title: isEnglish ? "Movement counted" : "Сдвиг засчитан",
+      body: isEnglish
+        ? "One tiny move worked. Continue gently instead of restarting the pressure loop."
+        : "Один маленький ход сработал. Продолжаем мягко, не запускаем давление заново.",
+      cta: isEnglish ? "Tap to continue gently." : "Нажми, чтобы продолжить мягко.",
+    },
+  };
+  return notes[normalized] || null;
 }
 
 function getListPriorityScore(task) {
@@ -158,13 +283,102 @@ export default function TaskColumn({
   onSetUrgency,
   onSetResistance,
   onSetDeadline,
+  onClearNotYourMove,
   onTrashCompleted,
   onCleanHeavenJunk,
   onPurgeHeavenJunk,
   onDeleteForever,
+  onOpenTaskTune,
+  getQuestRelationMemoryForTask,
+  onQuestRelationClick,
+  requestedTuneTaskId,
+  onTuneRequestHandled,
   highlightTaskId,
-  calendarToken,
+  calendarConnected,
+  onScheduleTaskToCalendar,
+  language = "ru",
 }) {
+  const isEnglish = language === "en";
+  const copy = {
+    newTaskPlaceholder: isEnglish ? "+ What big task are we aiming at?" : "+ Какую глобальную задачу берем на прицел?",
+    addTask: isEnglish ? "Add (pulse 35)" : "Добавить (пульс 35)",
+    drag: isEnglish ? "Drag" : "Перетащить",
+    focus: isEnglish ? "IN FOCUS" : "В ФОКУСЕ",
+    background: isEnglish ? "BACKGROUND" : "НА ФОНЕ",
+    purgatory: isEnglish ? "PURGATORY" : "ЧИСТИЛИЩЕ",
+    emptyFocus: isEnglish ? "No burning tasks" : "Нет пламенных задач",
+    emptyBackground: isEnglish ? "Everything is either hot or frozen" : "Все либо горит, либо замерзает",
+    emptyPurgatory: isEnglish ? "Nobody is freezing" : "Никто не замерзает",
+    heavenEmpty: isEnglish ? "Heaven is empty. Complete a task." : "Рай пуст. Завершите задачу!",
+    cemeteryEmpty: isEnglish ? "Cemetery is empty. Good." : "Кладбище пустует. Так держать!",
+    moveToTrash: isEnglish ? "🪦 To Cemetery" : "🪦 В мусор",
+    deleteForever: isEnglish ? "💥 Delete forever" : "💥 В небытие",
+    resurrect: isEnglish ? "🔄 Restore" : "🔄 Воскресить",
+    today: isEnglish ? "today" : "сегодня",
+    critical: isEnglish ? "critical" : "критично",
+    urgencyHigh: isEnglish ? "urgent" : "срочно",
+    urgencyMedium: isEnglish ? "normal" : "норм",
+    urgencyLow: isEnglish ? "later" : "позже",
+    resistanceHigh: isEnglish ? "scary" : "страшно",
+    resistanceMedium: isEnglish ? "medium" : "средне",
+    resistanceLow: isEnglish ? "easy" : "легко",
+    nextStep: isEnglish ? "Next step:" : "Следующий шаг:",
+    dayShort: isEnglish ? "d" : "дн.",
+    addCalendar: isEnglish ? "Add" : "Добавить",
+    confirmTitle: isEnglish ? "Done?" : "Точно всё?",
+    confirmBody: isEnglish ? "This task will move to Heaven. Are you sure?" : "Эта задача отправится в Рай. Уверены?",
+    confirmYes: isEnglish ? "YES" : "ДА!",
+    confirmNo: isEnglish ? "NOT YET" : "ЕЩЕ НЕТ",
+    cleanTestJunk: isEnglish ? "🧹 Clean test junk" : "🧹 Убрать тестовый мусор",
+    purgeTestJunk: isEnglish ? "💥 Delete forever (test junk only)" : "💥 В небытие (только тест-мусор)",
+    returnActive: isEnglish ? "↩️ Restore to active" : "↩️ Вернуть в активные",
+    calendarError: isEnglish ? "Could not add to calendar" : "Не удалось добавить в календарь",
+    openSettings: isEnglish ? "Open task settings" : "Открыть настройку задачи",
+    hideSettings: isEnglish ? "Hide settings" : "Скрыть настройки",
+    tuneTask: isEnglish ? "Tune task" : "Настроить задачу",
+    dayMission: isEnglish ? "Day mission" : "Цель дня",
+    vitalTitle: isEnglish ? "Critical priority" : "Жизненно важный приоритет",
+    vitalOn: isEnglish ? "Critical" : "Критично",
+    vitalOff: isEnglish ? "Normal" : "Обычно",
+    todayPinned: isEnglish ? "📌 Pinned" : "📌 Закреплено",
+    todayPin: isEnglish ? "☆ Pin" : "☆ Закрепить",
+    editTitle: isEnglish ? "Double-click to edit" : "Двойной клик — редактировать",
+    pulse: isEnglish ? "Pulse" : "Пульс",
+    urgency: isEnglish ? "Urgency" : "Срочность",
+    resistance: isEnglish ? "Resistance" : "Сопротивление",
+    deadline: isEnglish ? "Deadline" : "Дедлайн",
+    urgencyOptionLow: isEnglish ? "Can wait" : "Можно позже",
+    urgencyOptionMedium: isEnglish ? "Normal" : "Нормально",
+    urgencyOptionHigh: isEnglish ? "Urgent" : "Срочно",
+    resistanceOptionLow: isEnglish ? "Easy" : "Легко",
+    resistanceOptionMedium: isEnglish ? "Medium" : "Средне",
+    resistanceOptionHigh: isEnglish ? "Scary" : "Страшно",
+    deleteStep: isEnglish ? "Delete step" : "Удалить шаг",
+    stepPlaceholder: isEnglish ? "+ Step" : "+ Шаг",
+    stopTimerTitle: isEnglish ? "Stop timer" : "Остановить таймер",
+    startTimerTitle: isEnglish ? "Start timer" : "Запустить таймер",
+    stopTimer: isEnglish ? "⏹ Stop" : "⏹ Стоп",
+    startTimer: isEnglish ? "▶ Start" : "▶ Старт",
+    touch: isEnglish ? "👀 I moved" : "👀 Вспомнил",
+    complete: isEnglish ? "🚀 Done!" : "🚀 Завершить!",
+    scheduleCalendar: isEnglish ? "Schedule in Google Calendar" : "Запланировать в Google Calendar",
+    cemetery: isEnglish ? "✖️ To Cemetery" : "✖️ На кладбище",
+    notYourMove: isEnglish ? "Not your move" : "Не твой ход",
+    notYourMoveWaiting: isEnglish ? "Waiting, not failing." : "Это ожидание, не провал.",
+    notYourMoveCheckIn: isEnglish ? "Check-in" : "Проверить",
+    notYourMoveNoDate: isEnglish ? "no date set" : "дата не задана",
+    notYourMoveDue: isEnglish ? "check now" : "пора проверить",
+    clearNotYourMove: isEnglish ? "Back in my hands" : "Снова в моих руках",
+    possibleNotYourMove: isEnglish ? "May be Not Your Move" : "Возможно, не твой ход",
+    possibleNotYourMoveBody: isEnglish
+      ? "Angel will stop pushing this only after you confirm what we are waiting for."
+      : "Ангел снимет давление только после того, как ты подтвердишь, чего мы ждём.",
+    possibleNotYourMoveCta: isEnglish ? "Click here to confirm what we are waiting for." : "Нажми сюда, чтобы подтвердить, чего ждём.",
+    relationSuggestedStep: isEnglish ? "Angel's entry point" : "Вход от ангела",
+    relationSuggestedStepCta: isEnglish ? "Tap to continue this route." : "Нажми, чтобы продолжить этот маршрут.",
+    relationCompletedStep: isEnglish ? "Counted micro-step" : "Засчитанный микрошаг",
+    relationCompletedStepCta: isEnglish ? "Movement is logged. Tap to continue gently." : "Сдвиг записан. Нажми, чтобы мягко продолжить.",
+  };
   const orderedTasks = sortTasksByOrder(tasks);
   const [newTaskText, setNewTaskText] = useState("");
   const [newSubtaskText, setNewSubtaskText] = useState({}); // {taskId: text}
@@ -173,6 +387,7 @@ export default function TaskColumn({
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editingTaskText, setEditingTaskText] = useState("");
   const [activeTimerTaskId, setActiveTimerTaskId] = useState(null);
+  const [tuningTaskId, setTuningTaskId] = useState(null);
   const [timerTick, setTimerTick] = useState(0);
   const timerStartRef = useRef(null);
 
@@ -181,39 +396,36 @@ export default function TaskColumn({
     const interval = setInterval(() => setTimerTick(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, [activeTimerTaskId]);
+  useEffect(() => {
+    if (!requestedTuneTaskId) return;
+    if (tasks.some((task) => String(task.id) === String(requestedTuneTaskId))) {
+      setTuningTaskId(String(requestedTuneTaskId));
+      if (typeof onTuneRequestHandled === "function") {
+        onTuneRequestHandled();
+      }
+    }
+  }, [requestedTuneTaskId, tasks, onTuneRequestHandled]);
   const [calPickerTaskId, setCalPickerTaskId] = useState(null);
   const [calDate, setCalDate] = useState("");
   const [calTime, setCalTime] = useState("10:00");
   const [calDuration, setCalDuration] = useState(60);
   const [calSaving, setCalSaving] = useState(false);
+  const [calError, setCalError] = useState("");
 
   const scheduleToCalendar = async (task) => {
-    if (!calendarToken || !calDate) return;
+    if (!calendarConnected || !calDate || typeof onScheduleTaskToCalendar !== "function") return;
     setCalSaving(true);
+    setCalError("");
     try {
-      const start = new Date(`${calDate}T${calTime}:00`);
-      const end = new Date(start.getTime() + calDuration * 60000);
-      const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${calendarToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          summary: task.text,
-          start: { dateTime: start.toISOString() },
-          end: { dateTime: end.toISOString() },
-        }),
+      await onScheduleTaskToCalendar(task, {
+        date: calDate,
+        startTime: calTime,
+        durationMinutes: calDuration,
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Google Calendar ${response.status}: ${errorText}`);
-      }
-
       setCalPickerTaskId(null);
     } catch (e) {
       console.error("Calendar error:", e);
+      setCalError(e.message || copy.calendarError);
     } finally {
       setCalSaving(false);
     }
@@ -237,21 +449,21 @@ export default function TaskColumn({
     // ... heaven render ...
     return (
       <div className="task-column-container">
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "12px" }}>
+        <div className="heaven-maintenance-actions">
           {onCleanHeavenJunk && (
-            <button className="reopen-btn" onClick={onCleanHeavenJunk}>
-              🧹 Убрать тестовый мусор
+            <button type="button" className="heaven-maintenance-btn" onClick={onCleanHeavenJunk}>
+              {copy.cleanTestJunk}
             </button>
           )}
           {onPurgeHeavenJunk && (
-            <button className="reopen-btn" onClick={onPurgeHeavenJunk}>
-              💥 В небытие (только тест-мусор)
+            <button type="button" className="heaven-maintenance-btn heaven-maintenance-btn-danger" onClick={onPurgeHeavenJunk}>
+              {copy.purgeTestJunk}
             </button>
           )}
         </div>
         <div className="tasks-grid">
           {sortedTasks.map(task => (
-            <DraggableTask key={task.id} id={`task-${task.id}`}>
+            <DraggableTask key={task.id} id={`task-${task.id}`} dragTitle={copy.drag}>
               <div className="heaven-cloud animated-fade-in">
                 <div className="cloud-icon">🕊️</div>
                 <div className="heaven-task-name">{task.text}</div>
@@ -267,23 +479,23 @@ export default function TaskColumn({
                 <div className="points-badge">+10 points</div>
                 {onReopenCompleted && (
                   <button className="reopen-btn" onClick={() => onReopenCompleted(task.id)}>
-                    ↩️ Вернуть в активные
+                    {copy.returnActive}
                   </button>
                 )}
                 {onTrashCompleted && (
                   <button className="reopen-btn" onClick={() => onTrashCompleted(task.id)}>
-                    🪦 В мусор
+                    {copy.moveToTrash}
                   </button>
                 )}
                 {onDeleteForever && (
                   <button className="reopen-btn" onClick={() => onDeleteForever(task.id)}>
-                    💥 В небытие
+                    {copy.deleteForever}
                   </button>
                 )}
               </div>
             </DraggableTask>
           ))}
-          {tasks.length === 0 && <p style={{color: '#3aedff', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6}}>Рай пуст. Завершите задачу!</p>}
+          {tasks.length === 0 && <p style={{color: '#3aedff', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6}}>{copy.heavenEmpty}</p>}
         </div>
       </div>
     );
@@ -292,12 +504,19 @@ export default function TaskColumn({
   if (type === "cemetery") {
     const sortedTasks = orderedTasks;
     const MONTH_MS = 30 * 24 * 60 * 60 * 1000;
-    const exhumationPhrases = [
-      "Слушай, она тут уже давно лежит. Может, попробуем ещё раз — с минимальным пульсом?",
-      "Месяц прошёл. Иногда задачи возвращаются сами. Дать ей шанс?",
-      "Она не забыта — просто ждёт. Воскресить с нуля?",
-      "Прошло больше месяца. Может, теперь это проще, чем казалось?",
-    ];
+    const exhumationPhrases = isEnglish
+      ? [
+        "This has been resting for a while. Want to try again with a tiny pulse?",
+        "A month passed. Some tasks come back lighter. Give it a chance?",
+        "It is not forgotten. It is waiting. Restore it from zero?",
+        "More than a month passed. Maybe it is easier now than it looked?",
+      ]
+      : [
+        isEnglish ? "It has been lying here for a while. Want to try again with minimum pulse?" : "Слушай, она тут уже давно лежит. Может, попробуем ещё раз — с минимальным пульсом?",
+        isEnglish ? "A month passed. Sometimes tasks come back easier. Give it a chance?" : "Месяц прошёл. Иногда задачи возвращаются сами. Дать ей шанс?",
+        isEnglish ? "It is not forgotten, just waiting. Restore it from zero?" : "Она не забыта — просто ждёт. Воскресить с нуля?",
+        isEnglish ? "More than a month passed. Maybe it is easier now than it looked?" : "Прошло больше месяца. Может, теперь это проще, чем казалось?",
+      ];
     return (
       <div className="task-column-container">
         <div className="tasks-grid">
@@ -306,11 +525,11 @@ export default function TaskColumn({
             const isOld = deadAt && (Date.now() - deadAt) > MONTH_MS;
             const phrase = exhumationPhrases[i % exhumationPhrases.length];
             return (
-              <DraggableTask key={task.id} id={`task-${task.id}`}>
+              <DraggableTask key={task.id} id={`task-${task.id}`} dragTitle={copy.drag}>
                 <div className="tombstone animated-fade-in">
                   <div className="tombstone-rip">R.I.P.</div>
                   <div className="tombstone-task-name">{task.text}</div>
-                  <div style={{color: '#ef4444', fontSize: '0.85rem', marginBottom: '10px'}}>-5 points</div>
+                  <div className="cemetery-points-badge">-5 points</div>
                   {isOld && (
                     <div className="exhumation-prompt">
                       <span className="exhumation-angel">👼</span>
@@ -318,18 +537,18 @@ export default function TaskColumn({
                     </div>
                   )}
                   <button className="resurrect-btn" onClick={() => onResurrect(task.id)}>
-                    🔄 Воскресить
+                    {copy.resurrect}
                   </button>
                   {onDeleteForever && (
                     <button className="reopen-btn" onClick={() => onDeleteForever(task.id)}>
-                      💥 В небытие
+                      {copy.deleteForever}
                     </button>
                   )}
                 </div>
               </DraggableTask>
             );
           })}
-          {tasks.length === 0 && <p style={{color: '#8a1c1c', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8}}>Кладбище пустует. Так держать!</p>}
+          {tasks.length === 0 && <p style={{color: '#8a1c1c', textAlign: 'center', width: '100%', fontFamily: "'GuildensternNbp', 'VT323', monospace", fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.8}}>{copy.cemeteryEmpty}</p>}
         </div>
       </div>
     );
@@ -348,35 +567,62 @@ export default function TaskColumn({
 
   const renderTaskCard = (task, isPurgatory, heatColor) => (
     (() => {
-      const deadlineBadge = getDeadlineBadge(task.deadlineAt);
+      const deadlineBadge = getDeadlineBadge(task.deadlineAt, language);
+      const isTuneOpen = String(requestedTuneTaskId || tuningTaskId || "") === String(task.id);
+      const firstOpenSubtask = (task.subtasks || []).find((subtask) => !subtask.completed) || null;
+      const notYourMove = getNotYourMoveMetadata(task);
+      const checkInAt = toMillis(notYourMove?.nextCheckInAt || notYourMove?.next_check_in_at);
+      const checkInLabel = checkInAt ? formatCheckInDate(checkInAt, language) : copy.notYourMoveNoDate;
+      const checkInDue = checkInAt > 0 && checkInAt <= Date.now();
+      const questRelation = typeof getQuestRelationMemoryForTask === "function"
+        ? getQuestRelationMemoryForTask(task)
+        : null;
+      const questRelationBadge = getQuestRelationBadge(questRelation, language, Boolean(notYourMove));
+      const relationSuggestedStep = String(questRelation?.lastSuggestedStep || "").trim();
+      const relationStepWasCompleted = questRelationBadge?.signal === "microstep_completed";
+      const relationSuggestsNotYourMove = !notYourMove &&
+        (questRelationBadge?.signal === "not_my_move" || questRelationBadge?.signal === "still_waiting");
+      const relationStatusNote = questRelationBadge && !relationSuggestsNotYourMove && !relationSuggestedStep
+        ? getQuestRelationStatusNote(questRelationBadge.signal, language, {
+            taskStatus: task.status,
+            cemeteryConfirmed: Boolean(questRelation?.cemeteryConfirmed || questRelation?.lastBuriedAt),
+          })
+        : null;
       return (
     <div
       key={task.id}
       data-task-id={task.id}
-      className={`task-card animated-fade-in ${isPurgatory ? 'purgatory' : ''} ${task.id === highlightTaskId ? 'priority-target' : ''} ${deadlineBadge ? `deadline-${deadlineBadge.tone}` : ''} ${task.isVital ? 'is-vital' : ''}`}
+      className={`task-card animated-fade-in ${isPurgatory ? 'purgatory' : ''} ${task.id === highlightTaskId ? 'priority-target' : ''} ${deadlineBadge ? `deadline-${deadlineBadge.tone}` : ''} ${task.isVital ? 'is-vital' : ''} ${notYourMove ? 'is-not-your-move' : ''} ${isTuneOpen ? 'is-tuning' : 'is-condensed'}`}
     >
       <button
-        className="kill-btn"
-        onClick={() => onKill(task.id)}
-        title="Убрать на кладбище"
+        className="task-tune-btn"
+        onClick={() => {
+          if (typeof onOpenTaskTune === "function") {
+            onOpenTaskTune(task.id);
+            return;
+          }
+          setTuningTaskId((current) => String(current || "") === String(task.id) ? null : String(task.id));
+        }}
+        title={onOpenTaskTune ? copy.openSettings : isTuneOpen ? copy.hideSettings : copy.tuneTask}
+        type="button"
       >
-        ✖️
+        ⋯
       </button>
       {task.id === highlightTaskId && (
-        <div className="priority-badge">Цель дня</div>
+        <div className="priority-badge">{copy.dayMission}</div>
       )}
       <div className="task-top-controls">
         <button
           className={`vital-toggle-btn ${task.isVital ? 'is-active' : ''}`}
           onClick={() => onToggleVital(task.id)}
-          title="Жизненно важный приоритет"
+          title={copy.vitalTitle}
           type="button"
         >
           <span className="vital-toggle-track" aria-hidden="true">
             <span className="vital-toggle-thumb" />
           </span>
           <span className="vital-toggle-copy">
-            {task.isVital ? 'Критично' : 'Обычно'}
+            {task.isVital ? copy.vitalOn : copy.vitalOff}
           </span>
         </button>
         <button
@@ -384,13 +630,13 @@ export default function TaskColumn({
           onClick={() => onToggleToday(task.id)}
           type="button"
         >
-          {task.isToday ? '📌 Закреплено' : '☆ Закрепить'}
+          {task.isToday ? copy.todayPinned : copy.todayPin}
         </button>
       </div>
       {deadlineBadge && (
         <div className={`deadline-badge ${deadlineBadge.tone}`}>{deadlineBadge.label}</div>
       )}
-      <div className="task-text" style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '5px', paddingRight: '30px', color: '#e0e0e0', fontFamily: "'Inter', sans-serif", lineHeight: '1.4' }}>
+      <div className="task-text">
         {task.isVital ? '🚨 ' : isPurgatory ? '🥶 ' : (task.heatCurrent > 60 ? '🔥 ' : '🧊 ')}
         {(() => {
           const total = (task.subtasks || []).length;
@@ -421,57 +667,164 @@ export default function TaskColumn({
         ) : (
           <span
             onDoubleClick={() => { setEditingTaskId(task.id); setEditingTaskText(task.text); }}
-            title="Двойной клик — редактировать"
+            title={copy.editTitle}
             style={{ cursor: 'text' }}
           >{task.text}</span>
         )}
       </div>
+      {!isTuneOpen && (
+        <>
+          <div className="task-passive-row">
+            {task.isToday && <span className="task-passive-chip">☀️ {copy.today}</span>}
+            {task.isVital && <span className="task-passive-chip">🚨 {copy.critical}</span>}
+            {notYourMove && (
+              <span className={`task-passive-chip not-your-move-chip${checkInDue ? " is-due" : ""}`}>
+                🪽 {copy.notYourMove} · {checkInDue ? copy.notYourMoveDue : `${copy.notYourMoveCheckIn} ${checkInLabel}`}
+              </span>
+            )}
+            {questRelationBadge && (
+              <button
+                type="button"
+                className={`task-passive-chip quest-relation-chip is-${questRelationBadge.tone}${typeof onQuestRelationClick === "function" ? " is-actionable" : ""}`}
+                title={isEnglish ? "Open Angel's remembered entry for this quest." : "Открыть вход, который ангел запомнил для этого квеста."}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (typeof onQuestRelationClick === "function") {
+                    onQuestRelationClick(task, questRelation);
+                  }
+                }}
+              >
+                🧭 {questRelationBadge.label}
+              </button>
+            )}
+            <span className="task-passive-chip">{task.urgency === "high" ? `⏰ ${copy.urgencyHigh}` : task.urgency === "medium" ? `⏰ ${copy.urgencyMedium}` : `⏰ ${copy.urgencyLow}`}</span>
+            <span className="task-passive-chip">{task.resistance === "high" ? `🧠 ${copy.resistanceHigh}` : task.resistance === "medium" ? `🧠 ${copy.resistanceMedium}` : `🧠 ${copy.resistanceLow}`}</span>
+          </div>
+          {notYourMove && (
+            <div className={`task-not-your-move-note${checkInDue ? " is-due" : ""}`}>
+              <strong>{copy.notYourMove}</strong>
+              <span>
+                {copy.notYourMoveWaiting} {copy.notYourMoveCheckIn}: {checkInLabel}.
+              </span>
+              {notYourMove.waitingFor && (
+                <span className="task-not-your-move-context">
+                  {isEnglish ? "Waiting for:" : "Ждём:"} {notYourMove.waitingFor}
+                </span>
+              )}
+              {onClearNotYourMove && (
+                <button
+                  type="button"
+                  className="not-your-move-clear-btn"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onClearNotYourMove(task.id);
+                  }}
+                >
+                  {isEnglish ? "Back in my hands" : "Снова в моих руках"}
+                </button>
+              )}
+            </div>
+          )}
+          {relationSuggestsNotYourMove && (
+            <button
+              type="button"
+              className={`task-possible-not-your-move-note${typeof onQuestRelationClick === "function" ? " is-actionable" : ""}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (typeof onQuestRelationClick === "function") {
+                  onQuestRelationClick(task, questRelation);
+                }
+              }}
+            >
+              <strong>{copy.possibleNotYourMove}</strong>
+              <span>{copy.possibleNotYourMoveBody}</span>
+              <span>{copy.possibleNotYourMoveCta}</span>
+            </button>
+          )}
+          {relationStatusNote && (
+            <button
+              type="button"
+              className={`task-relation-status-note is-${relationStatusNote.tone}${typeof onQuestRelationClick === "function" ? " is-actionable" : ""}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (typeof onQuestRelationClick === "function") {
+                  onQuestRelationClick(task, questRelation);
+                }
+              }}
+            >
+              <strong>{relationStatusNote.title}</strong>
+              <span>{relationStatusNote.body}</span>
+              <em>{relationStatusNote.cta}</em>
+            </button>
+          )}
+          {questRelationBadge && !relationSuggestsNotYourMove && relationSuggestedStep && (
+            <button
+              type="button"
+              className={`task-relation-suggested-step${typeof onQuestRelationClick === "function" ? " is-actionable" : ""}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (typeof onQuestRelationClick === "function") {
+                  onQuestRelationClick(task, questRelation);
+                }
+              }}
+            >
+              <strong>{relationStepWasCompleted ? copy.relationCompletedStep : copy.relationSuggestedStep}</strong>
+              <span>{relationSuggestedStep}</span>
+              <em>{relationStepWasCompleted ? copy.relationCompletedStepCta : copy.relationSuggestedStepCta}</em>
+            </button>
+          )}
+          {firstOpenSubtask && (
+            <div className="task-next-step">
+              {copy.nextStep} {firstOpenSubtask.text}
+            </div>
+          )}
+        </>
+      )}
       
       {getDaysAlive(task) !== null && (
         <div className="days-alive">
-          🗓 {getDaysAlive(task) === 0 ? 'сегодня' : `${getDaysAlive(task)} дн.`}
+          🗓 {getDaysAlive(task) === 0 ? copy.today : `${getDaysAlive(task)} ${copy.dayShort}`}
         </div>
       )}
 
       <div className="heat-slider-container">
-        <div className="heat-label">Пульс</div>
-        <div style={{
-          width: '100%', height: '6px', background: '#2a2a35', borderRadius: '4px', position: 'relative', overflow: 'hidden'
-        }}>
-          <div style={{
-            position: 'absolute', top: 0, left: 0, bottom: 0, width: `${task.heatCurrent}%`, backgroundColor: heatColor, transition: 'width 1s linear, background-color 1s ease'
-          }}></div>
+        <div className="heat-label">{copy.pulse}</div>
+        <div className="heat-track">
+          <div
+            className="heat-fill"
+            style={{ width: `${task.heatCurrent}%`, backgroundColor: heatColor }}
+          />
         </div>
-        <div style={{minWidth: '40px', textAlign: 'right'}}>{Math.floor(task.heatCurrent)}%</div>
+        <div className="heat-value">{Math.floor(task.heatCurrent)}%</div>
       </div>
 
       <div className="task-meta-controls">
         <label className="task-meta-field">
-          <span className="task-meta-label">Срочность</span>
+          <span className="task-meta-label">{copy.urgency}</span>
           <select
             value={task.urgency || "medium"}
             className="task-meta-select"
             onChange={(event) => onSetUrgency(task.id, event.target.value)}
           >
-            <option value="low">Можно позже</option>
-            <option value="medium">Нормально</option>
-            <option value="high">Срочно</option>
+            <option value="low">{copy.urgencyOptionLow}</option>
+            <option value="medium">{copy.urgencyOptionMedium}</option>
+            <option value="high">{copy.urgencyOptionHigh}</option>
           </select>
         </label>
         <label className="task-meta-field">
-          <span className="task-meta-label">Сопротивление</span>
+          <span className="task-meta-label">{copy.resistance}</span>
           <select
             value={task.resistance || "medium"}
             className="task-meta-select"
             onChange={(event) => onSetResistance(task.id, event.target.value)}
           >
-            <option value="low">Легко</option>
-            <option value="medium">Средне</option>
-            <option value="high">Страшно</option>
+            <option value="low">{copy.resistanceOptionLow}</option>
+            <option value="medium">{copy.resistanceOptionMedium}</option>
+            <option value="high">{copy.resistanceOptionHigh}</option>
           </select>
         </label>
         <label className="task-meta-field task-meta-field-wide">
-          <span className="task-meta-label">Дедлайн</span>
+          <span className="task-meta-label">{copy.deadline}</span>
           <input
             type="date"
             value={task.deadlineAt || ""}
@@ -528,7 +881,7 @@ export default function TaskColumn({
               <span
                 style={{ textDecoration: sub.completed ? 'line-through' : 'none', opacity: sub.completed ? 0.5 : 1, flex: 1 }}
                 onDoubleClick={() => setEditingSubtask({ taskId: task.id, subId: sub.id, text: sub.text })}
-                title="Двойной клик — редактировать"
+                title={copy.editTitle}
               >
                 {sub.text}
               </span>
@@ -537,7 +890,7 @@ export default function TaskColumn({
               <button
                 className="subtask-delete-btn"
                 onClick={() => onDeleteSubtask(task.id, sub.id)}
-                title="Удалить шаг"
+                title={copy.deleteStep}
               >×</button>
             )}
           </div>
@@ -547,7 +900,7 @@ export default function TaskColumn({
         <div className="subtask-add-row">
           <input 
             type="text" 
-            placeholder="+ Шаг" 
+            placeholder={copy.stepPlaceholder}
             className="subtask-input" 
             value={newSubtaskText[task.id] || ""}
             onChange={(e) => setNewSubtaskText({...newSubtaskText, [task.id]: e.target.value})}
@@ -579,13 +932,13 @@ export default function TaskColumn({
                     setActiveTimerTaskId(task.id);
                   }
                 }}
-                title={isRunning ? 'Остановить таймер' : 'Запустить таймер'}
+                title={isRunning ? copy.stopTimerTitle : copy.startTimerTitle}
               >
-                {isRunning ? '⏹ Стоп' : '▶ Старт'}
+                {isRunning ? copy.stopTimer : copy.startTimer}
               </button>
               {totalMs > 0 && (
                 <span className="timer-total">
-                  ⏱ {formatMs(totalMs)}
+                  ⏱ {formatMs(totalMs, language)}
                 </span>
               )}
             </>
@@ -593,35 +946,56 @@ export default function TaskColumn({
         })()}
       </div>
 
-      <div className="task-actions">
-        {task.heatCurrent <= 60 && (
-          <button className="action-btn touch" onClick={() => onTouch(task.id)}>👀 Вспомнил</button>
-        )}
-        <button className="action-btn complete" onClick={() => setConfirmTaskId(task.id)}>🚀 Завершить!</button>
-        {calendarToken && (
+      {notYourMove ? (
+        <div className="task-not-your-move-actions">
           <button
-            className="action-btn cal-btn"
-            onClick={() => setCalPickerTaskId(calPickerTaskId === task.id ? null : task.id)}
-            title="Запланировать в Google Calendar"
-          >📅</button>
-        )}
-      </div>
+            className="action-btn not-your-move-clear-btn"
+            onClick={() => onClearNotYourMove && onClearNotYourMove(task.id)}
+            type="button"
+          >
+            {copy.clearNotYourMove}
+          </button>
+        </div>
+      ) : (
+        <div className="task-actions">
+          {(!isTuneOpen || task.heatCurrent <= 60) && (
+            <button className="action-btn touch" onClick={() => onTouch(task.id)} type="button">{copy.touch}</button>
+          )}
+          <button className="action-btn complete" onClick={() => setConfirmTaskId(task.id)} type="button">{copy.complete}</button>
+          {isTuneOpen && calendarConnected && (
+            <button
+              className="action-btn cal-btn"
+              onClick={() => {
+                setCalError("");
+                setCalPickerTaskId(calPickerTaskId === task.id ? null : task.id);
+              }}
+              title={copy.scheduleCalendar}
+            >📅</button>
+          )}
+          {isTuneOpen && (
+            <button className="action-btn task-cemetery-btn" onClick={() => onKill(task.id)}>
+              {copy.cemetery}
+            </button>
+          )}
+        </div>
+      )}
 
-      {calPickerTaskId === task.id && calendarToken && (
+      {calPickerTaskId === task.id && calendarConnected && (
         <div className="cal-picker">
           <input type="date" value={calDate} onChange={e => setCalDate(e.target.value)} className="cal-input" />
           <input type="time" value={calTime} onChange={e => setCalTime(e.target.value)} className="cal-input" />
           <select value={calDuration} onChange={e => setCalDuration(Number(e.target.value))} className="cal-input">
-            <option value={30}>30 мин</option>
-            <option value={60}>1 час</option>
-            <option value={90}>1.5 ч</option>
-            <option value={120}>2 часа</option>
+            <option value={30}>{isEnglish ? "30 min" : "30 мин"}</option>
+            <option value={60}>{isEnglish ? "1 hour" : "1 час"}</option>
+            <option value={90}>{isEnglish ? "1.5 h" : "1.5 ч"}</option>
+            <option value={120}>{isEnglish ? "2 hours" : "2 часа"}</option>
           </select>
           <button
             className="cal-save-btn"
             onClick={() => scheduleToCalendar(task)}
             disabled={calSaving || !calDate}
-          >{calSaving ? "..." : "Добавить"}</button>
+          >{calSaving ? "..." : copy.addCalendar}</button>
+          {calError && <div className="cal-error">{calError}</div>}
         </div>
       )}
     </div>
@@ -637,37 +1011,37 @@ export default function TaskColumn({
           value={newTaskText}
           onChange={(e) => setNewTaskText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addTask()}
-          placeholder="+ Какую глобальную задачу берем на прицел?"
+          placeholder={copy.newTaskPlaceholder}
           className="new-task-input"
           style={{fontSize: '1.1rem'}}
         />
         <button onClick={addTask} className="add-task-btn">
-          Добавить (пульс 35)
+          {copy.addTask}
         </button>
       </div>
 
       <div className="zones-grid">
         <DroppableZone id="zone-hot" className="zone-column focus-zone">
-          <h3 className="zone-title">🔥 В ФОКУСЕ ({hotTasks.length})</h3>
+          <h3 className="zone-title">🔥 {copy.focus} ({hotTasks.length})</h3>
           <div className="tasks-list">
-            {hotTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`}>{renderTaskCard(t, false, "#10b981")}</DraggableTask>)}
-            {hotTasks.length === 0 && <div className="empty-zone">Нет пламенных задач</div>}
+            {hotTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`} dragTitle={copy.drag}>{renderTaskCard(t, false, "#10b981")}</DraggableTask>)}
+            {hotTasks.length === 0 && <div className="empty-zone">{copy.emptyFocus}</div>}
           </div>
         </DroppableZone>
 
         <DroppableZone id="zone-passive" className="zone-column passive-zone">
-          <h3 className="zone-title">🧊 НА ФОНЕ ({passiveTasks.length})</h3>
+          <h3 className="zone-title">🧊 {copy.background} ({passiveTasks.length})</h3>
           <div className="tasks-list">
-            {passiveTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`}>{renderTaskCard(t, false, "#3b82f6")}</DraggableTask>)}
-            {passiveTasks.length === 0 && <div className="empty-zone">Все либо горит, либо замерзает</div>}
+            {passiveTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`} dragTitle={copy.drag}>{renderTaskCard(t, false, "#3b82f6")}</DraggableTask>)}
+            {passiveTasks.length === 0 && <div className="empty-zone">{copy.emptyBackground}</div>}
           </div>
         </DroppableZone>
 
         <DroppableZone id="zone-purgatory" className="zone-column purgatory-zone">
-          <h3 className="zone-title" style={{color: '#f59e0b'}}>🥶 ЧИСТИЛИЩЕ ({purgatoryTasks.length})</h3>
+          <h3 className="zone-title" style={{color: '#f59e0b'}}>🥶 {copy.purgatory} ({purgatoryTasks.length})</h3>
           <div className="tasks-list">
-            {purgatoryTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`}>{renderTaskCard(t, true, "#ef4444")}</DraggableTask>)}
-            {purgatoryTasks.length === 0 && <div className="empty-zone">Никто не замерзает</div>}
+            {purgatoryTasks.map(t => <DraggableTask key={t.id} id={`task-${t.id}`} dragTitle={copy.drag}>{renderTaskCard(t, true, "#ef4444")}</DraggableTask>)}
+            {purgatoryTasks.length === 0 && <div className="empty-zone">{copy.emptyPurgatory}</div>}
           </div>
         </DroppableZone>
       </div>
@@ -675,8 +1049,8 @@ export default function TaskColumn({
       {confirmTaskId && (
         <div className="modal-overlay" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
           <div className="modal-content glass-panel animated-fade-in" style={{padding: '40px', textAlign: 'center', maxWidth: '400px', width: '90%', border: '2px solid var(--accent-heaven)', borderRadius: '16px'}}>
-            <h2 style={{fontFamily: "'GuildensternNbp', 'VT323', monospace", marginBottom: '15px', fontSize: '2.5rem', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '2px'}}>Точно всё?</h2>
-            <p style={{marginBottom: '35px', color: 'var(--text-muted)', fontSize: '1.2rem'}}>Эта задача отправится в Рай. Уверены?</p>
+            <h2 style={{fontFamily: "'GuildensternNbp', 'VT323', monospace", marginBottom: '15px', fontSize: '2.5rem', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '2px'}}>{copy.confirmTitle}</h2>
+            <p style={{marginBottom: '35px', color: 'var(--text-muted)', fontSize: '1.2rem'}}>{copy.confirmBody}</p>
             <div style={{display: 'flex', gap: '20px', justifyContent: 'center'}}>
               <button 
                 onClick={() => {
@@ -686,14 +1060,14 @@ export default function TaskColumn({
                 className="action-btn complete"
                 style={{fontSize: '1.2rem', padding: '12px 24px'}}
               >
-                ДА!
+                {copy.confirmYes}
               </button>
               <button 
                 onClick={() => setConfirmTaskId(null)} 
                 className="action-btn kill-btn" 
                 style={{background: 'transparent', border: '2px solid var(--accent-cemetery)', color: 'var(--accent-cemetery)', fontSize: '1.2rem', padding: '12px 24px'}}
               >
-                ЕЩЕ НЕТ
+                {copy.confirmNo}
               </button>
             </div>
           </div>

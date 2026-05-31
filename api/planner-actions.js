@@ -4,6 +4,10 @@ const {
   runPlannerRouteForUser,
 } = require("./_lib/planner-actions-runtime");
 const { validatePlannerActionRequest } = require("./_lib/planner-contract");
+const {
+  buildPlannerClientErrorResponse,
+  buildPlannerRouteClientResponse,
+} = require("./_lib/planner-client-response-contract");
 
 const DEFAULT_USER_ID = String(process.env.PLANNER_DEFAULT_USER_ID || "").trim();
 const ACTIONS_API_SECRET = String(
@@ -28,51 +32,49 @@ function getAuthToken(req) {
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
+    return res.status(405).json(buildPlannerClientErrorResponse({ error: "Method not allowed" }));
   }
 
   if (!ACTIONS_API_SECRET) {
-    return res.status(503).json({
-      ok: false,
+    return res.status(503).json(buildPlannerClientErrorResponse({
       error: "planner actions API is not configured",
       details: "Set PLANNER_ACTIONS_SECRET (or CRON_SECRET/TELEGRAM_CRON_SECRET) on the server",
-    });
+    }));
   }
 
   const authToken = getAuthToken(req);
   if (!authToken || authToken !== ACTIONS_API_SECRET) {
-    return res.status(401).json({
-      ok: false,
+    return res.status(401).json(buildPlannerClientErrorResponse({
       error: "Unauthorized",
-    });
+    }));
   }
 
   const { parsed, error: parseError } = parseBody(req.body);
   if (parseError) {
-    return res.status(400).json({
-      ok: false,
+    return res.status(400).json(buildPlannerClientErrorResponse({
+      error: "Invalid request body",
       errors: [{ field: "body", message: parseError }],
-    });
+    }));
   }
 
   const validation = validatePlannerActionRequest(parsed);
   if (!validation.ok) {
-    return res.status(400).json({
-      ok: false,
+    return res.status(400).json(buildPlannerClientErrorResponse({
+      error: "Invalid planner action",
       errors: validation.errors,
-    });
+    }));
   }
 
   const request = validation.request || {};
   const userId = request.userId || DEFAULT_USER_ID;
   if (!userId) {
-    return res.status(400).json({
-      ok: false,
+    return res.status(400).json(buildPlannerClientErrorResponse({
+      error: "Missing userId",
       errors: [{
         field: "userId",
         message: "userId is required when PLANNER_DEFAULT_USER_ID is not configured",
       }],
-    });
+    }));
   }
 
   try {
@@ -94,17 +96,15 @@ module.exports = async function handler(req, res) {
       log: null,
     });
 
-    return res.status(200).json({
-      ok: true,
+    return res.status(200).json(buildPlannerRouteClientResponse({
       route: request.route,
-      messages: result.messages,
-      state: includeState ? result.state : undefined,
-    });
+      result,
+      includeState,
+    }));
   } catch (error) {
     console.error("[planner-actions]", error);
-    return res.status(500).json({
-      ok: false,
+    return res.status(500).json(buildPlannerClientErrorResponse({
       error: error.message || "Failed to execute planner action",
-    });
+    }));
   }
 };

@@ -1,11 +1,19 @@
 // src/LogoutButton.js
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { signOut } from "firebase/auth";
+import { auth } from "./firebase";
 
 const LogoutButton = () => {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+
     localStorage.removeItem("adhdUser");
     navigate("/login");
   };

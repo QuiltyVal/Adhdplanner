@@ -48,10 +48,10 @@ export default function CaptureComposer({
           <div>
             <div className="capture-kicker">web capture</div>
             <h2 id="capture-composer-title" className="capture-title">
-              Выгрузить из головы
+              Brain dump
             </h2>
             <p className="capture-description">
-              Сюда можно скинуть сырой текст как есть. Я сохраню его отдельно, а потом мы разберёмся.
+              Drop raw thoughts here exactly as they are. I will save them separately, then we can sort them out.
             </p>
           </div>
           <button
@@ -59,7 +59,7 @@ export default function CaptureComposer({
             className="capture-close-btn"
             onClick={onClose}
             disabled={saving}
-            aria-label="Закрыть"
+            aria-label="Close"
           >
             ×
           </button>
@@ -69,14 +69,14 @@ export default function CaptureComposer({
           className="capture-textarea"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Напиши сюда всё, что крутится в голове..."
+          placeholder="Write everything spinning in your head..."
           rows={10}
           autoFocus
         />
 
         <div className="capture-metrics-row">
           <label className="capture-metric-field">
-            Перегруз до
+            Overload before
             <select
               value={String(overloadBefore)}
               onChange={(event) => onChangeOverloadBefore(Number(event.target.value))}
@@ -88,7 +88,7 @@ export default function CaptureComposer({
             </select>
           </label>
           <label className="capture-metric-field">
-            Перегруз после
+            Overload after
             <select
               value={String(overloadAfter)}
               onChange={(event) => onChangeOverloadAfter(Number(event.target.value))}
@@ -103,7 +103,7 @@ export default function CaptureComposer({
 
         <div className="capture-actions">
           <button type="button" className="capture-secondary-btn" onClick={onClose} disabled={saving}>
-            Отмена
+            Cancel
           </button>
           <button
             type="button"
@@ -111,7 +111,7 @@ export default function CaptureComposer({
             onClick={onSave}
             disabled={saving || !value.trim()}
           >
-            {saving ? "Сохраняю..." : "Сохранить"}
+            {saving ? "Saving..." : "Save"}
           </button>
         </div>
 
@@ -119,23 +119,23 @@ export default function CaptureComposer({
 
         <section className="capture-journal">
           <div className="capture-journal-summary">
-            <span>14 дней: {recentJournal.length} capture</span>
-            <span>Конверсия в задачи: {conversionRate}%</span>
-            <span>Среднее облегчение: {avgDrop.toFixed(1)}</span>
+            <span>14 days: {recentJournal.length} captures</span>
+            <span>Task conversion: {conversionRate}%</span>
+            <span>Average relief: {avgDrop.toFixed(1)}</span>
           </div>
 
           {recentJournal.length > 0 && (
             <ul className="capture-journal-list">
               {recentJournal.map((entry) => (
                 <li key={entry.captureId} className="capture-journal-item">
-                  <div className="capture-journal-text">{entry.preview || "Без текста"}</div>
+                  <div className="capture-journal-text">{entry.preview || "No text"}</div>
                   <button
                     type="button"
                     className={`capture-journal-toggle${entry.convertedToTask24h ? " on" : ""}`}
                     onClick={() => onToggleConverted(entry.captureId)}
                     disabled={saving}
                   >
-                    {entry.convertedToTask24h ? "✅ Стало задачей" : "Отметить: стало задачей"}
+                    {entry.convertedToTask24h ? "✅ Became a task" : "Mark: became a task"}
                   </button>
                 </li>
               ))}

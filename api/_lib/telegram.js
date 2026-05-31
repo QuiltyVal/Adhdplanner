@@ -31,15 +31,15 @@ function plannerTaskKeyboard(taskId) {
   return {
     inline_keyboard: [
       [
-        { text: "✅ Готово", callback_data: `done:${taskId}` },
-        { text: "📌 Закрепить", callback_data: `today:${taskId}` },
+        { text: "✅ Done", callback_data: `done:${taskId}` },
+        { text: "📌 Pin today", callback_data: `today:${taskId}` },
       ],
       [
-        { text: "🚨 Критично", callback_data: `vital:${taskId}` },
-        { text: "🆘 Panic", callback_data: `panic:${taskId}` },
+        { text: "🚨 Critical", callback_data: `vital:${taskId}` },
+        { text: "🆘 I’m stuck", callback_data: `panic:${taskId}` },
       ],
       [
-        { text: "🌐 Открыть планнер", url: PLANNER_WEB_URL },
+        { text: "🌐 Open planner", url: PLANNER_WEB_URL },
       ],
     ],
   };
@@ -47,13 +47,13 @@ function plannerTaskKeyboard(taskId) {
 
 function completedTaskKeyboard(taskId) {
   return {
-    inline_keyboard: [[{ text: "↩️ Вернуть в активные", callback_data: `reopen:${taskId}` }]],
+    inline_keyboard: [[{ text: "↩️ Return to active", callback_data: `reopen:${taskId}` }]],
   };
 }
 
 function calendarConnectKeyboard(url) {
   return {
-    inline_keyboard: [[{ text: "📅 Подключить Google Calendar", url }]],
+    inline_keyboard: [[{ text: "📅 Connect Google Calendar", url }]],
   };
 }
 

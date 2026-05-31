@@ -1,6 +1,11 @@
 .DS_Store
 node_modules/
+build/
 dist/
 .env
 .soul-planner-tmp/
 .vercel
+.tmp-angel-e2e.js
+.tmp-angel-e2e/
+audit-screenshots/
+design/cursor-soul-planner-2026-04-24/

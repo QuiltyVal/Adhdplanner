@@ -33,7 +33,7 @@
 }
 
 .capture-title {
-  font-family: 'Press Start 2P', cursive;
+  font-family: var(--apus-display, 'Space Grotesk', sans-serif);
   font-size: 1.02rem;
   line-height: 1.6;
   color: #fff3b0;

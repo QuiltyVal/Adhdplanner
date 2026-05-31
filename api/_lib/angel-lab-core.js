@@ -61,6 +61,51 @@ const STOPWORDS = new Set([
   "что",
 ]);
 
+const EXECUTIVE_STATE_ORDER = ["panic", "fog", "stuck", "hyperfocus", "normal"];
+
+const EXECUTIVE_STATE_PATTERNS = {
+  panic: [
+    /\bпаник[аеиуой]?\b/i,
+    /\bпиздец\b/i,
+    /\bразносит\b/i,
+    /\bистерик[аеиуой]?\b/i,
+    /\bвсе\s+(плохо|горит|рушится)\b/i,
+    /\bне\s+справляюсь\b/i,
+    /\bсрочно\s+все\b/i,
+    /\bpanic\b/i,
+    /\boverwhelmed\b/i,
+    /\bmeltdown\b/i,
+  ],
+  fog: [
+    /\bтуман\b/i,
+    /\bмутно\b/i,
+    /\bкаша\s+в\s+голове\b/i,
+    /\bничего\s+не\s+понимаю\b/i,
+    /\bне\s+вижу\s+с\s+чего\b/i,
+    /\bfog\b/i,
+    /\bbrain\s+fog\b/i,
+    /\bconfused\b/i,
+  ],
+  stuck: [
+    /\bзастрял(?:а|и)?\b/i,
+    /\bзавис(?:ла|)?\b/i,
+    /\bне\s+могу\s+(начать|продолжить|сдвинуться)\b/i,
+    /\bстопор\b/i,
+    /\bstuck\b/i,
+    /\bfrozen\b/i,
+    /\bblocked\b/i,
+  ],
+  hyperfocus: [
+    /\bгиперфокус\b/i,
+    /\bзалип(?:ла|)?\b/i,
+    /\bне\s+могу\s+остановиться\b/i,
+    /\bуже\s+много\s+часов\b/i,
+    /\bhyperfocus\b/i,
+    /\bcan't\s+stop\b/i,
+    /\bcan.?t\s+stop\b/i,
+  ],
+};
+
 function clamp(value, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
 }
@@ -79,6 +124,61 @@ function normalizeDisplayText(value = "") {
   const normalized = String(value || "").replace(/\s+/g, " ").trim();
   if (!normalized) return "";
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function detectExecutiveStateFromText(value = "") {
+  const text = String(value || "").trim();
+  if (!text) {
+    return {
+      state: "normal",
+      confidence: 0.35,
+      reason: "empty_signal",
+    };
+  }
+
+  const scores = {
+    panic: 0,
+    fog: 0,
+    stuck: 0,
+    hyperfocus: 0,
+    normal: 0.2,
+  };
+
+  for (const [state, patterns] of Object.entries(EXECUTIVE_STATE_PATTERNS)) {
+    for (const pattern of patterns) {
+      if (pattern.test(text)) scores[state] += 1;
+    }
+  }
+
+  if (/\b(надо|нужно|must|have to)\b/i.test(text) && /\b(все|everything|all)\b/i.test(text)) {
+    scores.panic += 0.8;
+  }
+  if (/\b(не знаю|don't know|dont know)\b/i.test(text) && /\b(с чего|where to start|start)\b/i.test(text)) {
+    scores.fog += 0.6;
+    scores.stuck += 0.4;
+  }
+  if (/\b(делать|задач|tasks?)\b/i.test(text) && /\b(много|too many|so many)\b/i.test(text)) {
+    scores.panic += 0.5;
+    scores.fog += 0.5;
+  }
+
+  const ranked = EXECUTIVE_STATE_ORDER
+    .map((state) => ({ state, score: scores[state] || 0 }))
+    .sort((left, right) => right.score - left.score);
+  const winner = ranked[0];
+  if (!winner || winner.score <= 0.2) {
+    return {
+      state: "normal",
+      confidence: 0.45,
+      reason: "no_strong_state_signal",
+    };
+  }
+
+  return {
+    state: winner.state,
+    confidence: clamp(0.48 + winner.score * 0.16, 0.48, 0.92),
+    reason: `matched_${winner.state}_signal`,
+  };
 }
 
 function stripIntentPrefix(value = "") {
@@ -231,6 +331,13 @@ function isActionStartToken(token = "") {
   return /(ть|ти|ться|чь)$/.test(token);
 }
 
+function stripTaskConnectorEdges(value = "") {
+  return String(value || "")
+    .replace(/\s+(?:и|and)$/i, "")
+    .replace(/^(?:и|and)\s+/i, "")
+    .trim();
+}
+
 function splitChunkByActionMarkers(chunk = "") {
   const words = String(chunk || "").split(/\s+/).filter(Boolean);
   if (words.length <= 3) return [chunk];
@@ -241,13 +348,17 @@ function splitChunkByActionMarkers(chunk = "") {
     const normalizedWord = normalizeTaskLookupText(word);
     const isMarker = isActionStartToken(normalizedWord);
     if (current.length >= 2 && isMarker) {
-      result.push(current.join(" "));
+      const previousChunk = stripTaskConnectorEdges(current.join(" "));
+      if (previousChunk) result.push(previousChunk);
       current = [word];
       continue;
     }
     current.push(word);
   }
-  if (current.length > 0) result.push(current.join(" "));
+  if (current.length > 0) {
+    const finalChunk = stripTaskConnectorEdges(current.join(" "));
+    if (finalChunk) result.push(finalChunk);
+  }
   return result;
 }
 
@@ -299,6 +410,14 @@ function getTaskContextText(task = {}) {
       .filter(Boolean)
     : [];
   return [String(task?.text || "").trim(), ...subtasks].join(" ");
+}
+
+function hasStrongMergeAnchor(candidate = {}) {
+  if (!candidate || typeof candidate !== "object") return false;
+  if (candidate.titleSim >= 0.88 || candidate.subtaskSim >= 0.9) return true;
+  if (candidate.titleSim >= 0.78 && candidate.sharedContentCount >= 2) return true;
+  if (candidate.subtaskSim >= 0.82 && candidate.sharedContentCount >= 2) return true;
+  return false;
 }
 
 function detectMergeTarget(unitText = "", dumpText = "", activeTasks = []) {
@@ -362,19 +481,20 @@ function detectMergeTarget(unitText = "", dumpText = "", activeTasks = []) {
     };
   }
 
-  if (best.mergeScore >= 0.74 && gap >= 0.12) {
+  const strongMergeAnchor = hasStrongMergeAnchor(best);
+  if (strongMergeAnchor && best.mergeScore >= 0.74 && gap >= 0.12) {
     return {
       kind: "merge",
       targetTaskId: best.taskId,
       targetTaskText: best.taskText,
       confidence: best.mergeScore,
-      reason: "strong_semantic_match",
+      reason: "strong_title_match",
       score: best.mergeScore,
       gap,
     };
   }
 
-  if ((best.mergeScore >= 0.62 && gap < 0.12) || (best.mergeScore >= 0.62 && best.mergeScore < 0.74)) {
+  if (strongMergeAnchor && ((best.mergeScore >= 0.62 && gap < 0.12) || (best.mergeScore >= 0.62 && best.mergeScore < 0.74))) {
     return {
       kind: "ambiguous",
       confidence: best.mergeScore,
@@ -496,10 +616,10 @@ function isContextuallyRelatedToTask(unitText = "", task = {}) {
   if (!contextText) return false;
 
   const sharedContentCount = countSharedContentTokens(unitText, contextText);
-  if (sharedContentCount >= 1) return true;
+  if (sharedContentCount >= 2) return true;
 
   const stemJaccard = getStemJaccard(unitText, contextText);
-  if (stemJaccard >= 0.34) return true;
+  if (stemJaccard >= 0.42) return true;
 
   const openSubtasks = Array.isArray(task?.subtasks)
     ? task.subtasks.filter((subtask) => !subtask?.completed)
@@ -509,7 +629,7 @@ function isContextuallyRelatedToTask(unitText = "", task = {}) {
     return score > maxScore ? score : maxScore;
   }, 0);
 
-  return subtaskSimilarity >= 0.42;
+  return subtaskSimilarity >= 0.62;
 }
 
 function hasSupportingDependencySignal(unitText = "") {
@@ -640,7 +760,7 @@ function buildTaskCards({ dumpText = "", activeTasks = [], extractionCandidateTa
       const targetTask = active.find((task) => String(task.id) === String(dumpMergeTarget.targetTaskId));
       const hasExistingCluster = mergeClusters.has(String(dumpMergeTarget.targetTaskId));
       const isRelatedByContext = targetTask && isContextuallyRelatedToTask(unitText, targetTask);
-      const isRelatedByDependency = hasExistingCluster && hasSupportingDependencySignal(unitText);
+      const isRelatedByDependency = hasExistingCluster && hasSupportingDependencySignal(unitText) && isRelatedByContext;
       if (targetTask && (isRelatedByContext || isRelatedByDependency)) {
         pushMergeUnit(
           dumpMergeTarget.targetTaskId,
@@ -654,7 +774,8 @@ function buildTaskCards({ dumpText = "", activeTasks = [], extractionCandidateTa
 
     if (!dumpMergeTarget && mergeClusters.size === 1 && hasSupportingDependencySignal(unitText)) {
       const [singleTargetTaskId] = [...mergeClusters.keys()];
-      if (singleTargetTaskId) {
+      const singleTargetTask = active.find((task) => String(task.id) === String(singleTargetTaskId));
+      if (singleTargetTaskId && singleTargetTask && isContextuallyRelatedToTask(unitText, singleTargetTask)) {
         pushMergeUnit(singleTargetTaskId, unitText, "dump_context", 0.66);
         return true;
       }
@@ -703,8 +824,8 @@ function buildTaskCards({ dumpText = "", activeTasks = [], extractionCandidateTa
     const sourceSubtasks = cluster.units.filter((unitText) => !isTaskNearDuplicate(unitText, targetTask.text || ""));
     const reason = cluster.reasons.includes("exact_or_subtask_match")
       ? "exact_or_subtask_match"
-      : cluster.reasons.includes("strong_semantic_match")
-        ? "strong_semantic_match"
+      : cluster.reasons.includes("strong_title_match")
+        ? "strong_title_match"
         : "dump_context";
 
     const subtasks = normalizeAndDedupSubtasks({
@@ -770,6 +891,123 @@ function buildTaskCards({ dumpText = "", activeTasks = [], extractionCandidateTa
   return cards.slice(0, MAX_TASK_CARDS);
 }
 
+function getFirstOpenSubtaskText(task = {}) {
+  const subtasks = Array.isArray(task?.subtasks) ? task.subtasks : [];
+  const firstOpen = subtasks.find((subtask) => subtask && !subtask.completed && String(subtask.text || "").trim());
+  return firstOpen ? normalizeDisplayText(firstOpen.text || "") : "";
+}
+
+function getTaskDeadlineScore(task = {}, now = Date.now()) {
+  const deadlineAt = Number(task?.deadlineAt || task?.deadline || 0);
+  if (!deadlineAt) return 0;
+  if (deadlineAt < now) return 45;
+  if (deadlineAt - now <= 24 * 60 * 60 * 1000) return 35;
+  if (deadlineAt - now <= 3 * 24 * 60 * 60 * 1000) return 20;
+  return 0;
+}
+
+function buildControlStepText(task = {}, state = "stuck") {
+  const existing = getFirstOpenSubtaskText(task);
+  if (existing) {
+    return {
+      text: existing,
+      isExisting: true,
+      shouldAddStep: false,
+    };
+  }
+
+  const title = normalizeDisplayText(task?.text || task?.title || "");
+  if (!title) {
+    return {
+      text: state === "panic" ? "Открыть одну задачу и сделать 2 минуты." : "Сделать один видимый микрошаг.",
+      isExisting: false,
+      shouldAddStep: false,
+    };
+  }
+
+  return {
+    text: `Открыть «${title}» и сделать 2 минуты без идеальности.`,
+    isExisting: false,
+    shouldAddStep: true,
+  };
+}
+
+function scoreExecutiveControlTask(task = {}, state = "stuck", now = Date.now()) {
+  const title = normalizeTaskLookupText(task?.text || task?.title || "");
+  if (!title || String(task?.status || "active") !== "active") return -Infinity;
+
+  let score = 20;
+  if (getFirstOpenSubtaskText(task)) score += state === "fog" ? 90 : 70;
+  if (isActionableTaskTitle(title)) score += 36;
+  if (task?.isToday) score += 35;
+  if (task?.isVital) score += 35;
+  score += getTaskDeadlineScore(task, now);
+  if (["low", "medium"].includes(String(task?.resistance || "").toLowerCase())) score += 10;
+  if (String(task?.urgency || "").toLowerCase() === "high") score += 15;
+
+  if (state === "panic") {
+    if (/(купить|оплатить|отправить|позвонить|сфот|проверить|написать|забрать|найти)/i.test(title)) score += 24;
+    if (/(разобраться|улучшить|проект|систем|стратег|strategy|research)/i.test(title)) score -= 30;
+  }
+  if (state === "hyperfocus") {
+    if (task?.isToday) score += 40;
+    if (/(закончить|завершить|ship|publish|finish)/i.test(title)) score += 25;
+  }
+
+  return score;
+}
+
+function pickExecutiveControlTask({ state = "stuck", activeTasks = [], taskCards = [], now = Date.now() } = {}) {
+  const active = (Array.isArray(activeTasks) ? activeTasks : []).filter((task) => task?.status === "active");
+  const mergeCard = (Array.isArray(taskCards) ? taskCards : [])
+    .find((card) => card?.mode === "merge" && card?.targetTaskId);
+  if (mergeCard?.targetTaskId) {
+    const target = active.find((task) => String(task?.id || "") === String(mergeCard.targetTaskId));
+    if (target) return target;
+  }
+
+  const ranked = active
+    .map((task, index) => ({
+      task,
+      index,
+      score: scoreExecutiveControlTask(task, state, now),
+    }))
+    .filter((item) => Number.isFinite(item.score))
+    .sort((left, right) => (right.score - left.score) || (left.index - right.index));
+
+  return ranked[0]?.task || null;
+}
+
+function buildExecutiveStateAssessment({ dumpText = "", activeTasks = [], taskCards = [], now = Date.now() } = {}) {
+  const detected = detectExecutiveStateFromText(dumpText);
+  const state = detected.state || "normal";
+  const controlTask = state === "normal"
+    ? null
+    : pickExecutiveControlTask({ state, activeTasks, taskCards, now });
+  const controlStep = controlTask ? buildControlStepText(controlTask, state) : null;
+
+  const fallbackNextStep = {
+    panic: "Остановить выбор и открыть один rescue-шаг.",
+    fog: "Смотреть только на одну подсказку, не на весь список.",
+    stuck: "Открыть rescue и сделать один видимый микрошаг.",
+    hyperfocus: "Оставить одну линию активной, остальное припарковать.",
+    normal: "Можно пользоваться полным планером спокойно.",
+  };
+
+  return {
+    schemaVersion: 1,
+    source: "angel_lab_dump",
+    state,
+    confidence: Number(clamp(detected.confidence || 0.5, 0, 1).toFixed(3)),
+    reason: detected.reason || "state_signal",
+    controlTaskId: controlTask ? String(controlTask.id || "") : "",
+    controlTaskTitle: controlTask ? normalizeDisplayText(controlTask.text || controlTask.title || "") : "",
+    safeNextStep: controlStep?.text || fallbackNextStep[state] || fallbackNextStep.normal,
+    stepIsExisting: Boolean(controlStep?.isExisting),
+    shouldAddStep: Boolean(controlStep?.shouldAddStep),
+  };
+}
+
 module.exports = {
   normalizeTaskLookupText,
   tokenizeTaskLookupText,
@@ -782,4 +1020,6 @@ module.exports = {
   detectMergeTarget,
   normalizeAndDedupSubtasks,
   buildTaskCards,
+  detectExecutiveStateFromText,
+  buildExecutiveStateAssessment,
 };

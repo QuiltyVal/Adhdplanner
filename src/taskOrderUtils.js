@@ -2,12 +2,15 @@ export function resolveTaskOrderValue(task) {
   const taskPosition = task?.position;
   if (typeof taskPosition === "number" && Number.isFinite(taskPosition)) return taskPosition;
 
-  const lastUpdated = task?.lastUpdated;
-  if (typeof lastUpdated === "number" && Number.isFinite(lastUpdated)) return lastUpdated;
-
   const createdAt =
     typeof task?.createdAt === "number" && Number.isFinite(task.createdAt) ? task.createdAt : null;
   if (createdAt) return createdAt;
+
+  const numericId = Number(task?.id);
+  if (Number.isFinite(numericId) && numericId > 0) return numericId;
+
+  const lastUpdated = task?.lastUpdated;
+  if (typeof lastUpdated === "number" && Number.isFinite(lastUpdated)) return lastUpdated;
 
   return 0;
 }

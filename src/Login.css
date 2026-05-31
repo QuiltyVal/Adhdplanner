@@ -60,7 +60,7 @@
 }
 
 .login-title {
-  font-family: 'GuildensternNbp', 'Press Start 2P', cursive;
+  font-family: var(--apus-display, 'Space Grotesk', sans-serif);
   font-size: 1.1rem;
   color: #fff;
   text-shadow: 3px 3px 0 #8a1c1c, 0 0 20px rgba(160, 214, 255, 0.2);
@@ -70,7 +70,7 @@
 }
 
 .login-subtitle {
-  font-family: 'GuildensternNbp', 'VT323', monospace;
+  font-family: var(--apus-sans, 'Nunito Sans', system-ui, sans-serif);
   color: #c0c0c0;
   font-size: 1.4rem;
   line-height: 1.4;

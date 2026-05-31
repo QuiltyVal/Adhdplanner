@@ -1,3 +1,13 @@
+- 2026-05-30 00:40 Europe/Berlin - Codex: Made Angel Lab Clarify this idempotent so the same clarification prompt cannot be appended repeatedly. Files: src/AngelLabScreen.js, docs/angel-engagement-loop.md.
+- 2026-05-30 00:25 Europe/Berlin - Codex: Changed Angel Lab needsClarification fallback add copy to Add title only / Добавить только название. Files: src/AngelLabScreen.js, docs/angel-engagement-loop.md.
+- 2026-05-30 00:10 Europe/Berlin - Codex: Added visible feedback for Angel Lab Clarify this action with textarea highlight and short local notice. Files: src/AngelLabScreen.js, src/AngelLabScreen.css, docs/angel-engagement-loop.md.
+- 2026-05-29 13:50 Europe/Berlin - Codex: Added Clarify this action for Angel Lab needsClarification draft cards; it appends a focused prompt to the dump textarea without creating a task. Files: src/AngelLabScreen.js, src/AngelLabScreen.css, docs/angel-engagement-loop.md.
+- 2026-05-29 13:35 Europe/Berlin - Codex: Added Angel Lab draft quality regression test and wired it into verify:server. Files: api/captures.js, tests/angel-lab-draft-quality.test.mjs, package.json, docs/angel-engagement-loop.md.
+- 2026-05-29 13:20 Europe/Berlin - Codex: Adjusted Angel Lab create-card preselection to respect explicit selectedByDefault steps and avoid auto-selecting additional high-confidence steps. Files: api/captures.js, docs/angel-engagement-loop.md.
+- 2026-05-29 13:05 Europe/Berlin - Codex: Added Angel Lab UI state for draftQuality.needsClarification so weak draft cards are visibly marked instead of looking ready. Files: src/AngelLabScreen.js, src/AngelLabScreen.css, docs/angel-engagement-loop.md.
+- 2026-05-29 12:50 Europe/Berlin - Codex: Added Angel Lab draft quality gate to remove empty/generic/off-topic subtasks and mark weak create cards as needsClarification. Files: api/captures.js, docs/angel-engagement-loop.md.
+- 2026-05-29 12:35 Europe/Berlin - Codex: Fixed Angel Lab category bleed so portfolio/demo subtasks only apply to portfolio/demo draft cards, not every card in the same dump. Files: api/captures.js, docs/angel-engagement-loop.md.
+- 2026-05-29 12:20 Europe/Berlin - Codex: Filtered Angel Lab meta-confusion phrases out of draft task cards so overwhelm context does not become a fake task. Files: api/captures.js, docs/angel-engagement-loop.md.
 # AGENT_LOG.md
 
 Append-only log for coding-agent handoff.
@@ -763,6 +773,30 @@ Entry template:
   - this does not migrate Telegram traffic to `planner-agent-router` / `planner-action-executor`; it only removes the misleading split and makes the enrichment seam reusable
   - there is still no automated behavioral test that proves memory enrichment survives a future router migration
 
+## 2026-05-29 11:35 Europe/Berlin - Codex
+
+- Summary: Tightened Angel Lab draft confirmation UX after returning from the accidental NovaHaus thread.
+- Changed:
+  - `src/AngelLabScreen.js` — draft column now shows how many cards are still waiting, and the selected-subtasks CTA renders before the weaker main-only action.
+  - `src/AngelLabScreen.css` — added a compact draft queue status style.
+  - `docs/angel-engagement-loop.md` — documented the Angel Lab confirmation UX rule.
+- Verified:
+  - not run (user did not request build/browser QA in this turn).
+- Risks / follow-up:
+  - This is a presentation/flow clarity patch only; it does not change draft parsing quality or backend apply semantics.
+
+## 2026-05-29 11:55 Europe/Berlin - Codex
+
+- Summary: Improved Angel Lab AI draft quality path without changing the confirmation boundary.
+- Changed:
+  - `api/captures.js` — AI-generated draft cards now still pass through subtask enrichment and create-card preselection even in default `simple` mode.
+  - `api/captures.js` — tightened the Angel Lab prompt against generic/invented subtasks and asked for concrete first steps on simple errands.
+  - `docs/angel-engagement-loop.md` — documented the AI draft polish path.
+- Verified:
+  - not run yet in this step.
+- Risks / follow-up:
+  - This should improve draft quality, but model output can still vary; the next stronger step would be adding a deterministic post-processor for common errand/document/portfolio categories.
+
 ## 2026-04-15 20:05 Europe/Berlin - Codex
 
 - Summary: Moved live plain-text Telegram back onto the shared `route -> memory -> execute` path, while keeping slash commands and callback buttons local for now.
@@ -843,3 +877,99 @@ Entry template:
   - `api/_lib/planner-action-executor.js` — `show_today` now suppresses the extra “important now” block when it duplicates the same top tasks already listed in the main digest
 - Verified:
   - not run (per current session rule: no extra validation/test pass unless explicitly requested)
+
+## 2026-05-30 - Codex
+
+- Summary: Added a low-priority Angel Opening Move so the planner can proactively offer one safe entry point when no higher-priority companion prompt is active.
+- Changed:
+  - `src/App.js` — added `angel_opening_move` prompt using the current mission task, with start/dismiss/planner handlers and a 4-hour cooldown.
+  - `docs/angel-engagement-loop.md` — documented the opening move layer.
+- Verified:
+  - pending.
+
+## 2026-05-31 - Codex
+
+- Summary: Made Angel Lab draft-card handling more explicit after add/merge/skip actions.
+- Changed:
+  - `src/App.js` — added `angelLabHandledNotice` and set it when a draft card is added, merged into an existing task, skipped, or already exists.
+  - `src/AngelLabScreen.js` — renders a `Last action` notice above the draft queue.
+  - `src/AngelLabScreen.css` — added handled-card feedback styling.
+  - `docs/angel-engagement-loop.md` — documented the handled-card feedback.
+- Verified:
+  - pending.
+
+## 2026-05-31 - Codex
+
+- Summary: Added Angel Lab draft-session progress chips.
+- Changed:
+  - `src/App.js` — tracks added/skipped draft card counts for the current Angel Lab session.
+  - `src/AngelLabScreen.js` — shows added/skipped/left chips above the draft queue.
+  - `src/AngelLabScreen.css` — added compact progress chip styling.
+  - `docs/angel-engagement-loop.md` — documented draft progress chips.
+- Verified:
+  - pending.
+
+## 2026-05-31 - Codex
+
+- Summary: Added a clearer Angel Lab completion state after all draft cards are handled.
+- Changed:
+  - `src/AngelLabScreen.js` — when the current draft queue reaches zero after handling cards, the done panel now shows added/skipped totals and a clear return-to-planner action.
+  - `docs/angel-engagement-loop.md` — documented the completion summary.
+- Verified:
+  - pending.
+
+## 2026-05-31 - Codex
+
+- Summary: Added deterministic splitting for Angel Lab cards that combine multiple independent needs.
+- Changed:
+  - `api/captures.js` — `polishAngelLabTaskCards` now splits create-card titles joined by `и/and` when each part is separately actionable, then applies category-specific subtasks to each split card.
+  - `tests/angel-lab-draft-quality.test.mjs` — added regression coverage for a combined Jobcenter + cat-food draft card.
+  - `docs/angel-engagement-loop.md` — documented the split-card post-processing rule.
+- Verified:
+  - pending.
+
+## 2026-05-31 - Codex
+
+- Summary: Capped Angel Lab draft preselection to one subtask per card.
+- Changed:
+  - `api/captures.js` — normalized `selected`, `checked`, and `selectedByDefault` flags so AI/category post-processing cannot silently preselect multiple subtasks.
+  - `tests/angel-lab-draft-quality.test.mjs` — added regression coverage for a card whose model output marks several subtasks selected.
+  - `docs/angel-engagement-loop.md` — documented the one-selected-subtask rule.
+- Verified:
+  - pending.
+
+## 2026-05-31 - Codex
+
+- Summary: Recovered from the broken Codex `PLANNER` thread and tightened Angel Lab fallback parsing.
+- Changed:
+  - `api/_lib/angel-lab-core.js` — trims trailing/leading `и/and` connector words when splitting a brain dump by action markers, preventing draft titles such as `Разобрать письма от Jobcenter и`.
+  - `tests/angel-lab-draft-quality.test.mjs` — added regression coverage for the mixed Jobcenter + cat-food sentence at the parser level.
+  - `api/captures.js` — cleaned indentation around active task normalization and the final response block without changing behavior.
+  - `docs/angel-engagement-loop.md` — documented the connector-tail parser guard.
+- Verified:
+  - `node tests/angel-lab-draft-quality.test.mjs`
+  - `node --check api/captures.js && node --check api/_lib/angel-lab-core.js`
+  - `git diff --check -- api/captures.js api/_lib/angel-lab-core.js tests/angel-lab-draft-quality.test.mjs`
+  - `ANGEL_LAB_OPENAI_DRAFTS=0` dry-run of `api/captures.js` with `Разобрать письма от Jobcenter и купить корм коту` produced two cards, each with one selected step.
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - The old Codex `PLANNER` thread is in `systemError`; continue recovery work from a fresh thread or this one.
+  - The repo still has a large pre-existing dirty worktree. Do not bulk revert it without a deliberate review.
+
+## 2026-05-31 - Codex
+
+- Summary: Cleaned the Planner repo working tree into a commit-ready checkpoint.
+- Changed:
+  - `.gitignore` — ignored generated `build/`, temporary Angel E2E artifacts, audit screenshots, and the raw Cursor design preview import.
+  - Removed tracked `.DS_Store` and generated `build/` artifacts from git tracking; production build output is now generated locally/Vercel instead of committed.
+  - Kept the runtime Apus/Planner Engine/Angel Lab source files, docs, public mascot assets, and regression tests as real project changes.
+  - Reworded new design docs so they do not commit machine-specific `/Users/...` source paths.
+- Verified:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Local static smoke-test at `http://127.0.0.1:4173/`: page rendered the login screen with no framework error overlay.
+- Risks / follow-up:
+  - Static smoke-test cannot exercise Vercel API routes; `/api/google-calendar-status` returns 404 under `python3 -m http.server`, which is expected for that test mode.
+  - The raw `design/cursor-soul-planner-2026-04-24/` folder remains local but ignored.

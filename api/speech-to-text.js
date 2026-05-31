@@ -1,4 +1,5 @@
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
+const OPENAI_TRANSCRIPTION_MODEL = String(process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe").trim() || "gpt-4o-mini-transcribe";
 const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
 const { admin, getAdminApp } = require("./_lib/firebase-admin");
 
@@ -35,6 +36,15 @@ async function verifyUser(req) {
   }
 }
 
+function getAudioFilename(mimeType = "") {
+  const value = String(mimeType || "").toLowerCase();
+  if (value.includes("mp4") || value.includes("m4a")) return "speech.m4a";
+  if (value.includes("mpeg") || value.includes("mp3")) return "speech.mp3";
+  if (value.includes("wav")) return "speech.wav";
+  if (value.includes("ogg")) return "speech.ogg";
+  return "speech.webm";
+}
+
 module.exports = async function speechToTextHandler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -57,7 +67,12 @@ module.exports = async function speechToTextHandler(req, res) {
 
   const audioBase64 = String(body.audioBase64 || "").trim();
   const mimeType = String(body.mimeType || "audio/webm").trim() || "audio/webm";
-  const language = String(body.language || "ru").trim() || "ru";
+  const requestedLanguage = String(body.language || "auto").trim().toLowerCase();
+  const language = requestedLanguage.startsWith("en")
+    ? "en"
+    : requestedLanguage.startsWith("ru")
+      ? "ru"
+      : "";
 
   if (!audioBase64) {
     return res.status(400).json({ ok: false, error: "audioBase64 is required" });
@@ -80,10 +95,21 @@ module.exports = async function speechToTextHandler(req, res) {
 
   try {
     const form = new FormData();
-    form.append("model", "whisper-1");
-    form.append("language", language);
+    form.append("model", OPENAI_TRANSCRIPTION_MODEL);
+    if (language) {
+      form.append("language", language);
+    }
+    form.append(
+      "prompt",
+      [
+        "Transcribe exactly what the user says.",
+        "The speaker is often dictating messy ADHD planner notes in Russian, with occasional English or German words.",
+        "Do not translate. Do not summarize. Preserve Russian, English, German, names, app terms, and task wording as spoken.",
+        "Common context words may include: Angel Lab, brain dump, Jobcenter, Bürgerbüro, portfolio, Vercel, Telegram, task, subtask.",
+      ].join(" "),
+    );
     form.append("response_format", "json");
-    form.append("file", new Blob([audioBuffer], { type: mimeType }), "speech.webm");
+    form.append("file", new Blob([audioBuffer], { type: mimeType }), getAudioFilename(mimeType));
 
     const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
@@ -105,6 +131,8 @@ module.exports = async function speechToTextHandler(req, res) {
     return res.status(200).json({
       ok: true,
       text,
+      language: language || "auto",
+      model: OPENAI_TRANSCRIPTION_MODEL,
       uid: authResult.uid,
     });
   } catch (error) {

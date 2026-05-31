@@ -1,3 +1,4 @@
+const { PLANNER_ACTIONS } = require("./planner-action-types");
 const { parseTelegramIntent } = require("./telegram-intent");
 
 function extractQuotedSegments(text = "") {
@@ -13,7 +14,13 @@ function looksLikeReopenRequest(text = "") {
 
 function looksLikeCompleteRequest(text = "") {
   const lowered = String(text).toLowerCase();
+  if (looksLikeKillRequest(lowered)) return false;
   return /(в рай|выполненн|готов[ао]|заверши|сделай готов|отправь.*в рай)/.test(lowered);
+}
+
+function looksLikeKillRequest(text = "") {
+  const lowered = String(text).toLowerCase();
+  return /(в ад|в аду|на кладбищ|в кладбищ|в мусор|в помойк|в небыт|похорон|убей|умертв|снеси|выкинь|сдохни|умри|удали из актив)/.test(lowered);
 }
 
 function looksLikeSuggestUnpinRequest(text = "") {
@@ -46,6 +53,23 @@ function extractTaskNameForCompletion(text = "") {
     .trim();
 
   return cleaned && !/^(е[её]|эту|эту задачу)$/i.test(cleaned) ? cleaned : "";
+}
+
+function extractTaskNameForKill(text = "") {
+  const quoted = extractQuotedSegments(text);
+  if (quoted.length > 0) return quoted[0];
+
+  const cleaned = String(text)
+    .replace(/^(ну\s+)?(нет\s+)?/i, "")
+    .replace(/^(отправь|переведи|перенеси|закинь|снеси|убей|похорони|выкинь)\s+/i, "")
+    .replace(/^(задач[ауи]?|дело|таск)\s+/i, "")
+    .replace(/\s+(в ад|в аду|на кладбище|в кладбище|в мусор|в помойку|в небытие)$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned && !/^(задач[ауи]?|е[её]|эту|эта|эту задачу|последнюю|последнюю задачу)$/i.test(cleaned)
+    ? cleaned
+    : "";
 }
 
 function extractTaskNameForUnsetToday(text = "") {
@@ -190,6 +214,26 @@ async function routePlannerAgentInput({ text, plannerData }) {
     return { type: "unknown_command", rawText: cleaned };
   }
 
+  if (looksLikeKillRequest(cleaned)) {
+    return {
+      type: PLANNER_ACTIONS.KILL_TASK,
+      taskText: "",
+      taskRef: extractTaskNameForKill(cleaned),
+      subtaskText: "",
+      subtasks: [],
+      deadlineAt: "",
+      startTime: "",
+      durationMinutes: null,
+      urgency: "medium",
+      isToday: false,
+      isVital: false,
+      replyText: "",
+      source: "deterministic_router",
+      rawIntent: { intent: PLANNER_ACTIONS.KILL_TASK },
+      rawText: cleaned,
+    };
+  }
+
   const intent = await parseTelegramIntent({
     text: cleaned,
     tasks: plannerData?.tasks || [],
@@ -217,15 +261,15 @@ async function routePlannerAgentInput({ text, plannerData }) {
   // Router stays pure on purpose: it classifies text, but it does not run
   // capture/extraction side effects. Future callers that pipe add_task into the
   // executor must attach memory enrichment separately first.
-  if (routed.type === "add_task") {
+  if (routed.type === PLANNER_ACTIONS.ADD_TASK) {
     routed.requiresTaskMemoryEnrichment = true;
   }
 
-  if (routed.type === "chat" && !routed.replyText) {
+  if (routed.type === PLANNER_ACTIONS.CHAT && !routed.replyText) {
     routed.replyText = "Сформулируй это как задачу, или просто напиши /today или /panic.";
   }
 
-  if (routed.type === "add_subtask" && !routed.taskText && routed.taskRef) {
+  if (routed.type === PLANNER_ACTIONS.ADD_SUBTASK && !routed.taskText && routed.taskRef) {
     routed.taskText = routed.taskRef;
   }
 
