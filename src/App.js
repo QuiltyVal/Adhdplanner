@@ -5853,6 +5853,7 @@ export default function App() {
   const humanPlannerEvents = plannerEvents.filter((event) => !isTechnicalPlannerEvent(event));
   const technicalPlannerEvents = plannerEvents.filter(isTechnicalPlannerEvent);
   const plannerEngineDecisions = getPlannerEngineDecisions(plannerMeta, language);
+  const plannerEngineInbox = getPlannerEngineInbox(plannerMeta, language);
   const angelEntrySession = plannerMeta?.angel_entry_session && typeof plannerMeta.angel_entry_session === "object"
     ? plannerMeta.angel_entry_session
     : null;
@@ -13086,6 +13087,41 @@ export default function App() {
                         </div>
                       ))}
                     </div>
+                    {!isDemoRoute && (plannerEngineDecisions.length > 0 || plannerEngineInbox.length > 0) && (
+                      <details className="decision-trace-evidence">
+                        <summary>{language === "en" ? "Latest engine evidence" : "Последние следы движка"}</summary>
+                        {plannerEngineDecisions.length > 0 && (
+                          <div className="decision-trace-evidence-group">
+                            <span className="decision-trace-evidence-title">
+                              {language === "en" ? "Decisions" : "Решения"}
+                            </span>
+                            <div className="engine-decisions-list">
+                              {plannerEngineDecisions.slice(0, 5).map((decision) => (
+                                <div key={`evidence-${decision.key}`} className={`engine-decision engine-decision-${decision.persona}`}>
+                                  <span className="engine-decision-label">{decision.label}</span>
+                                  <span className="engine-decision-text">{decision.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {plannerEngineInbox.length > 0 && (
+                          <div className="decision-trace-evidence-group">
+                            <span className="decision-trace-evidence-title">
+                              {language === "en" ? "Inbox" : "Входящие"}
+                            </span>
+                            <div className="engine-decisions-list">
+                              {plannerEngineInbox.slice(0, 6).map((item) => (
+                                <div key={`evidence-${item.key}`} className={`engine-decision engine-decision-${item.persona} engine-inbox-item engine-inbox-severity-${item.severity || 0}`}>
+                                  <span className="engine-decision-label">{item.label}</span>
+                                  <span className="engine-decision-text">{item.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </details>
+                    )}
                   </div>
                 </section>
               </div>

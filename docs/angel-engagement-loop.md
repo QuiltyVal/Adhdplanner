@@ -1742,3 +1742,7 @@ When Progress is open, the floating companion prompt/avatars are suppressed so t
 The Progress tab now shows Decision Trace for both demo and normal planner sessions before Delivery Health. This makes the user-facing question "what is the planner pushing, why, and what trace did it leave?" separate from technical diagnostics.
 
 Delivery Health still carries Telegram/email state and manual debug actions for authenticated users, but Engine diagnostics are now visually separated from the primary decision explanation.
+
+### 2026-05-31 - Decision Trace keeps engine evidence inspectable
+
+For normal planner sessions, Decision Trace now includes a collapsed "Latest engine evidence" section. It shows the latest Planner Engine decisions and inbox items under the compact six-row explanation, so the product can answer both "what is the current push?" and "what raw engine evidence backs that?" without moving those details back into Delivery Health.

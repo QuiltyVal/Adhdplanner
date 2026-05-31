@@ -1,3 +1,19 @@
+## 2026-05-31 23:26 Europe/Berlin - Codex
+
+- Summary: Kept the new Progress Decision Trace compact while restoring inspectable Planner Engine evidence for normal sessions.
+- Changed:
+  - `src/App.js` — adds a normal-session `Latest engine evidence` disclosure inside Decision Trace for Planner Engine decisions and inbox items.
+  - `src/App.css` — styles the evidence disclosure without changing the demo's six-row public trace.
+  - `docs/angel-engagement-loop.md` and `EXECUTION_PLAN.md` — documented the compact explanation plus raw-evidence split.
+- Verified:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1`: public demo still shows the compact six-row Decision Trace.
+  - Browser QA at `http://localhost:3001/demo?reset=1`: demo does not show the normal-session evidence disclosure, and Progress still suppresses companion prompt/avatars.
+- Risks / follow-up:
+  - Normal-session evidence rendering is build-verified but still needs authenticated visual QA against live `plannerMeta`.
+
 ## 2026-05-31 23:02 Europe/Berlin - Codex
 
 - Summary: Promoted Decision Trace from demo-only into the first Progress surface for normal planner sessions too.

@@ -1415,6 +1415,42 @@
     linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 251, 235, 0.6));
 }
 
+.decision-trace-evidence {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.decision-trace-evidence summary {
+  cursor: pointer;
+  color: var(--apus-ink-soft, #6b5e4f);
+  font-family: var(--apus-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.decision-trace-evidence[open] {
+  padding-top: 8px;
+  border-top: 1px solid rgba(42, 36, 30, 0.08);
+}
+
+.decision-trace-evidence-group {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.decision-trace-evidence-title {
+  color: var(--apus-ink, #2a241e);
+  font-family: var(--apus-mono, monospace);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
 .engine-diagnostics-panel {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.66), rgba(239, 246, 255, 0.5));

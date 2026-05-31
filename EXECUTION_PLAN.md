@@ -274,6 +274,7 @@ Notes:
 - Angel Entry / Companion Prompt, Quest Relation Director, and Not Your Move now give the product a safer surface for pressure and waiting-state behavior.
 - The next UI work should make Engine decisions/reasons visible in the main app or Progress/debug view, not create another standalone panel.
 - As of 2026-05-31, Progress has a Decision Trace panel for demo and normal planner sessions. It shows the current mission, reason, rescue step, manual Today boundary, delivery state, and report/event trace separately from Delivery Health diagnostics.
+- As of 2026-05-31, normal-session Decision Trace also has a collapsed evidence section for latest Planner Engine decisions and inbox items, so the primary explanation can stay compact while raw engine evidence remains inspectable.
 
 Done when:
 - the angel feels like an extension of the existing planner, not a separate half-built product inside it
