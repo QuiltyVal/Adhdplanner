@@ -1,3 +1,20 @@
+## 2026-05-31 23:46 Europe/Berlin - Codex
+
+- Summary: Added a first user-facing Decision Safety path next to Decision Trace.
+- Changed:
+  - `src/App.js` — adds Decision Safety actions for normal sessions: create safety snapshot, show backups, and open the report log from Decision Trace.
+  - `src/App.js` — adds refs/scroll helpers so Decision Trace can jump to Planner Report and Snapshots without changing task state.
+  - `src/App.css` — styles the Decision Safety card and keeps it responsive.
+  - `EXECUTION_PLAN.md`, `docs/angel-engagement-loop.md`, and `SESSION_HANDOFF.md` — documented the recovery/debug surface.
+- Verified:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=safety`: public demo still has the six-row Decision Trace and does not show Decision Safety or engine-evidence disclosures.
+  - Browser QA at `http://localhost:3001/main` as local guest: normal-session Progress shows Decision Safety with `Create safety snapshot`, `Show backups`, and `Open report log`; Planner Report and Snapshots sections exist as jump targets.
+- Risks / follow-up:
+  - The safety card is hidden in demo and local guest verified, but the snapshot/report buttons still need authenticated live QA before treating this as complete recovery UX.
+
 ## 2026-05-31 23:26 Europe/Berlin - Codex
 
 - Summary: Kept the new Progress Decision Trace compact while restoring inspectable Planner Engine evidence for normal sessions.

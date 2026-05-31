@@ -291,13 +291,13 @@ Goal: prove this layer works in real life without reintroducing data loss.
   - Telegram delivery
   - refresh / cross-device persistence
 - [~] Add regression checks for stale writes on any new task mutation path.
-- [ ] Add a lightweight recovery/debug path for bad angel decisions or accidental bad extraction.
+- [~] Add a lightweight recovery/debug path for bad angel decisions or accidental bad extraction.
 - [~] Record live risks in `SESSION_HANDOFF.md` after each meaningful angel-layer rollout.
 
 Notes:
 - Server regression tests now cover several planner action, delivery runtime, webhook security, and Angel Lab draft-quality paths.
 - Browser QA has covered the public demo path, but the production capture -> Engine decision -> delivery/report path still needs one explicit end-to-end checklist.
-- Recovery/debug is partial: logs, events, reports, health snapshots, and local demo resets exist, but there is not yet a clear user-facing undo/recover path for a bad extraction or bad angel decision.
+- As of 2026-05-31, Decision Trace has a normal-session Decision Safety card with actions to create a safety snapshot, jump to backups, and open the report log. This is a first user-facing recovery/debug path, but it still needs authenticated live QA and a more specific "bad extraction" repair flow.
 
 Done when:
 - new memory/angel behavior can be tested without guessing

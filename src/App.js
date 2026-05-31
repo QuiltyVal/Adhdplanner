@@ -4984,6 +4984,8 @@ export default function App() {
   const recentTaskCreateKeysRef = useRef(new Map());
   const highlightClearTimerRef = useRef(null);
   const plannerContentRef = useRef(null);
+  const plannerReportSectionRef = useRef(null);
+  const snapshotSectionRef = useRef(null);
   const tasksRef = useRef([]);
   const pendingTaskWritesRef = useRef(new Map());
   const dismissedReportItemIdsRef = useRef(new Set());
@@ -10133,6 +10135,7 @@ export default function App() {
           },
         });
         await handleLoadSnapshots();
+        setNudgeStatus(language === "en" ? "Safety snapshot created." : "Защитный снапшот создан.");
         return;
       }
       await runGuestOnlyBulkOperation("create_snapshot", async () => {
@@ -10144,10 +10147,29 @@ export default function App() {
           loadSnapshots: handleLoadSnapshots,
         });
       }, user.id);
+      setNudgeStatus(language === "en" ? "Safety snapshot created." : "Защитный снапшот создан.");
     } catch (e) {
       console.error("Snapshot save failed:", e);
       setSnapshotLoading(false);
     }
+  };
+
+  const scrollToProgressSection = (ref) => {
+    window.requestAnimationFrame(() => {
+      ref.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const handleDecisionSafetyShowBackups = async () => {
+    if (snapshots === null && !snapshotLoading) {
+      await handleLoadSnapshots();
+    }
+    scrollToProgressSection(snapshotSectionRef);
+  };
+
+  const handleDecisionSafetyShowReport = () => {
+    setPlannerReportFilter("all");
+    scrollToProgressSection(plannerReportSectionRef);
   };
 
   const handleConfirmRestore = async () => {
@@ -13087,6 +13109,39 @@ export default function App() {
                         </div>
                       ))}
                     </div>
+                    {!isDemoRoute && (
+                      <div className="decision-safety-card" aria-label={language === "en" ? "Decision safety" : "Безопасность решения"}>
+                        <div className="decision-safety-copy">
+                          <strong>{language === "en" ? "Decision safety" : "Безопасность решения"}</strong>
+                          <span>
+                            {language === "en"
+                              ? "If this focus or extraction is wrong, preserve state first, then inspect the report log or restore a backup."
+                              : "Если фокус или разбор заметки неверный, сначала сохрани состояние, потом проверь отчёт или восстанови резервную копию."}
+                          </span>
+                        </div>
+                        <div className="decision-safety-actions">
+                          <button
+                            type="button"
+                            onClick={handleCreateSnapshot}
+                            disabled={snapshotLoading || !user?.id}
+                          >
+                            {snapshotLoading
+                              ? (language === "en" ? "Saving..." : "Сохраняю...")
+                              : (language === "en" ? "Create safety snapshot" : "Создать защитный снапшот")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDecisionSafetyShowBackups}
+                            disabled={snapshotLoading || !user?.id}
+                          >
+                            {language === "en" ? "Show backups" : "Показать бэкапы"}
+                          </button>
+                          <button type="button" onClick={handleDecisionSafetyShowReport}>
+                            {language === "en" ? "Open report log" : "Открыть журнал"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     {!isDemoRoute && (plannerEngineDecisions.length > 0 || plannerEngineInbox.length > 0) && (
                       <details className="decision-trace-evidence">
                         <summary>{language === "en" ? "Latest engine evidence" : "Последние следы движка"}</summary>
@@ -13429,7 +13484,7 @@ export default function App() {
 
               {/* Planner report + full event log */}
               <div className="stats-top-section">
-                <section className="planner-report-history-panel animated-fade-in" aria-label={language === "en" ? "Planner report" : "Отчёт планера"}>
+                <section ref={plannerReportSectionRef} className="planner-report-history-panel animated-fade-in" aria-label={language === "en" ? "Planner report" : "Отчёт планера"}>
                   <div className="planner-report-history-header">
                     <div>
                       <span>{language === "en" ? "Planner Report" : "Отчёт планера"}</span>
@@ -13538,7 +13593,7 @@ export default function App() {
                       )}
                     </section>
 
-                    <div className="stats-snapshots-header">
+                    <div className="stats-snapshots-header" ref={snapshotSectionRef}>
                       <h3 className="stats-section-title">{language === "en" ? "Snapshots (backups)" : "Снапшоты (резервные копии)"}</h3>
                       <div className="stats-snapshots-actions">
                         <button
