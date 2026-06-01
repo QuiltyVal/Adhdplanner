@@ -4976,6 +4976,7 @@ export default function App() {
   const [engineDebugBusy, setEngineDebugBusy] = useState("");
   const [lastDebugActionResult, setLastDebugActionResult] = useState(null);
   const [plannerSelfTestResult, setPlannerSelfTestResult] = useState(null);
+  const [decisionQaBaseline, setDecisionQaBaseline] = useState("");
   const [snapshots, setSnapshots] = useState(null); // null = not loaded yet
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState(null); // snapshot pending confirm
@@ -10206,6 +10207,7 @@ export default function App() {
       `reportItems: ${plannerReportHistoryEvents.length}`,
       `humanEvents: ${humanPlannerEvents.length}`,
     ].join("\n");
+    setDecisionQaBaseline(baseline);
 
     try {
       let clipboardError = null;
@@ -10235,7 +10237,7 @@ export default function App() {
       setNudgeStatus(language === "en" ? "QA baseline copied." : "QA baseline скопирован.");
     } catch (error) {
       console.warn("[Planner] Failed to copy QA baseline:", error);
-      setNudgeStatus(language === "en" ? "Could not copy QA baseline." : "Не удалось скопировать QA baseline.");
+      setNudgeStatus(language === "en" ? "QA baseline is shown below." : "QA baseline показан ниже.");
     }
   };
 
@@ -13185,6 +13187,11 @@ export default function App() {
                               ? "If this focus or extraction is wrong, preserve state first, then inspect the report log or restore a backup."
                               : "Если фокус или разбор заметки неверный, сначала сохрани состояние, потом проверь отчёт или восстанови резервную копию."}
                           </span>
+                          <small className={`decision-safety-live-mode ${isCloudUser ? "is-cloud" : "is-guest"}`}>
+                            {isCloudUser
+                              ? (language === "en" ? "Live QA: cloud-authenticated" : "Live QA: cloud-authenticated")
+                              : (language === "en" ? "Live QA blocked: guest/local session" : "Live QA заблокирован: guest/local сессия")}
+                          </small>
                         </div>
                         <div className="decision-safety-actions">
                           <button
@@ -13210,6 +13217,9 @@ export default function App() {
                             {language === "en" ? "Copy QA baseline" : "Скопировать baseline"}
                           </button>
                         </div>
+                        {decisionQaBaseline && (
+                          <pre className="decision-safety-baseline">{decisionQaBaseline}</pre>
+                        )}
                       </div>
                     )}
                     {!isDemoRoute && (plannerEngineDecisions.length > 0 || plannerEngineInbox.length > 0) && (

@@ -1,3 +1,19 @@
+## 2026-06-01 13:27 Europe/Berlin - Codex
+
+- Summary: Made the live-QA auth boundary visible inside Decision Safety.
+- Changed:
+  - `src/App.js` — adds a Decision Safety badge that says `Live QA: cloud-authenticated` or `Live QA blocked: guest/local session`.
+  - `src/App.js` — shows the QA baseline in the card even if Clipboard API refuses the write.
+  - `src/App.css` — styles cloud mode as green and guest/local mode as red.
+  - `docs/live-angel-verification-checklist.md`, `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — documented the visible stop condition.
+- Verified:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/main?qa=live-guard`: Decision Safety shows `Live QA заблокирован: guest/local сессия`; clicking `Скопировать baseline` displays the full QA baseline in-card with `mode: guest-or-local`, counts, mission, delivery, and report/event totals; no console errors.
+- Risks / follow-up:
+  - This is non-mutating UI safety only. The authenticated live pass is still blocked until `/main` is open in the real account.
+
 ## 2026-06-01 12:18 Europe/Berlin - Codex
 
 - Summary: Added a non-mutating QA baseline copy action to Progress Decision Safety.

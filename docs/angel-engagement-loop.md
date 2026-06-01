@@ -1761,4 +1761,8 @@ Every non-reject Angel Lab draft card now has a non-mutating `Fix parse` / `Ис
 
 ### 2026-06-01 - Decision Safety QA baseline copy
 
-Progress Decision Safety now includes `Copy QA baseline` / `Скопировать baseline`. It is non-mutating and copies the current auth mode, user id, active/today/at-risk/action counts, outbox pending/retry/dead/sending counts, mission, delivery summary, Engine decision count, report count, and human event count. This prevents a guest/local browser from being mistaken for an authenticated live QA run.
+Progress Decision Safety now includes `Copy QA baseline` / `Скопировать baseline`. It is non-mutating and copies or displays the current auth mode, user id, active/today/at-risk/action counts, outbox pending/retry/dead/sending counts, mission, delivery summary, Engine decision count, report count, and human event count. This prevents a guest/local browser from being mistaken for an authenticated live QA run.
+
+### 2026-06-01 - Visible live QA mode guard
+
+Decision Safety now shows the live-QA mode directly in the card: `Live QA: cloud-authenticated` for a real cloud session, or `Live QA blocked: guest/local session` when the browser is not in the live account. This makes the stop condition visible before snapshots, Angel Lab tests, Engine runs, or delivery checks.
