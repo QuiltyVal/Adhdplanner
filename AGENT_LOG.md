@@ -1,3 +1,20 @@
+## 2026-06-01 10:41 Europe/Berlin - Codex
+
+- Summary: Added a non-mutating Angel Lab repair path for wrong draft-card extraction.
+- Changed:
+  - `src/AngelLabScreen.js` — adds `Fix parse` / `Исправить разбор` to every non-reject draft card; it appends a correction prompt back into the dump textarea instead of creating a task.
+  - `src/AngelLabScreen.js` — keeps existing `Clarify this` behavior for cards already marked `needsClarification`.
+  - `src/AngelLabScreen.css` — styles parse-fix as a distinct repair action.
+  - `docs/angel-engagement-loop.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the bad-extraction repair path.
+- Verified:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=parse-repair`: Angel Lab drafted 4 normal cards, each showed `Fix parse`; clicking the first `Fix parse` appended `Fix this draft card: finish the planner demo` / `Correct task or next move:` into the dump textarea, kept draft progress at `0 added / 0 skipped / 4 left`, kept planner status at `5 active` and `0 actions today`, and disabled only that card's repeated repair button.
+  - Browser QA console check for the local demo: no `error` logs.
+- Risks / follow-up:
+  - Weak-card `Clarify this` behavior is covered by existing draft-quality tests and unchanged in code, but this session's browser QA used the normal public demo cards only.
+
 ## 2026-05-31 23:46 Europe/Berlin - Codex
 
 - Summary: Added a first user-facing Decision Safety path next to Decision Trace.

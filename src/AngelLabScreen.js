@@ -122,9 +122,13 @@ export default function AngelLabScreen({
       ? "No reliable subtasks yet. This card needs a clearer next move."
       : "Пока нет надёжных подзадач. Этой карточке нужен более понятный следующий шаг.",
     clarifyThis: isEnglish ? "Clarify this" : "Уточнить это",
+    fixParse: isEnglish ? "Fix parse" : "Исправить разбор",
     clarificationAdded: isEnglish
       ? "Clarification prompt added above. Add one sentence, then draft again."
       : "Уточняющий prompt добавлен выше. Допиши одну фразу и снова разбей на задачи.",
+    parseFixAdded: isEnglish
+      ? "Correction prompt added above. Rewrite the card in one sentence, then draft again."
+      : "Prompt для исправления добавлен выше. Перепиши карточку одной фразой и снова разбей на задачи.",
     keepNoChange: isEnglish ? "Keep unchanged" : "Оставить без изменений",
     addTaskOnly: isEnglish ? "Add main task without subtasks" : "Добавить главную задачу без подзадач",
     addTitleOnly: isEnglish ? "Add title only" : "Добавить только название",
@@ -356,10 +360,29 @@ export default function AngelLabScreen({
                   const canAddWithSteps = selectedStepCount > 0 && !isRejectCard;
                   const needsClarification = Boolean(card.draftQuality?.needsClarification);
                   const cardTitle = card.title || card.text || "";
-                  const clarificationText = isEnglish
-                    ? `Clarify this task: ${cardTitle}\nWhat exactly is unclear or blocked? `
-                    : `Уточнить задачу: ${cardTitle}\nЧто именно неясно или блокирует? `;
+                  const clarificationText = needsClarification
+                    ? isEnglish
+                      ? `Clarify this task: ${cardTitle}\nWhat exactly is unclear or blocked? `
+                      : `Уточнить задачу: ${cardTitle}\nЧто именно неясно или блокирует? `
+                    : isEnglish
+                      ? `Fix this draft card: ${cardTitle}\nCorrect task or next move: `
+                      : `Исправить черновую карточку: ${cardTitle}\nПравильная задача или следующий шаг: `;
                   const clarificationAlreadyAdded = text.includes(clarificationText.trim());
+                  const appendClarificationPrompt = () => {
+                    const nextText = clarificationAlreadyAdded
+                      ? text
+                      : text.trim()
+                        ? `${text.trim()}\n\n${clarificationText}`
+                        : clarificationText;
+                    onChange(nextText);
+                    setClarificationNotice(needsClarification ? copy.clarificationAdded : copy.parseFixAdded);
+                    if (clarificationNoticeTimerRef.current) {
+                      window.clearTimeout(clarificationNoticeTimerRef.current);
+                    }
+                    clarificationNoticeTimerRef.current = window.setTimeout(() => {
+                      setClarificationNotice("");
+                    }, 1600);
+                  };
 
                   return (
                     <li key={card.id} className={`angel-lab-task-card${cardAdded ? " is-added" : ""}${needsClarification ? " needs-clarification" : ""}`}>
@@ -453,28 +476,14 @@ export default function AngelLabScreen({
                             {copy.noSelectedSteps}
                           </div>
                         )}
-                        {needsClarification && !cardAdded && (
+                        {!isRejectCard && !cardAdded && (
                           <button
                             type="button"
-                            className="angel-lab-add-btn clarification"
-                            onClick={() => {
-                              const nextText = clarificationAlreadyAdded
-                                ? text
-                                : text.trim()
-                                  ? `${text.trim()}\n\n${clarificationText}`
-                                  : clarificationText;
-                              onChange(nextText);
-                              setClarificationNotice(copy.clarificationAdded);
-                              if (clarificationNoticeTimerRef.current) {
-                                window.clearTimeout(clarificationNoticeTimerRef.current);
-                              }
-                              clarificationNoticeTimerRef.current = window.setTimeout(() => {
-                                setClarificationNotice("");
-                              }, 1600);
-                            }}
+                            className={`angel-lab-add-btn clarification${needsClarification ? "" : " parse-fix"}`}
+                            onClick={appendClarificationPrompt}
                             disabled={saving || clarificationAlreadyAdded}
                           >
-                            {copy.clarifyThis}
+                            {needsClarification ? copy.clarifyThis : copy.fixParse}
                           </button>
                         )}
                         {!cardAdded && (

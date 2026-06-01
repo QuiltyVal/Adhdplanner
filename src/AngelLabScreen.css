@@ -651,6 +651,17 @@
   background: rgba(255, 232, 196, 0.96);
 }
 
+.angel-lab-add-btn.clarification.parse-fix {
+  color: #164e63;
+  border-color: rgba(14, 116, 144, 0.32);
+  background: rgba(236, 254, 255, 0.9);
+}
+
+.angel-lab-add-btn.clarification.parse-fix:hover:not(:disabled) {
+  border-color: rgba(14, 116, 144, 0.58);
+  background: rgba(207, 250, 254, 0.96);
+}
+
 .angel-lab-clarification-panel {
   display: grid;
   gap: 4px;

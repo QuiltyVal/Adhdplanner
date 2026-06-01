@@ -298,6 +298,7 @@ Notes:
 - Server regression tests now cover several planner action, delivery runtime, webhook security, and Angel Lab draft-quality paths.
 - Browser QA has covered the public demo path, but the production capture -> Engine decision -> delivery/report path still needs one explicit end-to-end checklist.
 - As of 2026-05-31, Decision Trace has a normal-session Decision Safety card with actions to create a safety snapshot, jump to backups, and open the report log. This is a first user-facing recovery/debug path, but it still needs authenticated live QA and a more specific "bad extraction" repair flow.
+- As of 2026-06-01, Angel Lab draft cards have a non-mutating parse-repair action. A wrong card can be sent back into the dump textarea as a focused correction prompt instead of being accepted or silently skipped.
 
 Done when:
 - new memory/angel behavior can be tested without guessing

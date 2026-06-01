@@ -1750,3 +1750,7 @@ For normal planner sessions, Decision Trace now includes a collapsed "Latest eng
 ### 2026-05-31 - Decision Safety recovery actions
 
 Normal planner sessions now show a Decision Safety card inside Decision Trace. If the current focus, angel decision, or extraction looks wrong, the user can create a safety snapshot, jump to backups, or open the report log from the same surface that explains the decision. Restore still uses the existing confirmation modal; the safety card only makes the recovery path discoverable.
+
+### 2026-06-01 - Angel Lab parse repair action
+
+Every non-reject Angel Lab draft card now has a non-mutating `Fix parse` / `Исправить разбор` action. It appends a focused correction prompt back into the dump textarea, then the user can rewrite that card and draft again instead of accepting a wrong extraction or silently skipping it. Clarification-needed cards keep the stronger `Clarify this` wording.
