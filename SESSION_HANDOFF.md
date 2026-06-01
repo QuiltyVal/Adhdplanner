@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md
 
-Last updated: 2026-05-31
+Last updated: 2026-06-01
 
 This file exists so the project can survive context loss and switching between Codex, Claude, or another coding agent.
 
@@ -59,6 +59,7 @@ Companion file:
 - As of 2026-05-31, the next safest product slice is decision visibility and safety: show what the Engine/angel chose, why, when it changed, and whether it left an event/report/outbox/delivery trace before adding more autonomous pressure.
 - As of 2026-05-31, Progress Decision Trace is the main user-facing decision/safety surface. Normal sessions show the compact decision explanation, a collapsed latest-engine-evidence section, and Decision Safety actions for creating a safety snapshot, jumping to backups, or opening the report log.
 - As of 2026-06-01, Angel Lab draft cards have a non-mutating parse-repair action: `Fix parse` / `Исправить разбор` appends a focused correction prompt back into the dump textarea so bad extraction can be retried without creating a task.
+- As of 2026-06-01, `docs/live-angel-verification-checklist.md` is the manual live QA checklist for capture -> extraction -> Engine decision -> report/outbox -> delivery -> persistence -> recovery. Use it before treating new angel/delivery behavior as stable.
 - As of 2026-05-31, public `/demo` is a portfolio entrypoint for Today Mission -> Rescue -> one tiny step, with demo Angel Lab parsing tuned for the portfolio story.
 - This is only the first ingestion slice:
   - no daily angel decision job yet

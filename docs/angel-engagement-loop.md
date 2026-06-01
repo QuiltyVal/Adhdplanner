@@ -1754,3 +1754,7 @@ Normal planner sessions now show a Decision Safety card inside Decision Trace. I
 ### 2026-06-01 - Angel Lab parse repair action
 
 Every non-reject Angel Lab draft card now has a non-mutating `Fix parse` / `Исправить разбор` action. It appends a focused correction prompt back into the dump textarea, then the user can rewrite that card and draft again instead of accepting a wrong extraction or silently skipping it. Clarification-needed cards keep the stronger `Clarify this` wording.
+
+### 2026-06-01 - Live angel verification checklist
+
+`docs/live-angel-verification-checklist.md` now defines the manual production QA path for the angel layer: capture ingestion, extraction review, one confirmed task, commitment/linkage evidence, Planner Engine decision visibility, report/event/outbox traces, optional Telegram delivery, refresh/cross-device persistence, cleanup, and recovery. This does not mean the full live pass has been completed; it gives each rollout a concrete checklist before more autonomous pressure is enabled.

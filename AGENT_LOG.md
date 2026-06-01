@@ -1,3 +1,17 @@
+## 2026-06-01 10:58 Europe/Berlin - Codex
+
+- Summary: Added the manual live verification checklist for the angel/Planner Engine rollout path.
+- Changed:
+  - `docs/live-angel-verification-checklist.md` — defines the production QA path for capture ingestion, extraction review, one confirmed task, commitment/linkage evidence, Engine decision visibility, report/event/outbox traces, optional Telegram delivery, refresh/cross-device persistence, cleanup, and recovery.
+  - `EXECUTION_PLAN.md` — marks the Phase 8 manual verification checklist item complete and notes that the authenticated production pass still needs to be run.
+  - `SESSION_HANDOFF.md` and `docs/angel-engagement-loop.md` — point future agents to the checklist before treating new angel/delivery behavior as stable.
+- Verified:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This is checklist/documentation work only. It does not run the authenticated production pass or mutate live planner data.
+
 ## 2026-06-01 10:41 Europe/Berlin - Codex
 
 - Summary: Added a non-mutating Angel Lab repair path for wrong draft-card extraction.

@@ -283,7 +283,7 @@ Done when:
 
 Goal: prove this layer works in real life without reintroducing data loss.
 
-- [~] Define a manual verification checklist for:
+- [x] Define a manual verification checklist for:
   - capture ingestion
   - extraction
   - commitment linking
@@ -299,6 +299,7 @@ Notes:
 - Browser QA has covered the public demo path, but the production capture -> Engine decision -> delivery/report path still needs one explicit end-to-end checklist.
 - As of 2026-05-31, Decision Trace has a normal-session Decision Safety card with actions to create a safety snapshot, jump to backups, and open the report log. This is a first user-facing recovery/debug path, but it still needs authenticated live QA and a more specific "bad extraction" repair flow.
 - As of 2026-06-01, Angel Lab draft cards have a non-mutating parse-repair action. A wrong card can be sent back into the dump textarea as a focused correction prompt instead of being accepted or silently skipped.
+- As of 2026-06-01, `docs/live-angel-verification-checklist.md` defines the live capture -> extraction -> Engine -> report/outbox -> delivery -> persistence -> recovery checklist. The checklist exists; the full authenticated production pass still needs to be run and logged.
 
 Done when:
 - new memory/angel behavior can be tested without guessing
