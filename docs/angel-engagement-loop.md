@@ -1758,3 +1758,7 @@ Every non-reject Angel Lab draft card now has a non-mutating `Fix parse` / `Ис
 ### 2026-06-01 - Live angel verification checklist
 
 `docs/live-angel-verification-checklist.md` now defines the manual production QA path for the angel layer: capture ingestion, extraction review, one confirmed task, commitment/linkage evidence, Planner Engine decision visibility, report/event/outbox traces, optional Telegram delivery, refresh/cross-device persistence, cleanup, and recovery. This does not mean the full live pass has been completed; it gives each rollout a concrete checklist before more autonomous pressure is enabled.
+
+### 2026-06-01 - Decision Safety QA baseline copy
+
+Progress Decision Safety now includes `Copy QA baseline` / `Скопировать baseline`. It is non-mutating and copies the current auth mode, user id, active/today/at-risk/action counts, outbox pending/retry/dead/sending counts, mission, delivery summary, Engine decision count, report count, and human event count. This prevents a guest/local browser from being mistaken for an authenticated live QA run.

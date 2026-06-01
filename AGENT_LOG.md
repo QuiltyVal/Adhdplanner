@@ -1,3 +1,19 @@
+## 2026-06-01 12:18 Europe/Berlin - Codex
+
+- Summary: Added a non-mutating QA baseline copy action to Progress Decision Safety.
+- Changed:
+  - `src/App.js` — adds `Copy QA baseline` / `Скопировать baseline` to Decision Safety. It copies auth mode, user id, active/today/at-risk/action counts, outbox counts, mission, delivery summary, Engine decision count, report count, and human event count.
+  - `src/App.js` — uses textarea fallback if Clipboard API exists but refuses writes in the in-app browser.
+  - `docs/live-angel-verification-checklist.md`, `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — documented the baseline step and the `guest-or-local` stop condition.
+- Verified:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/main?qa=baseline`: Progress Decision Safety shows `Скопировать baseline`; clicking it copies a baseline with `mode: guest-or-local`, `active: 0`, `today: 0`, `outboxPending: 0`, mission/delivery summary, and report/event counts.
+- Risks / follow-up:
+  - The real authenticated live pass is still blocked until the browser is in the user's actual account; current `/main` browser session is `Guest`.
+  - This change is intentionally non-mutating and does not run Telegram delivery.
+
 ## 2026-06-01 10:58 Europe/Berlin - Codex
 
 - Summary: Added the manual live verification checklist for the angel/Planner Engine rollout path.

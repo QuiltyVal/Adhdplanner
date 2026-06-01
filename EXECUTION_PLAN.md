@@ -300,6 +300,7 @@ Notes:
 - As of 2026-05-31, Decision Trace has a normal-session Decision Safety card with actions to create a safety snapshot, jump to backups, and open the report log. This is a first user-facing recovery/debug path, but it still needs authenticated live QA and a more specific "bad extraction" repair flow.
 - As of 2026-06-01, Angel Lab draft cards have a non-mutating parse-repair action. A wrong card can be sent back into the dump textarea as a focused correction prompt instead of being accepted or silently skipped.
 - As of 2026-06-01, `docs/live-angel-verification-checklist.md` defines the live capture -> extraction -> Engine -> report/outbox -> delivery -> persistence -> recovery checklist. The checklist exists; the full authenticated production pass still needs to be run and logged.
+- As of 2026-06-01, Progress Decision Safety includes `Copy QA baseline`, a non-mutating way to capture auth mode, user id, planner counts, outbox counts, mission, delivery, Engine decision, report, and event counts before a live QA pass.
 
 Done when:
 - new memory/angel behavior can be tested without guessing

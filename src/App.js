@@ -10172,6 +10172,73 @@ export default function App() {
     scrollToProgressSection(plannerReportSectionRef);
   };
 
+  const handleCopyDecisionQaBaseline = async () => {
+    const outboxBacklog = plannerMeta?.outbox_backlog && typeof plannerMeta.outbox_backlog === "object"
+      ? plannerMeta.outbox_backlog
+      : plannerMeta?.health_snapshot?.outbox?.backlog && typeof plannerMeta.health_snapshot.outbox.backlog === "object"
+        ? plannerMeta.health_snapshot.outbox.backlog
+        : {};
+    const deliverySummary = getDeliveryHealthSummary({
+      deliveryStatus: deliveryStatusForUi,
+      plannerMeta,
+      plannerEvents,
+      language,
+    });
+    const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
+    const baseline = [
+      "ADHD Planner live QA baseline",
+      `capturedAt: ${new Date().toISOString()}`,
+      `url: ${window.location.href}`,
+      `mode: ${isCloudUser ? "cloud-authenticated" : "guest-or-local"}`,
+      `userId: ${user?.id || "missing"}`,
+      `active: ${plannerStatusCounts.active}`,
+      `today: ${plannerStatusCounts.today}`,
+      `atRisk: ${plannerStatusCounts.danger}`,
+      `actionsToday: ${todayActions}`,
+      `outboxPending: ${Number(outboxBacklog.pending || 0)}`,
+      `outboxRetry: ${Number(outboxBacklog.retry || 0)}`,
+      `outboxDead: ${Number(outboxBacklog.dead || 0)}`,
+      `outboxSending: ${Number(outboxBacklog.sending || 0)}`,
+      `mission: ${missionTitle || "none"}`,
+      `missionReason: ${missionReason || "none"}`,
+      `delivery: ${deliverySummary?.title || "unknown"} — ${deliverySummary?.body || "no detail"}`,
+      `engineDecisions: ${plannerEngineDecisions.length}`,
+      `reportItems: ${plannerReportHistoryEvents.length}`,
+      `humanEvents: ${humanPlannerEvents.length}`,
+    ].join("\n");
+
+    try {
+      let clipboardError = null;
+      if (window.navigator?.clipboard?.writeText) {
+        try {
+          await window.navigator.clipboard.writeText(baseline);
+        } catch (error) {
+          clipboardError = error;
+        }
+      } else {
+        clipboardError = new Error("Clipboard API unavailable");
+      }
+      if (clipboardError) {
+        const textArea = document.createElement("textarea");
+        textArea.value = baseline;
+        textArea.setAttribute("readonly", "readonly");
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        if (!copied) {
+          throw clipboardError;
+        }
+      }
+      setNudgeStatus(language === "en" ? "QA baseline copied." : "QA baseline скопирован.");
+    } catch (error) {
+      console.warn("[Planner] Failed to copy QA baseline:", error);
+      setNudgeStatus(language === "en" ? "Could not copy QA baseline." : "Не удалось скопировать QA baseline.");
+    }
+  };
+
   const handleConfirmRestore = async () => {
     if (!restoreTarget || !user?.id) return;
     const snapshotTasks = restoreTarget.tasks || [];
@@ -13138,6 +13205,9 @@ export default function App() {
                           </button>
                           <button type="button" onClick={handleDecisionSafetyShowReport}>
                             {language === "en" ? "Open report log" : "Открыть журнал"}
+                          </button>
+                          <button type="button" onClick={handleCopyDecisionQaBaseline}>
+                            {language === "en" ? "Copy QA baseline" : "Скопировать baseline"}
                           </button>
                         </div>
                       </div>

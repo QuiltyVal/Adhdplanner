@@ -24,7 +24,8 @@ This checklist covers the real end-to-end path:
 - Open the app in the real authenticated account, not `/demo`, when validating live writes.
 - Run `Run self-test` from Progress before starting any live mutation.
 - Create a safety snapshot from Progress Decision Safety before a test that may mutate real tasks.
-- Write down baseline counts: active, today, at risk, actions today, outbox pending/retry/dead.
+- Use `Copy QA baseline` in Progress -> Decision Safety, then keep that copied text with the test notes. It records auth mode, user id, active/today/at-risk/actions counts, outbox pending/retry/dead/sending counts, mission, delivery summary, Engine decisions, report items, and human events.
+- Confirm the copied baseline says `mode: cloud-authenticated`. If it says `guest-or-local`, stop; the browser is not in the real live account.
 - Use one deliberately named QA task/capture so cleanup is unambiguous, for example `QA angel verification <date>`.
 
 Stop immediately if baseline state looks wrong, old tasks disappear, outbox has unexpected retry/dead rows, or the app shows stale cloud/cache warnings.
@@ -178,7 +179,7 @@ Expected evidence:
 A live validation pass is complete only when:
 
 - exact commit and deployment are recorded;
-- baseline counts and final counts are recorded;
+- baseline and final copied QA counts are recorded;
 - one capture/draft path was inspected before task creation;
 - one confirmed task went through the app without duplicate writes;
 - Decision Trace explains the Engine state;
