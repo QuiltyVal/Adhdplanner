@@ -1,3 +1,15 @@
+## 2026-06-02 19:49 Europe/Berlin - Codex
+
+- Summary: Clarified the partial-draft Angel Lab exit copy.
+- Changed:
+  - `src/AngelLabScreen.js` — unfinished draft sessions now label the exit action as `Back to planner — keep draft` / `В планер — черновик сохранится`. Completed/no-pending sessions still use `Done — back to planner`.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document that partial draft exit means "leave and preserve the draft", not "all draft work is done".
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=keep-draft-copy`: before and after adding one draft card, partial draft shows exactly one `Back to planner — keep draft`, shows no `Done — back to planner`, keeps remaining draft-card action buttons visible, resumes with `Resuming Angel draft: 3 card(s) still waiting.`, and has no browser console errors.
+
 ## 2026-06-02 16:38 Europe/Berlin - Codex
 
 - Summary: Kept Angel Lab partial draft context when reopening the lab.

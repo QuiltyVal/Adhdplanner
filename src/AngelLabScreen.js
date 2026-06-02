@@ -136,6 +136,7 @@ export default function AngelLabScreen({
     addWithSteps: isEnglish ? "Add task + chosen subtasks" : "Добавить задачу + выбранные подзадачи",
     noSelectedSteps: isEnglish ? "Choose at least one subtask above" : "Выбери хотя бы одну подзадачу выше",
     doneClose: isEnglish ? "Done — back to planner" : "Готово — обратно в планер",
+    keepDraftClose: isEnglish ? "Back to planner — keep draft" : "В планер — черновик сохранится",
     notThis: isEnglish ? "Not this" : "Не это",
     nextDraftTitle: isEnglish ? "Next draft card" : "Следующая карточка",
     addedInPlanner: isEnglish ? "Added cards are already in the planner." : "Добавленное уже в планере.",
@@ -321,7 +322,7 @@ export default function AngelLabScreen({
                     )}
                   </div>
                   <button type="button" className="angel-lab-btn secondary compact" onClick={onClose} disabled={saving}>
-                    {copy.doneClose}
+                    {copy.keepDraftClose}
                   </button>
                 </div>
               )}
@@ -527,7 +528,7 @@ export default function AngelLabScreen({
         {taskCards.length > 0 && !showDraftNextPanel && (
           <div className="angel-lab-actions angel-lab-bottom-actions">
             <button type="button" className="angel-lab-btn secondary" onClick={onClose} disabled={saving}>
-              {copy.doneClose}
+              {copy.keepDraftClose}
             </button>
           </div>
         )}
