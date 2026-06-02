@@ -136,7 +136,7 @@ export default function AngelLabScreen({
     addWithSteps: isEnglish ? "Add task + chosen subtasks" : "Добавить задачу + выбранные подзадачи",
     noSelectedSteps: isEnglish ? "Choose at least one subtask above" : "Выбери хотя бы одну подзадачу выше",
     doneClose: isEnglish ? "Done — back to planner" : "Готово — обратно в планер",
-    keepDraftClose: isEnglish ? "Back to planner — keep draft" : "В планер — черновик сохранится",
+    keepDraftClose: isEnglish ? "Back to planner — draft stays here" : "В планер — черновик останется здесь",
     notThis: isEnglish ? "Not this" : "Не это",
     nextDraftTitle: isEnglish ? "Next draft card" : "Следующая карточка",
     addedInPlanner: isEnglish ? "Added cards are already in the planner." : "Добавленное уже в планере.",

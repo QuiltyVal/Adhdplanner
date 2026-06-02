@@ -1,3 +1,15 @@
+## 2026-06-02 20:02 Europe/Berlin - Codex
+
+- Summary: Tightened the partial-draft Angel Lab exit copy to avoid implying durable storage.
+- Changed:
+  - `src/AngelLabScreen.js` — unfinished draft sessions now label the exit action as `Back to planner — draft stays here` / `В планер — черновик останется здесь`. Completed/no-pending sessions still use `Done — back to planner`.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — update the documented partial-draft exit wording.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=draft-stays-copy`: before and after adding one draft card, partial draft shows exactly one `Back to planner — draft stays here`, the older `Back to planner — keep draft` copy is absent, `Done — back to planner` is absent, remaining draft-card action buttons stay visible, reopening resumes with `Resuming Angel draft: 3 card(s) still waiting.`, and no browser console errors appear.
+
 ## 2026-06-02 19:49 Europe/Berlin - Codex
 
 - Summary: Clarified the partial-draft Angel Lab exit copy.
