@@ -1770,3 +1770,7 @@ Decision Safety now shows the live-QA mode directly in the card: `Live QA: cloud
 ### 2026-06-02 - QA baseline event-window labels
 
 The authenticated Angel Lab live pass showed that the old `humanEvents` baseline field could decrease after cleanup because the web client merges a bounded visible `plannerEvents` window, not a full append-only event history. `Copy QA baseline` now labels this as `visibleHumanEvents`, includes `technicalEventsVisible`, `eventWindowLimit`, and `latestHumanEventAt`, and live QA should use it as a trace-window diagnostic rather than a strict total.
+
+### 2026-06-02 - Angel Lab post-add next state
+
+After a draft card is added or skipped and more draft cards remain, Angel Lab now shows a compact next-state strip above the queue. It confirms that added cards are already in the planner, shows how many cards still need a decision, names the next draft card, and keeps a `Done — back to planner` action near the top so the user is not stranded after the first confirmation.

@@ -137,6 +137,9 @@ export default function AngelLabScreen({
     noSelectedSteps: isEnglish ? "Choose at least one subtask above" : "Выбери хотя бы одну подзадачу выше",
     doneClose: isEnglish ? "Done — back to planner" : "Готово — обратно в планер",
     notThis: isEnglish ? "Not this" : "Не это",
+    nextDraftTitle: isEnglish ? "Next draft card" : "Следующая карточка",
+    addedInPlanner: isEnglish ? "Added cards are already in the planner." : "Добавленное уже в планере.",
+    stillWaiting: isEnglish ? "still waiting" : "ещё ждёт решения",
   };
   const statusClass = status?.kind ? `angel-lab-status ${status.kind}` : "angel-lab-status";
   const dumps = Array.isArray(dumpHistory) ? dumpHistory : [];
@@ -159,6 +162,8 @@ export default function AngelLabScreen({
       : hasDraftableText
         ? copy.splitDump
         : copy.saveDump;
+  const nextDraftCard = taskCards[0] || null;
+  const nextDraftTitle = nextDraftCard ? String(nextDraftCard.title || nextDraftCard.text || "").trim() : "";
 
   return (
     <div className="angel-lab-overlay" role="dialog" aria-modal="true" aria-labelledby="angel-lab-title">
@@ -303,6 +308,20 @@ export default function AngelLabScreen({
                   <span><strong>{addedDraftCount}</strong> {copy.addedCount}</span>
                   <span><strong>{skippedDraftCount}</strong> {copy.skippedCount}</span>
                   <span><strong>{taskCards.length}</strong> {copy.leftCount}</span>
+                </div>
+              )}
+              {handledDraftCount > 0 && taskCards.length > 0 && (
+                <div className="angel-lab-next-panel" role="status">
+                  <div className="angel-lab-next-copy">
+                    <span>{copy.addedInPlanner}</span>
+                    <strong>{taskCards.length} {copy.stillWaiting}</strong>
+                    {nextDraftTitle && (
+                      <small>{copy.nextDraftTitle}: {nextDraftTitle}</small>
+                    )}
+                  </div>
+                  <button type="button" className="angel-lab-btn secondary compact" onClick={onClose} disabled={saving}>
+                    {copy.doneClose}
+                  </button>
                 </div>
               )}
               {!processing && taskCards.length > 0 && (

@@ -1,3 +1,17 @@
+## 2026-06-02 13:52 Europe/Berlin - Codex
+
+- Summary: Added clearer Angel Lab next-state feedback after a draft card is handled.
+- Changed:
+  - `src/AngelLabScreen.js` — when at least one draft card has been added/skipped and more cards remain, Angel Lab now shows a compact next-state strip: added cards are already in the planner, remaining card count, next card title, and a nearby `Done — back to planner` action.
+  - `src/AngelLabScreen.css` — styles the strip with responsive wrapping and a compact top action.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the post-add next-state behavior.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=post-add-next-state`: after drafting demo cards and adding one selected card, the next-state strip appears with `Added cards are already in the planner.`, `3 still waiting`, the next draft card title, and `Done — back to planner`; no browser console errors.
+  - Mobile viewport QA at 390px width: the next-state strip wraps without horizontal overflow.
+
 ## 2026-06-02 12:03 Europe/Berlin - Codex
 
 - Summary: Clarified the Decision Safety QA baseline event-log metric after authenticated live QA cleanup.

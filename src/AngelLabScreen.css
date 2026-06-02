@@ -362,6 +362,13 @@
   background: rgba(255, 255, 255, 0.56);
 }
 
+.angel-lab-btn.compact {
+  min-height: 38px;
+  padding: 9px 13px;
+  font-size: 0.86rem;
+  white-space: normal;
+}
+
 .angel-lab-btn.primary {
   color: #fffaf1;
   background: #2a241e;
@@ -507,6 +514,44 @@
 .angel-lab-draft-progress strong {
   color: #2a241e;
   font-size: 0.95rem;
+}
+
+.angel-lab-next-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  max-width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(66, 156, 106, 0.22);
+  border-radius: 18px;
+  color: #2f4d35;
+  background: rgba(232, 255, 240, 0.82);
+  box-shadow: 0 10px 24px rgba(66, 156, 106, 0.08);
+}
+
+.angel-lab-next-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.angel-lab-next-copy span,
+.angel-lab-next-copy small {
+  min-width: 0;
+  color: rgba(47, 77, 53, 0.76);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.angel-lab-next-copy strong {
+  color: #2f4d35;
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
+.angel-lab-next-copy small {
+  font-size: 0.82rem;
 }
 
 .angel-lab-empty {
@@ -985,6 +1030,10 @@
   .angel-lab-btn,
   .angel-lab-add-btn {
     width: 100%;
+  }
+
+  .angel-lab-next-panel {
+    grid-template-columns: 1fr;
   }
 
   .angel-lab-column {
