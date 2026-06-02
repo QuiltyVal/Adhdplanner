@@ -5081,6 +5081,7 @@ export default function App() {
   const [angelLabSuggestions, setAngelLabSuggestions] = useState([]);
   const [angelLabHandledNotice, setAngelLabHandledNotice] = useState(null);
   const [angelLabHandledStats, setAngelLabHandledStats] = useState({ added: 0, skipped: 0 });
+  const [angelLabAppliedTask, setAngelLabAppliedTask] = useState(null);
   const [angelLabExecutiveAssessment, setAngelLabExecutiveAssessment] = useState(null);
   const [dismissedMissionBubbleTaskId, setDismissedMissionBubbleTaskId] = useState("");
   const [onboardingOpen, setOnboardingOpen] = useState(false);
@@ -9305,6 +9306,7 @@ export default function App() {
     setAngelLabMicStatus("");
     setAngelLabHandledNotice(null);
     setAngelLabHandledStats({ added: 0, skipped: 0 });
+    setAngelLabAppliedTask(null);
     setAngelLabExecutiveAssessment(null);
     if (isDemoRoute && !normalizeAngelLabTranscript(angelLabText).trim()) {
       setAngelLabText(language === "en"
@@ -9318,6 +9320,23 @@ export default function App() {
     if (angelLabSaving) return;
     stopAngelLabListening();
     setAngelLabOpen(false);
+    if (angelLabAppliedTask?.taskId) {
+      focusTaskInList(angelLabAppliedTask.taskId);
+      const taskTitle = String(angelLabAppliedTask.taskTitle || "").trim();
+      const action = String(angelLabAppliedTask.action || "created");
+      setNudgeStatus(action === "merged"
+        ? (language === "en"
+          ? `Updated from Angel Lab: “${taskTitle || "task"}”.`
+          : `Обновлено из Angel Lab: «${taskTitle || "задача"}».`)
+        : action === "existing"
+          ? (language === "en"
+            ? `Already in planner: “${taskTitle || "task"}”.`
+            : `Уже в планере: «${taskTitle || "задача"}».`)
+          : (language === "en"
+            ? `Added from Angel Lab: “${taskTitle || "task"}”.`
+            : `Добавлено из Angel Lab: «${taskTitle || "задача"}».`));
+      setAngelLabAppliedTask(null);
+    }
   };
 
   const handleSaveAngelLab = async () => {
@@ -9588,6 +9607,11 @@ export default function App() {
       if (!withSelectedSteps) {
         removeAngelLabCard();
         setHighlightTaskId(targetTaskId);
+        setAngelLabAppliedTask({
+          taskId: targetTaskId,
+          taskTitle: candidateText,
+          action: "existing",
+        });
         trackDailyAction();
         setAngelLabHandledStats((previous) => ({ ...previous, added: previous.added + 1 }));
         setAngelLabHandledNotice({
@@ -9677,6 +9701,11 @@ export default function App() {
       removeAngelLabCard();
 
       setHighlightTaskId(targetTaskId);
+      setAngelLabAppliedTask({
+        taskId: targetTaskId,
+        taskTitle: candidateText,
+        action: "merged",
+      });
       trackDailyAction();
       setAngelLabHandledStats((previous) => ({ ...previous, added: previous.added + 1 }));
       setAngelLabHandledNotice({
@@ -9698,8 +9727,16 @@ export default function App() {
       removeAngelLabCard();
     };
 
-    const markAngelLabCreateCardAdded = () => {
+    const markAngelLabCreateCardAdded = (createdTask = null) => {
       removeAngelLabCreateCard();
+      const createdTaskId = createdTask?.id ? String(createdTask.id) : "";
+      if (createdTaskId) {
+        setAngelLabAppliedTask({
+          taskId: createdTaskId,
+          taskTitle: createdTask?.text || candidateText,
+          action: "created",
+        });
+      }
 
       setAngelLabStatus({
         kind: "success",
@@ -9721,6 +9758,13 @@ export default function App() {
     const markAngelLabCreateCardAlreadyExists = (existingTask) => {
       removeAngelLabCreateCard();
       if (existingTask?.id) setHighlightTaskId(existingTask.id);
+      if (existingTask?.id) {
+        setAngelLabAppliedTask({
+          taskId: String(existingTask.id),
+          taskTitle: existingTask.text || candidateText,
+          action: "existing",
+        });
+      }
       setAngelLabHandledStats((previous) => ({ ...previous, skipped: previous.skipped + 1 }));
       setAngelLabHandledNotice({
         kind: "success",
@@ -9764,7 +9808,7 @@ export default function App() {
           : "Добавляю задачу. Шаги не выбраны..."
         : "Добавляю задачу в план...",
     });
-    handleAddTask(candidateText, {
+    const createdTask = handleAddTask(candidateText, {
       subtasks: withSelectedSteps ? cleanSteps : [],
       onAlreadyExists: (existingTask) => {
         handledExistingTask = true;
@@ -9773,7 +9817,7 @@ export default function App() {
     });
 
     if (!handledExistingTask) {
-      markAngelLabCreateCardAdded();
+      markAngelLabCreateCardAdded(createdTask);
     }
   };
 

@@ -1,3 +1,15 @@
+## 2026-06-02 14:46 Europe/Berlin - Codex
+
+- Summary: Made Angel Lab return focus to the applied task after closing.
+- Changed:
+  - `src/App.js` — tracks the last Angel Lab applied task for create, merge, and existing-duplicate outcomes. Closing Angel Lab now focuses the Active list, scrolls to that task through the existing highlight path, and shows `Added from Angel Lab`, `Updated from Angel Lab`, or `Already in planner`.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the post-close task focus behavior.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=return-focus`: after drafting demo cards, adding one selected card, and clicking the top `Done — back to planner`, Angel Lab closes, planner status includes `Added from Angel Lab`, the Active list is focused, the applied task is highlighted, and no browser console errors appear.
+
 ## 2026-06-02 13:52 Europe/Berlin - Codex
 
 - Summary: Added clearer Angel Lab next-state feedback after a draft card is handled.
