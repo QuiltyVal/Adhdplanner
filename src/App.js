@@ -10383,6 +10383,8 @@ export default function App() {
       `capturedAt: ${new Date().toISOString()}`,
       `url: ${window.location.href}`,
       `mode: ${isCloudUser ? "cloud-authenticated" : "guest-or-local"}`,
+      `liveQaReady: ${isCloudUser ? "yes" : "no"}`,
+      `stopReason: ${isCloudUser ? "none" : "guest-or-local session"}`,
       `userId: ${user?.id || "missing"}`,
       `active: ${plannerStatusCounts.active}`,
       `today: ${plannerStatusCounts.today}`,
@@ -10419,6 +10421,8 @@ export default function App() {
       `capturedAt: ${new Date().toISOString()}`,
       `url: ${window.location.href}`,
       `mode: ${isCloudUser ? "cloud-authenticated" : "guest-or-local"}`,
+      `liveQaReady: ${isCloudUser ? "yes" : "no"}`,
+      `stopReason: ${isCloudUser ? "none" : "guest-or-local session"}`,
       `userId: ${user?.id || "missing"}`,
       `mission: ${missionTitle || "none"}`,
       `missionReason: ${missionReason || "none"}`,
@@ -13344,9 +13348,14 @@ export default function App() {
                           <button
                             type="button"
                             onClick={handleCreateSnapshot}
-                            disabled={snapshotLoading || !user?.id}
+                            disabled={snapshotLoading || !user?.id || !isCloudUser}
+                            title={!isCloudUser
+                              ? (language === "en" ? "Live safety snapshots require a cloud-authenticated session." : "Live safety snapshot доступен только в cloud-authenticated сессии.")
+                              : ""}
                           >
-                            {snapshotLoading
+                            {!isCloudUser
+                              ? (language === "en" ? "Live snapshot unavailable" : "Live snapshot недоступен")
+                              : snapshotLoading
                               ? (language === "en" ? "Saving..." : "Сохраняю...")
                               : (language === "en" ? "Create safety snapshot" : "Создать защитный снапшот")}
                           </button>

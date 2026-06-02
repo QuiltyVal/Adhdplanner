@@ -1,3 +1,16 @@
+## 2026-06-02 22:15 Europe/Berlin - Codex
+
+- Summary: Made the Decision Safety live-QA stop condition harder to miss.
+- Changed:
+  - `src/App.js` — copied QA baseline and Decision Trace exports now include `liveQaReady` and `stopReason`; the Decision Safety live snapshot action is disabled and relabeled in guest/local sessions.
+  - `src/App.css` — disabled Decision Safety actions now use a blocked cursor instead of a wait cursor.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the explicit live-QA guard.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/main?qa=live-qa-guard`: guest/local Decision Safety shows `Live snapshot недоступен`, the live snapshot button is disabled, the normal create-snapshot label is absent, `Скопировать baseline` and `Скопировать trace` remain available, both copied outputs include `liveQaReady: no` and `stopReason: guest-or-local session`, and no app console errors appear.
+
 ## 2026-06-02 21:55 Europe/Berlin - Codex
 
 - Summary: Added a non-mutating Decision Trace text export.
