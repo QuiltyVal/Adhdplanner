@@ -99,6 +99,7 @@ const URGENCY_DECAY_WINDOWS_MS = {
 };
 const MIN_LOADING_MS = 350;
 const NUDGE_INTERVAL_MS = 20 * 60 * 1000;
+const TASK_FOCUS_HIGHLIGHT_MS = 5200;
 const PULSE_STORAGE_PREFIX = "adhd_planner_pulse";
 const CLOUD_CACHE_PREFIX = "adhd_planner_cloud_cache";
 const CLOUD_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
@@ -4965,6 +4966,7 @@ export default function App() {
   const [executiveLayerDismissed, setExecutiveLayerDismissed] = useState(false);
   const [pulseState, setPulseState] = useState(() => getDefaultPulseState());
   const [highlightTaskId, setHighlightTaskId] = useState(null);
+  const [highlightTaskLabel, setHighlightTaskLabel] = useState("");
   const [nudgeStatus, setNudgeStatus] = useState("");
   const [panicOpen, setPanicOpen] = useState(false);
   const [panicStepEditorOpen, setPanicStepEditorOpen] = useState(false);
@@ -6345,24 +6347,27 @@ export default function App() {
     });
   };
 
-  const focusTaskInList = (taskId) => {
+  const focusTaskInList = (taskId, options = {}) => {
     if (!taskId) return;
     setActiveTab("active");
     setActiveFilter("all");
     setRequestedTuneTaskId(null);
     setHighlightTaskId(taskId);
+    setHighlightTaskLabel(String(options.label || "").trim());
     if (highlightClearTimerRef.current) {
       clearTimeout(highlightClearTimerRef.current);
     }
     highlightClearTimerRef.current = window.setTimeout(() => {
       setHighlightTaskId((current) => (String(current) === String(taskId) ? null : current));
-    }, 1800);
+      setHighlightTaskLabel("");
+    }, TASK_FOCUS_HIGHLIGHT_MS);
   };
 
   const openPlannerProgress = () => {
     setActiveTab("stats");
     setRequestedTuneTaskId(null);
     setHighlightTaskId(null);
+    setHighlightTaskLabel("");
     schedulePlannerContentScroll();
   };
 
@@ -6371,6 +6376,7 @@ export default function App() {
     setActiveFilter(nextFilter);
     setRequestedTuneTaskId(null);
     setHighlightTaskId(null);
+    setHighlightTaskLabel("");
     schedulePlannerContentScroll();
   };
 
@@ -6424,9 +6430,10 @@ export default function App() {
 
   useEffect(() => {
     if (!highlightTaskId) return;
-    const stillActive = activeTasks.some((task) => task.id === highlightTaskId);
+    const stillActive = activeTasks.some((task) => String(task.id) === String(highlightTaskId));
     if (!stillActive) {
       setHighlightTaskId(null);
+      setHighlightTaskLabel("");
     }
   }, [activeTasks, highlightTaskId]);
 
@@ -9321,9 +9328,14 @@ export default function App() {
     stopAngelLabListening();
     setAngelLabOpen(false);
     if (angelLabAppliedTask?.taskId) {
-      focusTaskInList(angelLabAppliedTask.taskId);
       const taskTitle = String(angelLabAppliedTask.taskTitle || "").trim();
       const action = String(angelLabAppliedTask.action || "created");
+      const angelLabHighlightLabel = action === "merged"
+        ? (language === "en" ? "Updated from Angel" : "Обновлено из Angel")
+        : action === "existing"
+          ? (language === "en" ? "Already in planner" : "Уже в планере")
+          : (language === "en" ? "Added from Angel" : "Добавлено из Angel");
+      focusTaskInList(angelLabAppliedTask.taskId, { label: angelLabHighlightLabel });
       setNudgeStatus(action === "merged"
         ? (language === "en"
           ? `Updated from Angel Lab: “${taskTitle || "task"}”.`
@@ -12908,6 +12920,7 @@ export default function App() {
             requestedTuneTaskId={requestedTuneTaskId}
             onTuneRequestHandled={() => setRequestedTuneTaskId(null)}
             highlightTaskId={highlightTaskId}
+            highlightTaskLabel={highlightTaskLabel}
             calendarConnected={calendarConnected || Boolean(calendarToken)}
             onScheduleTaskToCalendar={handleScheduleTaskToCalendar}
             language={language}

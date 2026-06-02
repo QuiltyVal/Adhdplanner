@@ -294,6 +294,7 @@ export default function TaskColumn({
   requestedTuneTaskId,
   onTuneRequestHandled,
   highlightTaskId,
+  highlightTaskLabel,
   calendarConnected,
   onScheduleTaskToCalendar,
   language = "ru",
@@ -569,6 +570,8 @@ export default function TaskColumn({
     (() => {
       const deadlineBadge = getDeadlineBadge(task.deadlineAt, language);
       const isTuneOpen = String(requestedTuneTaskId || tuningTaskId || "") === String(task.id);
+      const isHighlightedTask = String(task.id) === String(highlightTaskId);
+      const highlightLabel = String(highlightTaskLabel || copy.dayMission).trim();
       const firstOpenSubtask = (task.subtasks || []).find((subtask) => !subtask.completed) || null;
       const notYourMove = getNotYourMoveMetadata(task);
       const checkInAt = toMillis(notYourMove?.nextCheckInAt || notYourMove?.next_check_in_at);
@@ -592,7 +595,7 @@ export default function TaskColumn({
     <div
       key={task.id}
       data-task-id={task.id}
-      className={`task-card animated-fade-in ${isPurgatory ? 'purgatory' : ''} ${task.id === highlightTaskId ? 'priority-target' : ''} ${deadlineBadge ? `deadline-${deadlineBadge.tone}` : ''} ${task.isVital ? 'is-vital' : ''} ${notYourMove ? 'is-not-your-move' : ''} ${isTuneOpen ? 'is-tuning' : 'is-condensed'}`}
+      className={`task-card animated-fade-in ${isPurgatory ? 'purgatory' : ''} ${isHighlightedTask ? 'priority-target' : ''} ${deadlineBadge ? `deadline-${deadlineBadge.tone}` : ''} ${task.isVital ? 'is-vital' : ''} ${notYourMove ? 'is-not-your-move' : ''} ${isTuneOpen ? 'is-tuning' : 'is-condensed'}`}
     >
       <button
         className="task-tune-btn"
@@ -608,8 +611,8 @@ export default function TaskColumn({
       >
         ⋯
       </button>
-      {task.id === highlightTaskId && (
-        <div className="priority-badge">{copy.dayMission}</div>
+      {isHighlightedTask && (
+        <div className="priority-badge">{highlightLabel}</div>
       )}
       <div className="task-top-controls">
         <button

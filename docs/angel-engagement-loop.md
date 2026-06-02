@@ -1782,3 +1782,5 @@ When that post-add next-state strip is visible, Angel Lab now hides the older bo
 ### 2026-06-02 - Angel Lab return highlights applied task
 
 When a draft card creates a task, merges steps into an existing task, or resolves to an existing duplicate, Angel Lab now remembers that applied task. Closing Angel Lab focuses the Active list, scrolls to the task using the existing highlight behavior, and updates the planner status copy with `Added from Angel Lab`, `Updated from Angel Lab`, or `Already in planner`. This closes the post-confirmation question of where the accepted draft went.
+
+The returned task highlight now lasts longer and the badge on the card names the Angel Lab outcome (`Added from Angel`, `Updated from Angel`, or `Already in planner`) instead of reusing the generic day-mission badge. This keeps the "where did it go?" answer visible on the actual task card, not only in the planner status line.

@@ -1,3 +1,16 @@
+## 2026-06-02 15:25 Europe/Berlin - Codex
+
+- Summary: Made the Angel Lab return highlight easier to notice.
+- Changed:
+  - `src/App.js` — keeps focused task highlights visible for 5.2 seconds, compares highlighted task ids as strings, and passes an Angel-specific highlight label after Angel Lab closes.
+  - `src/TaskColumn.js` — renders the focused-task badge from the provided highlight label, falling back to the existing day-mission label for generic highlights.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the longer Angel Lab return highlight and outcome-specific card badge.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=angel-highlight-2`: after drafting demo cards, adding one selected card, and clicking `Done — back to planner`, the returned card has `.task-card.priority-target`, the badge reads `ADDED FROM ANGEL`, the highlight remains after roughly 3.8 seconds, clears after the timeout, planner status includes `Added from Angel Lab`, and no browser console errors appear.
+
 ## 2026-06-02 15:08 Europe/Berlin - Codex
 
 - Summary: Removed the duplicate Angel Lab return action after a partial draft confirmation.
