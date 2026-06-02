@@ -11,6 +11,7 @@
   - `npm run verify:server`
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
   - Browser QA at `http://localhost:3001/main?qa=event-window`: Progress Decision Safety baseline includes `visibleHumanEvents`, `technicalEventsVisible`, `eventWindowLimit: 25`, and `latestHumanEventAt`; Decision Trace says visible human events; no browser console errors.
+  - Production user-provided baseline at `2026-06-02T11:24:04.717Z`: `mode: cloud-authenticated`, `active: 8`, outbox pending/retry/dead/sending all `0`, `visibleHumanEvents: 19`, `technicalEventsVisible: 2`, `eventWindowLimit: 25`, and `latestHumanEventAt: 2026-06-02T10:40:02.753Z`.
 
 ## 2026-06-02 11:42 Europe/Berlin - Codex
 
