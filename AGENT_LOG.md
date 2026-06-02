@@ -1,3 +1,15 @@
+## 2026-06-02 21:18 Europe/Berlin - Codex
+
+- Summary: Removed the remaining generic `Back` ambiguity from partial Angel Lab drafts.
+- Changed:
+  - `src/AngelLabScreen.js` — pending draft sessions now use one state-aware return action. Before the first card is handled, the top action reads `Back to planner — draft stays here`; after a card is handled, the top return action is hidden and the next-state strip keeps the only visible draft-return action. The older bottom return block is removed.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the single partial-draft return action.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=single-exit`: before adding a draft card there is exactly one `Back to planner — draft stays here`, no generic `Back`, no bottom exit block, no `Done — back to planner`, and four draft cards. After adding one card, the next-state strip appears with three cards left, the top return action is hidden, there is exactly one `Back to planner — draft stays here`, no generic `Back`, no `Done — back to planner`, and reopening Angel Lab resumes with three cards still waiting. No browser console errors.
+
 ## 2026-06-02 20:02 Europe/Berlin - Codex
 
 - Summary: Tightened the partial-draft Angel Lab exit copy to avoid implying durable storage.

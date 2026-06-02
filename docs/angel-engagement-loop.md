@@ -1775,9 +1775,9 @@ The authenticated Angel Lab live pass showed that the old `humanEvents` baseline
 
 After a draft card is added or skipped and more draft cards remain, Angel Lab now shows a compact next-state strip above the queue. It confirms that added cards are already in the planner, shows how many cards still need a decision, names the next draft card, and keeps a `Back to planner — draft stays here` action near the top so the user is not stranded after the first confirmation.
 
-### 2026-06-02 - Angel Lab avoids duplicate return actions
+### 2026-06-02 - Angel Lab keeps one partial-draft return action
 
-When that post-add next-state strip is visible, Angel Lab now hides the older bottom exit action. Partial draft sessions should show one clear return action in the current decision area, not a duplicated exit at the top and bottom of the modal.
+Partial draft sessions now keep one state-aware return action. Before the first card is added, the generic top `Back` becomes `Back to planner — draft stays here` and the older bottom exit is hidden. After a card is handled, the top generic exit is hidden and the return action stays in the post-add next-state strip.
 
 ### 2026-06-02 - Angel Lab resumes pending drafts
 
