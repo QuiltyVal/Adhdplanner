@@ -306,6 +306,7 @@ Notes:
 - As of 2026-06-02, reopening Angel Lab with pending draft cards resumes the partial draft context instead of starting a visually fresh session; progress chips and the next-state strip stay coherent.
 - As of 2026-06-01, `docs/live-angel-verification-checklist.md` defines the live capture -> extraction -> Engine -> report/outbox -> delivery -> persistence -> recovery checklist. The checklist exists; the full authenticated production pass still needs to be run and logged.
 - As of 2026-06-02, Progress Decision Safety includes `Copy QA baseline`, a non-mutating way to copy or display auth mode, user id, planner counts, outbox counts, mission, delivery, Engine decision count, report count, and visible event-log window before a live QA pass. Event-log counts are labeled as visible-window diagnostics, not full append-only totals.
+- As of 2026-06-02, Progress Decision Safety also includes `Copy decision trace`, a non-mutating text export of the visible Decision Trace plus latest Engine decisions/inbox evidence.
 - As of 2026-06-01, Progress Decision Safety also shows a visible live-QA mode badge. Guest/local sessions are labeled as blocked before any authenticated live checklist step.
 
 Done when:

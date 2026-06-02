@@ -6330,6 +6330,109 @@ export default function App() {
     ? buildPlannerReportDigest(plannerReport.events, language, plannerEngineDecisions)
     : null;
 
+  const buildDecisionTraceRowsForCurrentState = () => {
+    const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
+    const missionCopy = buildMissionCopy(rescueTask, missionReason, language);
+    const reasonLabel = getMissionReasonLabel(missionReason, language);
+    const openStep = rescueTask?.subtasks?.find((subtask) => !subtask.completed)?.text || panicPlan?.steps?.[0] || "";
+    const isManualToday = Boolean(rescueTask?.isToday);
+    const deliverySummary = isDemoRoute
+      ? null
+      : getDeliveryHealthSummary({ deliveryStatus: deliveryStatusForUi, plannerMeta, plannerEvents, language });
+    const engineDecisionCount = plannerEngineDecisions.length;
+    const reportCount = plannerReportHistoryEvents.length;
+    const eventCount = humanPlannerEvents.length;
+
+    return [
+      {
+        key: "mission",
+        persona: "angel",
+        label: language === "en" ? "Mission" : "Цель",
+        text: missionTitle
+          ? (language === "en" ? `Angel is holding one quest: “${missionTitle}”.` : `Ангел держит один квест: «${missionTitle}».`)
+          : (language === "en" ? "No mission is selected." : "Цель не выбрана."),
+      },
+      {
+        key: "reason",
+        persona: "system",
+        label: language === "en" ? "Reason" : "Причина",
+        text: missionExplanation || `${reasonLabel}: ${missionCopy}`,
+      },
+      {
+        key: "rescue",
+        persona: "angel",
+        label: "Rescue",
+        text: openStep
+          ? (language === "en" ? `If stuck, the next visible move is: ${openStep}.` : `Если застряло, следующий видимый ход: ${openStep}.`)
+          : (language === "en" ? "Rescue will ask for one tiny move, not a full task rewrite." : "Rescue попросит один маленький ход, не переписывание всей задачи."),
+      },
+      {
+        key: "boundary",
+        persona: "system",
+        label: language === "en" ? "Boundary" : "Граница",
+        text: isManualToday
+          ? (language === "en" ? "Today is still a manual pin; the system explains selection without silently changing that field." : "Today остаётся ручным пином; система объясняет выбор и не меняет это поле молча.")
+          : (language === "en" ? "This is a system suggestion, separate from the manual Today pin." : "Это системная подсказка отдельно от ручного Today-пина."),
+      },
+      {
+        key: "delivery",
+        persona: "system",
+        label: language === "en" ? "Delivery" : "Доставка",
+        text: isDemoRoute
+          ? (language === "en"
+            ? "Demo mode does not send Telegram/email. Production pressure must leave event, report, and outbox traces."
+            : "Демо не отправляет Telegram/email. В проде давление должно оставлять event, report и outbox следы.")
+          : `${deliverySummary?.title || (language === "en" ? "Delivery state" : "Состояние доставки")}: ${deliverySummary?.body || (language === "en" ? "No delivery signal yet." : "Пока нет сигнала доставки.")}`,
+      },
+      {
+        key: "trace",
+        persona: "system",
+        label: language === "en" ? "Trace" : "След",
+        text: isDemoRoute
+          ? (language === "en"
+            ? "This trace is local demo data; it shows the intended production audit shape."
+            : "Это локальный demo trace; он показывает форму будущего production-аудита.")
+          : (language === "en"
+            ? `Engine snapshot: ${engineDecisionCount || "no"} visible decision(s). Reports: ${reportCount}. Visible human events: ${eventCount}.`
+            : `Снимок движка: ${engineDecisionCount || "нет"} видим. решений. Отчёты: ${reportCount}. Видимые человеческие события: ${eventCount}.`),
+      },
+    ];
+  };
+
+  const copyDecisionSafetyText = async (text, successMessage, fallbackMessage, warningLabel = "decision safety text") => {
+    setDecisionQaBaseline(text);
+    try {
+      let clipboardError = null;
+      if (window.navigator?.clipboard?.writeText) {
+        try {
+          await window.navigator.clipboard.writeText(text);
+        } catch (error) {
+          clipboardError = error;
+        }
+      } else {
+        clipboardError = new Error("Clipboard API unavailable");
+      }
+      if (clipboardError) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.setAttribute("readonly", "readonly");
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        if (!copied) {
+          throw clipboardError;
+        }
+      }
+      setNudgeStatus(successMessage);
+    } catch (error) {
+      console.warn(`[Planner] Failed to copy ${warningLabel}:`, error);
+      setNudgeStatus(fallbackMessage);
+    }
+  };
+
   const scrollTaskIntoView = (taskId) => {
     const element = document.querySelector(`[data-task-id="${taskId}"]`);
     element?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -10299,38 +10402,55 @@ export default function App() {
       `eventWindowLimit: ${PLANNER_EVENT_LIMIT}`,
       `latestHumanEventAt: ${latestHumanEventAt ? new Date(latestHumanEventAt).toISOString() : "none"}`,
     ].join("\n");
-    setDecisionQaBaseline(baseline);
+    await copyDecisionSafetyText(
+      baseline,
+      language === "en" ? "QA baseline copied." : "QA baseline скопирован.",
+      language === "en" ? "QA baseline is shown below." : "QA baseline показан ниже.",
+      "QA baseline",
+    );
+  };
 
-    try {
-      let clipboardError = null;
-      if (window.navigator?.clipboard?.writeText) {
-        try {
-          await window.navigator.clipboard.writeText(baseline);
-        } catch (error) {
-          clipboardError = error;
-        }
-      } else {
-        clipboardError = new Error("Clipboard API unavailable");
-      }
-      if (clipboardError) {
-        const textArea = document.createElement("textarea");
-        textArea.value = baseline;
-        textArea.setAttribute("readonly", "readonly");
-        textArea.style.position = "fixed";
-        textArea.style.opacity = "0";
-        document.body.appendChild(textArea);
-        textArea.select();
-        const copied = document.execCommand("copy");
-        document.body.removeChild(textArea);
-        if (!copied) {
-          throw clipboardError;
-        }
-      }
-      setNudgeStatus(language === "en" ? "QA baseline copied." : "QA baseline скопирован.");
-    } catch (error) {
-      console.warn("[Planner] Failed to copy QA baseline:", error);
-      setNudgeStatus(language === "en" ? "QA baseline is shown below." : "QA baseline показан ниже.");
+  const handleCopyDecisionTrace = async () => {
+    const latestHumanEventAt = resolvePlannerTimestamp(humanPlannerEvents[0]?.createdAt);
+    const decisionRows = buildDecisionTraceRowsForCurrentState();
+    const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
+    const lines = [
+      "ADHD Planner decision trace",
+      `capturedAt: ${new Date().toISOString()}`,
+      `url: ${window.location.href}`,
+      `mode: ${isCloudUser ? "cloud-authenticated" : "guest-or-local"}`,
+      `userId: ${user?.id || "missing"}`,
+      `mission: ${missionTitle || "none"}`,
+      `missionReason: ${missionReason || "none"}`,
+      `engineDecisions: ${plannerEngineDecisions.length}`,
+      `engineInbox: ${plannerEngineInbox.length}`,
+      `reportItems: ${plannerReportHistoryEvents.length}`,
+      `visibleHumanEvents: ${humanPlannerEvents.length}`,
+      `latestHumanEventAt: ${latestHumanEventAt ? new Date(latestHumanEventAt).toISOString() : "none"}`,
+      "",
+      "Decision trace:",
+      ...decisionRows.map((row) => `- ${row.label}: ${row.text}`),
+    ];
+    if (plannerEngineDecisions.length > 0) {
+      lines.push(
+        "",
+        "Latest engine decisions:",
+        ...plannerEngineDecisions.slice(0, 5).map((decision) => `- ${decision.label}: ${decision.text}`),
+      );
     }
+    if (plannerEngineInbox.length > 0) {
+      lines.push(
+        "",
+        "Latest engine inbox:",
+        ...plannerEngineInbox.slice(0, 6).map((item) => `- ${item.label}: ${item.text}`),
+      );
+    }
+    await copyDecisionSafetyText(
+      lines.join("\n"),
+      language === "en" ? "Decision trace copied." : "Decision trace скопирован.",
+      language === "en" ? "Decision trace is shown below." : "Decision trace показан ниже.",
+      "decision trace",
+    );
   };
 
   const handleConfirmRestore = async () => {
@@ -13002,73 +13122,7 @@ export default function App() {
             sourceMigration: isEnglishStats ? "migration" : "миграция",
             sourceManual: isEnglishStats ? "manual" : "ручной",
           };
-          const decisionTraceRows = (() => {
-            const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
-            const missionCopy = buildMissionCopy(rescueTask, missionReason, language);
-            const reasonLabel = getMissionReasonLabel(missionReason, language);
-            const openStep = rescueTask?.subtasks?.find((subtask) => !subtask.completed)?.text || panicPlan?.steps?.[0] || "";
-            const isManualToday = Boolean(rescueTask?.isToday);
-            const deliverySummary = isDemoRoute
-              ? null
-              : getDeliveryHealthSummary({ deliveryStatus: deliveryStatusForUi, plannerMeta, plannerEvents, language });
-            const engineDecisionCount = plannerEngineDecisions.length;
-            const reportCount = plannerReportHistoryEvents.length;
-            const eventCount = humanPlannerEvents.length;
-            return [
-              {
-                key: "mission",
-                persona: "angel",
-                label: language === "en" ? "Mission" : "Цель",
-                text: missionTitle
-                  ? (language === "en" ? `Angel is holding one quest: “${missionTitle}”.` : `Ангел держит один квест: «${missionTitle}».`)
-                  : (language === "en" ? "No mission is selected." : "Цель не выбрана."),
-              },
-              {
-                key: "reason",
-                persona: "system",
-                label: language === "en" ? "Reason" : "Причина",
-                text: missionExplanation || `${reasonLabel}: ${missionCopy}`,
-              },
-              {
-                key: "rescue",
-                persona: "angel",
-                label: "Rescue",
-                text: openStep
-                  ? (language === "en" ? `If stuck, the next visible move is: ${openStep}.` : `Если застряло, следующий видимый ход: ${openStep}.`)
-                  : (language === "en" ? "Rescue will ask for one tiny move, not a full task rewrite." : "Rescue попросит один маленький ход, не переписывание всей задачи."),
-              },
-              {
-                key: "boundary",
-                persona: "system",
-                label: language === "en" ? "Boundary" : "Граница",
-                text: isManualToday
-                  ? (language === "en" ? "Today is still a manual pin; the system explains selection without silently changing that field." : "Today остаётся ручным пином; система объясняет выбор и не меняет это поле молча.")
-                  : (language === "en" ? "This is a system suggestion, separate from the manual Today pin." : "Это системная подсказка отдельно от ручного Today-пина."),
-              },
-              {
-                key: "delivery",
-                persona: "system",
-                label: language === "en" ? "Delivery" : "Доставка",
-                text: isDemoRoute
-                  ? (language === "en"
-                    ? "Demo mode does not send Telegram/email. Production pressure must leave event, report, and outbox traces."
-                    : "Демо не отправляет Telegram/email. В проде давление должно оставлять event, report и outbox следы.")
-                  : `${deliverySummary?.title || (language === "en" ? "Delivery state" : "Состояние доставки")}: ${deliverySummary?.body || (language === "en" ? "No delivery signal yet." : "Пока нет сигнала доставки.")}`,
-              },
-              {
-                key: "trace",
-                persona: "system",
-                label: language === "en" ? "Trace" : "След",
-                text: isDemoRoute
-                  ? (language === "en"
-                    ? "This trace is local demo data; it shows the intended production audit shape."
-                    : "Это локальный demo trace; он показывает форму будущего production-аудита.")
-                  : (language === "en"
-                    ? `Engine snapshot: ${engineDecisionCount || "no"} visible decision(s). Reports: ${reportCount}. Visible human events: ${eventCount}.`
-                    : `Снимок движка: ${engineDecisionCount || "нет"} видим. решений. Отчёты: ${reportCount}. Видимые человеческие события: ${eventCount}.`),
-              },
-            ];
-          })();
+          const decisionTraceRows = buildDecisionTraceRowsForCurrentState();
           const resolveStatsTimestamp = (...values) => {
             for (const value of values) {
               if (!value) continue;
@@ -13308,6 +13362,9 @@ export default function App() {
                           </button>
                           <button type="button" onClick={handleCopyDecisionQaBaseline}>
                             {language === "en" ? "Copy QA baseline" : "Скопировать baseline"}
+                          </button>
+                          <button type="button" onClick={handleCopyDecisionTrace}>
+                            {language === "en" ? "Copy decision trace" : "Скопировать trace"}
                           </button>
                         </div>
                         {decisionQaBaseline && (

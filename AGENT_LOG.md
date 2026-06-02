@@ -1,3 +1,15 @@
+## 2026-06-02 21:55 Europe/Berlin - Codex
+
+- Summary: Added a non-mutating Decision Trace text export.
+- Changed:
+  - `src/App.js` — extracted Decision Trace row construction into one reusable builder, added a shared clipboard/fallback helper for Decision Safety exports, preserved `Copy QA baseline`, and added `Copy decision trace` / `Скопировать trace`.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the new trace export.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/main?qa=copy-trace`: guest/local Decision Safety shows both `Скопировать baseline` and `Скопировать trace`; clicking `Скопировать trace` displays `ADHD Planner decision trace` with mode, mission metadata, Decision Trace rows, and no app console errors; clicking `Скопировать baseline` still displays `ADHD Planner live QA baseline` with `visibleHumanEvents`, `technicalEventsVisible`, and guest/local mode.
+
 ## 2026-06-02 21:18 Europe/Berlin - Codex
 
 - Summary: Removed the remaining generic `Back` ambiguity from partial Angel Lab drafts.

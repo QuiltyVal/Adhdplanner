@@ -66,6 +66,7 @@ Companion file:
 - As of 2026-06-02, reopening Angel Lab with pending draft cards resumes that draft instead of resetting the visible draft context; added/skipped progress and the next-state panel remain visible, and demo text is not re-prefilled over the pending draft.
 - As of 2026-06-01, `docs/live-angel-verification-checklist.md` is the manual live QA checklist for capture -> extraction -> Engine decision -> report/outbox -> delivery -> persistence -> recovery. Use it before treating new angel/delivery behavior as stable.
 - As of 2026-06-02, Progress Decision Safety has `Copy QA baseline`, which copies or displays auth mode, user id, active/today/at-risk/action counts, outbox counts, mission, delivery, Engine decision count, report count, and visible event-log window. If it says `guest-or-local`, do not treat the run as authenticated live QA. `visibleHumanEvents` is a recent-window diagnostic, not a full append-only history total.
+- As of 2026-06-02, Progress Decision Safety also has `Copy decision trace`, which copies or displays the current Decision Trace rows plus latest Engine decisions/inbox evidence without mutating planner state.
 - As of 2026-06-01, Progress Decision Safety shows the same auth boundary visibly: `Live QA: cloud-authenticated` or `Live QA blocked: guest/local session`.
 - As of 2026-05-31, public `/demo` is a portfolio entrypoint for Today Mission -> Rescue -> one tiny step, with demo Angel Lab parsing tuned for the portfolio story.
 - This is only the first ingestion slice:
