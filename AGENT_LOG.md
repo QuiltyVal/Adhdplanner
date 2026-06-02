@@ -1,3 +1,15 @@
+## 2026-06-02 16:38 Europe/Berlin - Codex
+
+- Summary: Kept Angel Lab partial draft context when reopening the lab.
+- Changed:
+  - `src/App.js` — reopening Angel Lab with pending draft cards now shows a resume status, preserves added/skipped progress and last-action context, and avoids pre-filling demo text over an unfinished draft. Fresh opens with no pending draft still reset the session context normally.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the pending-draft resume behavior.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=resume-draft`: after drafting demo cards, adding one selected card, leaving Angel Lab, and reopening it, the lab shows `Resuming Angel draft: 3 card(s) still waiting.`, preserves progress as `1 added / 0 skipped / 3 left`, shows the post-add next-state panel, keeps exactly one `Done — back to planner` action, keeps the textarea empty, and has no browser console errors.
+
 ## 2026-06-02 15:25 Europe/Berlin - Codex
 
 - Summary: Made the Angel Lab return highlight easier to notice.

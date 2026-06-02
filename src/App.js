@@ -9309,13 +9309,25 @@ export default function App() {
   };
 
   const openAngelLab = () => {
-    setAngelLabStatus({ kind: "", message: "" });
+    const pendingAngelDraftCount = Array.isArray(angelLabSuggestions) ? angelLabSuggestions.length : 0;
+    const isResumingAngelDraft = pendingAngelDraftCount > 0;
+
+    setAngelLabStatus(isResumingAngelDraft
+      ? {
+        kind: "success",
+        message: language === "en"
+          ? `Resuming Angel draft: ${pendingAngelDraftCount} card(s) still waiting.`
+          : `Продолжаю черновик Angel: ${pendingAngelDraftCount} карточк(и) ждут решения.`,
+      }
+      : { kind: "", message: "" });
     setAngelLabMicStatus("");
-    setAngelLabHandledNotice(null);
-    setAngelLabHandledStats({ added: 0, skipped: 0 });
+    if (!isResumingAngelDraft) {
+      setAngelLabHandledNotice(null);
+      setAngelLabHandledStats({ added: 0, skipped: 0 });
+      setAngelLabExecutiveAssessment(null);
+    }
     setAngelLabAppliedTask(null);
-    setAngelLabExecutiveAssessment(null);
-    if (isDemoRoute && !normalizeAngelLabTranscript(angelLabText).trim()) {
+    if (isDemoRoute && !isResumingAngelDraft && !normalizeAngelLabTranscript(angelLabText).trim()) {
       setAngelLabText(language === "en"
         ? "I need to finish the planner demo, record the onboarding video, write portfolio copy, and send one application."
         : "Мне нужно доделать демо планера, записать видео онбординга, написать текст для портфолио и отправить один отклик.");

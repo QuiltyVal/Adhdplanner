@@ -1779,6 +1779,10 @@ After a draft card is added or skipped and more draft cards remain, Angel Lab no
 
 When that post-add next-state strip is visible, Angel Lab now hides the older bottom `Done — back to planner` action. Partial draft sessions should show one clear return action in the current decision area, not a duplicated exit at the top and bottom of the modal.
 
+### 2026-06-02 - Angel Lab resumes pending drafts
+
+Reopening Angel Lab with pending draft cards now resumes that draft instead of resetting the visible session context. The added/skipped counters and post-add next-state strip remain coherent, and demo mode does not prefill a fresh example dump over an unfinished draft.
+
 ### 2026-06-02 - Angel Lab return highlights applied task
 
 When a draft card creates a task, merges steps into an existing task, or resolves to an existing duplicate, Angel Lab now remembers that applied task. Closing Angel Lab focuses the Active list, scrolls to the task using the existing highlight behavior, and updates the planner status copy with `Added from Angel Lab`, `Updated from Angel Lab`, or `Already in planner`. This closes the post-confirmation question of where the accepted draft went.
