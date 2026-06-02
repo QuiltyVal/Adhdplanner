@@ -1,3 +1,32 @@
+## 2026-06-02 12:03 Europe/Berlin - Codex
+
+- Summary: Clarified the Decision Safety QA baseline event-log metric after authenticated live QA cleanup.
+- Changed:
+  - `src/App.js` — replaces the ambiguous `humanEvents` QA baseline field with `visibleHumanEvents`, adds `technicalEventsVisible`, `eventWindowLimit`, and `latestHumanEventAt`, resolves event timestamps more robustly, and updates Decision Trace copy to say visible human events.
+  - `docs/live-angel-verification-checklist.md`, `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document that event-log counts are recent visible-window diagnostics, not full append-only history totals.
+- Why:
+  - The cleanup baseline returned `active` to the pre-add value but showed `humanEvents: 23 -> 19`; code review found the web event log is bounded (`PLANNER_EVENT_LIMIT = 25`) and bootstrap returns a smaller visible event window, so this was a misleading label rather than evidence of lost tasks.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/main?qa=event-window`: Progress Decision Safety baseline includes `visibleHumanEvents`, `technicalEventsVisible`, `eventWindowLimit: 25`, and `latestHumanEventAt`; Decision Trace says visible human events; no browser console errors.
+
+## 2026-06-02 11:42 Europe/Berlin - Codex
+
+- Summary: Recorded authenticated production Angel Lab live-QA progress from user-provided baselines.
+- Observed:
+  - Authenticated baseline at `2026-06-02T09:36:13.527Z`: `mode: cloud-authenticated`, `active: 8`, `today: 0`, `atRisk: 4`, `actionsToday: 0`, outbox pending/retry/dead/sending all `0`, mission `Выставить свитер Stone Island на продажу`, `engineDecisions: 3`, `reportItems: 30`, `humanEvents: 23`.
+  - Angel Lab drafted 3 cards and did not auto-create tasks: `added: 0`, `skipped: 0`, `left: 3`.
+  - User reported `Planner self-test passed: 5 passed, 0 failed.`
+  - User selected exactly one subtask on the `Записать короткий демо-видео для планера` draft and added it.
+  - Post-add baseline at `2026-06-02T09:42:00.507Z`: `active: 9`, `today: 0`, `atRisk: 4`, `actionsToday: 1`, outbox pending/retry/dead/sending all `0`, mission unchanged, `engineDecisions: 3`, `reportItems: 30`, `humanEvents: 23`.
+  - Cleanup baseline at `2026-06-02T09:51:24.591Z`: `active: 8`, `today: 0`, `atRisk: 4`, `actionsToday: 0`, outbox pending/retry/dead/sending all `0`, mission unchanged, `engineDecisions: 3`, `reportItems: 30`, `humanEvents: 19`.
+- Risks / follow-up:
+  - The live QA task appears cleaned up because `active` returned to the pre-add count.
+  - `humanEvents` changed from `23` to `19` after cleanup; treat this as a visible-report/event-window anomaly to inspect before relying on that count as a strict append-only metric.
+  - Codex browser automation still saw a stale guest tab, so authenticated evidence is from user-pasted production baselines rather than direct automated browser inspection.
+
 ## 2026-06-01 13:27 Europe/Berlin - Codex
 
 - Summary: Made the live-QA auth boundary visible inside Decision Safety.

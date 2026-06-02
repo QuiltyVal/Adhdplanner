@@ -3279,8 +3279,28 @@ function formatCountdown(secondsLeft) {
   return `${minutes}:${`${seconds}`.padStart(2, "0")}`;
 }
 
+function resolvePlannerTimestamp(value) {
+  if (!value) return 0;
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (typeof value === "string") {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  if (typeof value?.toMillis === "function") {
+    const millis = value.toMillis();
+    return Number.isFinite(millis) && millis > 0 ? millis : 0;
+  }
+  if (typeof value?.seconds === "number") {
+    const millis = value.seconds * 1000;
+    return Number.isFinite(millis) && millis > 0 ? millis : 0;
+  }
+  return 0;
+}
+
 function formatPlannerEventTime(value) {
-  const timestamp = Number(value || 0);
+  const timestamp = resolvePlannerTimestamp(value);
   if (!timestamp) return "";
 
   return new Date(timestamp).toLocaleTimeString("ru-RU", {
@@ -10186,6 +10206,7 @@ export default function App() {
       language,
     });
     const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
+    const latestHumanEventAt = resolvePlannerTimestamp(humanPlannerEvents[0]?.createdAt);
     const baseline = [
       "ADHD Planner live QA baseline",
       `capturedAt: ${new Date().toISOString()}`,
@@ -10205,7 +10226,10 @@ export default function App() {
       `delivery: ${deliverySummary?.title || "unknown"} — ${deliverySummary?.body || "no detail"}`,
       `engineDecisions: ${plannerEngineDecisions.length}`,
       `reportItems: ${plannerReportHistoryEvents.length}`,
-      `humanEvents: ${humanPlannerEvents.length}`,
+      `visibleHumanEvents: ${humanPlannerEvents.length}`,
+      `technicalEventsVisible: ${technicalPlannerEvents.length}`,
+      `eventWindowLimit: ${PLANNER_EVENT_LIMIT}`,
+      `latestHumanEventAt: ${latestHumanEventAt ? new Date(latestHumanEventAt).toISOString() : "none"}`,
     ].join("\n");
     setDecisionQaBaseline(baseline);
 
@@ -12971,8 +12995,8 @@ export default function App() {
                     ? "This trace is local demo data; it shows the intended production audit shape."
                     : "Это локальный demo trace; он показывает форму будущего production-аудита.")
                   : (language === "en"
-                    ? `Engine snapshot: ${engineDecisionCount || "no"} visible decision(s). Reports: ${reportCount}. Human events: ${eventCount}.`
-                    : `Снимок движка: ${engineDecisionCount || "нет"} видим. решений. Отчёты: ${reportCount}. Человеческие события: ${eventCount}.`),
+                    ? `Engine snapshot: ${engineDecisionCount || "no"} visible decision(s). Reports: ${reportCount}. Visible human events: ${eventCount}.`
+                    : `Снимок движка: ${engineDecisionCount || "нет"} видим. решений. Отчёты: ${reportCount}. Видимые человеческие события: ${eventCount}.`),
               },
             ];
           })();

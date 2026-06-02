@@ -1766,3 +1766,7 @@ Progress Decision Safety now includes `Copy QA baseline` / `Скопироват
 ### 2026-06-01 - Visible live QA mode guard
 
 Decision Safety now shows the live-QA mode directly in the card: `Live QA: cloud-authenticated` for a real cloud session, or `Live QA blocked: guest/local session` when the browser is not in the live account. This makes the stop condition visible before snapshots, Angel Lab tests, Engine runs, or delivery checks.
+
+### 2026-06-02 - QA baseline event-window labels
+
+The authenticated Angel Lab live pass showed that the old `humanEvents` baseline field could decrease after cleanup because the web client merges a bounded visible `plannerEvents` window, not a full append-only event history. `Copy QA baseline` now labels this as `visibleHumanEvents`, includes `technicalEventsVisible`, `eventWindowLimit`, and `latestHumanEventAt`, and live QA should use it as a trace-window diagnostic rather than a strict total.

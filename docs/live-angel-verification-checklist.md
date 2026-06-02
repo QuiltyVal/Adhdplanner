@@ -25,7 +25,8 @@ This checklist covers the real end-to-end path:
 - Open Progress -> Decision Safety and confirm the visible badge says `Live QA: cloud-authenticated`. If it says `Live QA blocked: guest/local session`, stop.
 - Run `Run self-test` from Progress before starting any live mutation.
 - Create a safety snapshot from Progress Decision Safety before a test that may mutate real tasks.
-- Use `Copy QA baseline` in Progress -> Decision Safety, then keep that copied or displayed text with the test notes. It records auth mode, user id, active/today/at-risk/actions counts, outbox pending/retry/dead/sending counts, mission, delivery summary, Engine decisions, report items, and human events.
+- Use `Copy QA baseline` in Progress -> Decision Safety, then keep that copied or displayed text with the test notes. It records auth mode, user id, active/today/at-risk/actions counts, outbox pending/retry/dead/sending counts, mission, delivery summary, Engine decisions, report items, and the visible event-log window.
+- Treat `visibleHumanEvents` as a recent-window diagnostic, not an append-only total. Compare `latestHumanEventAt`, `eventWindowLimit`, and the report/event rows when deciding whether an event trace is healthy.
 - Confirm the copied baseline says `mode: cloud-authenticated`. If it says `guest-or-local`, stop; the browser is not in the real live account.
 - Use one deliberately named QA task/capture so cleanup is unambiguous, for example `QA angel verification <date>`.
 
