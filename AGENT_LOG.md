@@ -1,3 +1,15 @@
+## 2026-06-02 22:48 Europe/Berlin - Codex
+
+- Summary: Added a combined Decision Safety QA packet export.
+- Changed:
+  - `src/App.js` — split baseline and Decision Trace text construction into reusable builders, preserved the existing separate copy buttons, and added `Copy QA packet` / `Скопировать QA packet` that combines both exports with one timestamp.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the combined QA packet.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/main?qa=qa-packet`: guest/local Decision Safety shows `Скопировать baseline`, `Скопировать trace`, and `Скопировать QA packet`; the live snapshot guard remains disabled; clicking `Скопировать QA packet` displays `ADHD Planner live QA packet` with `=== QA baseline ===`, `=== Decision trace ===`, `liveQaReady: no`, `stopReason: guest-or-local session`, and no app console errors.
+
 ## 2026-06-02 22:15 Europe/Berlin - Codex
 
 - Summary: Made the Decision Safety live-QA stop condition harder to miss.

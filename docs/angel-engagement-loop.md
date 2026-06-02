@@ -1775,6 +1775,10 @@ The authenticated Angel Lab live pass showed that the old `humanEvents` baseline
 
 Progress Decision Safety now has `Copy decision trace` / `Скопировать trace`. It copies the visible Decision Trace rows, current mission metadata, visible event/report counts, and latest Engine decisions/inbox evidence. This is a non-mutating way to paste the planner's current reasoning into QA notes or an agent thread without opening Firestore.
 
+### 2026-06-02 - Combined QA packet export
+
+Progress Decision Safety now has `Copy QA packet` / `Скопировать QA packet`. It combines the QA baseline and Decision Trace into one pasteable text block with one timestamp, so an authenticated live check can be handed to an agent thread without asking the user to copy multiple separate blocks.
+
 ### 2026-06-02 - Live QA guard is explicit
 
 Guest/local sessions now disable the live safety snapshot action inside Decision Safety and label it as unavailable. `Copy QA baseline` and `Copy decision trace` still work, but both include `liveQaReady` and `stopReason` so a pasted QA packet clearly says whether the browser is allowed to run an authenticated live checklist.

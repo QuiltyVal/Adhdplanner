@@ -10364,7 +10364,7 @@ export default function App() {
     scrollToProgressSection(plannerReportSectionRef);
   };
 
-  const handleCopyDecisionQaBaseline = async () => {
+  const buildDecisionQaBaselineText = (capturedAt = new Date().toISOString()) => {
     const outboxBacklog = plannerMeta?.outbox_backlog && typeof plannerMeta.outbox_backlog === "object"
       ? plannerMeta.outbox_backlog
       : plannerMeta?.health_snapshot?.outbox?.backlog && typeof plannerMeta.health_snapshot.outbox.backlog === "object"
@@ -10378,9 +10378,9 @@ export default function App() {
     });
     const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
     const latestHumanEventAt = resolvePlannerTimestamp(humanPlannerEvents[0]?.createdAt);
-    const baseline = [
+    return [
       "ADHD Planner live QA baseline",
-      `capturedAt: ${new Date().toISOString()}`,
+      `capturedAt: ${capturedAt}`,
       `url: ${window.location.href}`,
       `mode: ${isCloudUser ? "cloud-authenticated" : "guest-or-local"}`,
       `liveQaReady: ${isCloudUser ? "yes" : "no"}`,
@@ -10404,21 +10404,15 @@ export default function App() {
       `eventWindowLimit: ${PLANNER_EVENT_LIMIT}`,
       `latestHumanEventAt: ${latestHumanEventAt ? new Date(latestHumanEventAt).toISOString() : "none"}`,
     ].join("\n");
-    await copyDecisionSafetyText(
-      baseline,
-      language === "en" ? "QA baseline copied." : "QA baseline скопирован.",
-      language === "en" ? "QA baseline is shown below." : "QA baseline показан ниже.",
-      "QA baseline",
-    );
   };
 
-  const handleCopyDecisionTrace = async () => {
+  const buildDecisionTraceText = (capturedAt = new Date().toISOString()) => {
     const latestHumanEventAt = resolvePlannerTimestamp(humanPlannerEvents[0]?.createdAt);
     const decisionRows = buildDecisionTraceRowsForCurrentState();
     const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
     const lines = [
       "ADHD Planner decision trace",
-      `capturedAt: ${new Date().toISOString()}`,
+      `capturedAt: ${capturedAt}`,
       `url: ${window.location.href}`,
       `mode: ${isCloudUser ? "cloud-authenticated" : "guest-or-local"}`,
       `liveQaReady: ${isCloudUser ? "yes" : "no"}`,
@@ -10449,11 +10443,50 @@ export default function App() {
         ...plannerEngineInbox.slice(0, 6).map((item) => `- ${item.label}: ${item.text}`),
       );
     }
+    return lines.join("\n");
+  };
+
+  const handleCopyDecisionQaBaseline = async () => {
+    const baseline = buildDecisionQaBaselineText();
     await copyDecisionSafetyText(
-      lines.join("\n"),
+      baseline,
+      language === "en" ? "QA baseline copied." : "QA baseline скопирован.",
+      language === "en" ? "QA baseline is shown below." : "QA baseline показан ниже.",
+      "QA baseline",
+    );
+  };
+
+  const handleCopyDecisionTrace = async () => {
+    const trace = buildDecisionTraceText();
+    await copyDecisionSafetyText(
+      trace,
       language === "en" ? "Decision trace copied." : "Decision trace скопирован.",
       language === "en" ? "Decision trace is shown below." : "Decision trace показан ниже.",
       "decision trace",
+    );
+  };
+
+  const handleCopyDecisionQaPacket = async () => {
+    const capturedAt = new Date().toISOString();
+    const packet = [
+      "ADHD Planner live QA packet",
+      `capturedAt: ${capturedAt}`,
+      `url: ${window.location.href}`,
+      `mode: ${isCloudUser ? "cloud-authenticated" : "guest-or-local"}`,
+      `liveQaReady: ${isCloudUser ? "yes" : "no"}`,
+      `stopReason: ${isCloudUser ? "none" : "guest-or-local session"}`,
+      "",
+      "=== QA baseline ===",
+      buildDecisionQaBaselineText(capturedAt),
+      "",
+      "=== Decision trace ===",
+      buildDecisionTraceText(capturedAt),
+    ].join("\n");
+    await copyDecisionSafetyText(
+      packet,
+      language === "en" ? "QA packet copied." : "QA packet скопирован.",
+      language === "en" ? "QA packet is shown below." : "QA packet показан ниже.",
+      "QA packet",
     );
   };
 
@@ -13374,6 +13407,9 @@ export default function App() {
                           </button>
                           <button type="button" onClick={handleCopyDecisionTrace}>
                             {language === "en" ? "Copy decision trace" : "Скопировать trace"}
+                          </button>
+                          <button type="button" onClick={handleCopyDecisionQaPacket}>
+                            {language === "en" ? "Copy QA packet" : "Скопировать QA packet"}
                           </button>
                         </div>
                         {decisionQaBaseline && (
