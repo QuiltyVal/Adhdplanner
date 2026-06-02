@@ -164,6 +164,7 @@ export default function AngelLabScreen({
         : copy.saveDump;
   const nextDraftCard = taskCards[0] || null;
   const nextDraftTitle = nextDraftCard ? String(nextDraftCard.title || nextDraftCard.text || "").trim() : "";
+  const showDraftNextPanel = handledDraftCount > 0 && taskCards.length > 0;
 
   return (
     <div className="angel-lab-overlay" role="dialog" aria-modal="true" aria-labelledby="angel-lab-title">
@@ -310,7 +311,7 @@ export default function AngelLabScreen({
                   <span><strong>{taskCards.length}</strong> {copy.leftCount}</span>
                 </div>
               )}
-              {handledDraftCount > 0 && taskCards.length > 0 && (
+              {showDraftNextPanel && (
                 <div className="angel-lab-next-panel" role="status">
                   <div className="angel-lab-next-copy">
                     <span>{copy.addedInPlanner}</span>
@@ -523,7 +524,7 @@ export default function AngelLabScreen({
             )}
           </section>
         </div>
-        {taskCards.length > 0 && (
+        {taskCards.length > 0 && !showDraftNextPanel && (
           <div className="angel-lab-actions angel-lab-bottom-actions">
             <button type="button" className="angel-lab-btn secondary" onClick={onClose} disabled={saving}>
               {copy.doneClose}

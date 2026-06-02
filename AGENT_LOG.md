@@ -1,3 +1,15 @@
+## 2026-06-02 15:08 Europe/Berlin - Codex
+
+- Summary: Removed the duplicate Angel Lab return action after a partial draft confirmation.
+- Changed:
+  - `src/AngelLabScreen.js` — reuses the post-add next-state condition and hides the older bottom `Done — back to planner` action when that top next-state strip is visible.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document that partial draft sessions now show one clear return action instead of duplicate exits.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=dedupe-done`: after drafting demo cards and adding one selected card, `.angel-lab-next-panel` is visible, `Done — back to planner` appears exactly once, `.angel-lab-bottom-actions` is absent, closing Angel Lab returns to the planner with `Added from Angel Lab`, and no browser console errors appear.
+
 ## 2026-06-02 14:46 Europe/Berlin - Codex
 
 - Summary: Made Angel Lab return focus to the applied task after closing.
