@@ -1,3 +1,16 @@
+## 2026-06-02 23:04 Europe/Berlin - Codex
+
+- Summary: Made the combined Decision Safety QA packet the primary copy action.
+- Changed:
+  - `src/App.js` — moved `Copy QA packet` / `Скопировать QA packet` before the separate baseline/trace buttons and gave it a primary copy class.
+  - `src/App.css` — added a distinct green-tinted style for the primary QA packet action.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document that QA packet is now the recommended copy action.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/main?qa=qa-packet-primary`: guest/local Decision Safety orders actions as live snapshot, backups, report, primary `Скопировать QA packet`, then separate `baseline` and `trace`; the packet button carries the primary class, live snapshot remains disabled, clicking the packet displays baseline and trace sections, and no app console errors appear.
+
 ## 2026-06-02 22:48 Europe/Berlin - Codex
 
 - Summary: Added a combined Decision Safety QA packet export.

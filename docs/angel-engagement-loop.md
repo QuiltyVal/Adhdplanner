@@ -1777,7 +1777,7 @@ Progress Decision Safety now has `Copy decision trace` / `Скопировать
 
 ### 2026-06-02 - Combined QA packet export
 
-Progress Decision Safety now has `Copy QA packet` / `Скопировать QA packet`. It combines the QA baseline and Decision Trace into one pasteable text block with one timestamp, so an authenticated live check can be handed to an agent thread without asking the user to copy multiple separate blocks.
+Progress Decision Safety now has `Copy QA packet` / `Скопировать QA packet`. It combines the QA baseline and Decision Trace into one pasteable text block with one timestamp, so an authenticated live check can be handed to an agent thread without asking the user to copy multiple separate blocks. The packet action is visually treated as the primary copy action; the separate baseline and trace buttons remain available for narrower diagnostics.
 
 ### 2026-06-02 - Live QA guard is explicit
 

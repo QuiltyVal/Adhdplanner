@@ -1500,6 +1500,13 @@
   background: rgba(236, 254, 255, 0.78);
 }
 
+.decision-safety-actions .decision-safety-copy-primary {
+  border-color: rgba(34, 197, 94, 0.28);
+  color: #14532d;
+  background: rgba(240, 253, 244, 0.9);
+  box-shadow: 0 8px 18px rgba(34, 197, 94, 0.08);
+}
+
 .decision-safety-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.58;

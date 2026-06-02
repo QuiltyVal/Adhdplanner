@@ -13402,14 +13402,18 @@ export default function App() {
                           <button type="button" onClick={handleDecisionSafetyShowReport}>
                             {language === "en" ? "Open report log" : "Открыть журнал"}
                           </button>
+                          <button
+                            type="button"
+                            className="decision-safety-copy-primary"
+                            onClick={handleCopyDecisionQaPacket}
+                          >
+                            {language === "en" ? "Copy QA packet" : "Скопировать QA packet"}
+                          </button>
                           <button type="button" onClick={handleCopyDecisionQaBaseline}>
                             {language === "en" ? "Copy QA baseline" : "Скопировать baseline"}
                           </button>
                           <button type="button" onClick={handleCopyDecisionTrace}>
                             {language === "en" ? "Copy decision trace" : "Скопировать trace"}
-                          </button>
-                          <button type="button" onClick={handleCopyDecisionQaPacket}>
-                            {language === "en" ? "Copy QA packet" : "Скопировать QA packet"}
                           </button>
                         </div>
                         {decisionQaBaseline && (
