@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md
 
-Last updated: 2026-06-02
+Last updated: 2026-06-03
 
 This file exists so the project can survive context loss and switching between Codex, Claude, or another coding agent.
 
@@ -72,6 +72,7 @@ Companion file:
 - As of 2026-06-03, the first authenticated live Angel Lab verification pass created exactly one QA task (`active: 8 -> 9`, `actionsToday: 0 -> 1`) and then cleaned it up through normal UI (`active: 9 -> 8`, `actionsToday: 2`). Starting/add/cleanup packets all showed `liveQaReady: yes`, clean outbox counts, and fresh Engine ticks where expected.
 - As of 2026-06-03, copied/latest Engine evidence labels the separate rescue snapshot as `Engine rescue target` / `Rescue-цель движка`, because Engine rescue pressure can target a cold task separately from the current mission.
 - As of 2026-06-03, plain Kanban task creation no longer uses the generic task-highlight path. This prevents a newly typed task from auto-scrolling the board and showing the fallback `DAY MISSION` badge. Angel Lab create still uses its own `Added from Angel` focus label.
+- As of 2026-06-03, the public demo and Apus shell share one language state. `/demo` still defaults to English on fresh load, but the user can switch to Russian for the session; onboarding `EN/RU`, Apus header `EN/RU`, `html lang`, and the Today Mission demo status now stay aligned. The demo DOM translator now stores/restores only genuinely translated source text so React-owned English/Russian labels do not get stuck.
 - As of 2026-06-02, Progress Decision Safety shows the auth boundary visibly, disables the live safety snapshot action in guest/local sessions, and writes `liveQaReady` / `stopReason` into copied baseline and trace exports.
 - As of 2026-05-31, public `/demo` is a portfolio entrypoint for Today Mission -> Rescue -> one tiny step, with demo Angel Lab parsing tuned for the portfolio story.
 - This is only the first ingestion slice:

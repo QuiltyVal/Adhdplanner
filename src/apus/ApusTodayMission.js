@@ -1,9 +1,10 @@
 import React from "react";
 
-function ApusTodayMission({ mission, onRescue, demoMode = false, nudgeStatus = "" }) {
+function ApusTodayMission({ mission, onRescue, demoMode = false, nudgeStatus = "", language = "ru" }) {
   const task = mission?.task || null;
   const rescueEnabled = Boolean(task);
   const cleanNudgeStatus = String(nudgeStatus || "").trim();
+  const isEnglish = language === "en";
 
   return (
     <section
@@ -17,11 +18,11 @@ function ApusTodayMission({ mission, onRescue, demoMode = false, nudgeStatus = "
           onRescue();
         }
       } : undefined}
-      title={rescueEnabled ? "Open rescue session" : undefined}
+      title={rescueEnabled ? (isEnglish ? "Open rescue session" : "Открыть rescue-сессию") : undefined}
     >
       <div className="apus-section-kicker">today mission</div>
       <h2 className="apus-mission__title">
-        {task ? task.text : "Everything is under control today"}
+        {task ? task.text : (isEnglish ? "Everything is under control today" : "Сегодня всё под контролем")}
       </h2>
 
       {task && (
@@ -42,7 +43,9 @@ function ApusTodayMission({ mission, onRescue, demoMode = false, nudgeStatus = "
 
       {rescueEnabled && (
         <div className={`apus-mission__hint${demoMode ? " is-demo-guide" : ""}`}>
-          {demoMode ? "start here · open rescue" : "tap when stuck"}
+          {demoMode
+            ? (isEnglish ? "start here · open rescue" : "начни здесь · открыть rescue")
+            : (isEnglish ? "tap when stuck" : "нажми, если застряла")}
         </div>
       )}
 

@@ -56,6 +56,7 @@ function ApusPlannerShell({
           onRescue={handlers.openRescue}
           demoMode={demoMode}
           nudgeStatus={nudgeStatus}
+          language={language}
         />
       </div>
     </div>

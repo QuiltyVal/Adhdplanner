@@ -1374,3 +1374,20 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - Local QA covered the public demo shell and demo Angel Lab path. Cloud-authenticated real-user Angel Lab still relies on `/api/captures` and should keep using the server regression suite for parser changes.
+
+## 2026-06-03 - Codex
+
+- Summary: Fixed the planner language toggle regression in the public demo / Apus shell.
+- Changed:
+  - `src/App.js` — removed the demo-only effect that forced language back to English, set `document.documentElement.lang` directly from current language, passed shared language state into onboarding, and localized the demo-start status before rendering.
+  - `src/OnboardingOverlay.js` — made the onboarding `EN/RU` control use the app language state when provided instead of maintaining a separate language copy.
+  - `src/apus/ApusHeader.js`, `src/apus/ApusPlannerShell.js`, `src/apus/ApusTodayMission.js` — localized the Apus language-button title and Today Mission hints/fallback copy through the shared `language` prop.
+  - `src/demoI18n.js` — changed DOM translation storage so it only records genuinely translated source text/attributes and does not overwrite React-owned language labels on restore.
+  - `SESSION_HANDOFF.md`, `EXECUTION_PLAN.md` — recorded the stable demo-language behavior.
+- Verified:
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=lang-toggle-final-2`: onboarding `RU`, skip, Apus header `EN`, Apus header `RU` changed `html lang` as `en -> ru -> en -> ru`; shell text and Today Mission status followed the selected language; browser console had no errors.
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - Some product labels intentionally remain English in Russian mode (`Today Mission`, `Rescue`, task titles in demo data). This fix targets the broken toggle/stale translation behavior, not a full copy audit.

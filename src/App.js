@@ -5113,6 +5113,7 @@ export default function App() {
       : Notification.permission;
 
   useEffect(() => {
+    document.documentElement.lang = language === "en" ? "en" : "ru";
     try {
       if (!isDemoRoute) {
         localStorage.setItem("planner_language", language);
@@ -5123,11 +5124,6 @@ export default function App() {
     const frame = window.requestAnimationFrame(() => applyDemoTranslations(language));
     return () => window.cancelAnimationFrame(frame);
   });
-
-  useEffect(() => {
-    if (!isDemoRoute || language === "en") return;
-    setLanguage("en");
-  }, [isDemoRoute, language]);
 
   const trackDailyAction = () => {
     const today = getDayKey();
@@ -12675,6 +12671,11 @@ export default function App() {
       body: "Сначала rescue, парковка давления или явное открытие полного списка.",
       action: "Показать полный планер",
     };
+  const demoStartStatusEn = "Start here: click Today Mission to open Rescue.";
+  const demoStartStatusRu = "Начни здесь: нажми Today Mission, чтобы открыть Rescue.";
+  const localizedNudgeStatus = nudgeStatus === demoStartStatusEn || nudgeStatus === demoStartStatusRu
+    ? (language === "en" ? demoStartStatusEn : demoStartStatusRu)
+    : nudgeStatus;
 
   return (
     <DndContext sensors={dndSensors} collisionDetection={dndCollision} onDragStart={({ active }) => setDragTaskId(String(active.id).replace("task-", ""))} onDragEnd={handleDragEnd}>
@@ -12704,7 +12705,13 @@ export default function App() {
       onClose={closeAngelLab}
       onSave={handleSaveAngelLab}
     />
-    <OnboardingOverlay open={onboardingOpen} onClose={closeOnboarding} demoMode={isDemoRoute} />
+    <OnboardingOverlay
+      open={onboardingOpen}
+      onClose={closeOnboarding}
+      demoMode={isDemoRoute}
+      language={language}
+      onLanguageChange={setLanguage}
+    />
 
     <div className="app-wrapper">
       {completionCelebration && (
@@ -12799,7 +12806,7 @@ export default function App() {
             urgencyLabel: getUrgencyLabel(rescueTask?.urgency, language),
             resistanceLabel: getResistanceLabel(rescueTask?.resistance, language),
           }}
-          nudgeStatus={nudgeStatus}
+          nudgeStatus={localizedNudgeStatus}
           handlers={{
             toggleTheme,
             setLanguage,
@@ -12832,7 +12839,7 @@ export default function App() {
                   type="button"
                   onClick={() => setLanguage((current) => current === "en" ? "ru" : "en")}
                   className="theme-toggle-btn"
-                  title="Switch language"
+                  title={language === "en" ? "Switch to Russian" : "Switch to English"}
                 >
                   {language === "en" ? "RU" : "EN"}
                 </button>
@@ -12887,7 +12894,7 @@ export default function App() {
             urgencyLabel={getUrgencyLabel(rescueTask?.urgency, language)}
             resistanceLabel={getResistanceLabel(rescueTask?.resistance, language)}
             onRescue={handleQuickRescue}
-            nudgeStatus={nudgeStatus}
+            nudgeStatus={localizedNudgeStatus}
             notificationPermission={notificationPermission}
             notificationsEnabled={pulseState.notificationsEnabled}
             onNotificationsClick={handleNotificationsClick}

@@ -46,7 +46,7 @@ function ApusHeader({
           type="button"
           onClick={() => setLanguage?.(language === "en" ? "ru" : "en")}
           className="apus-icon-btn"
-          title="Switch language"
+          title={isEnglish ? "Switch to Russian" : "Switch to English"}
         >
           {language === "en" ? "RU" : "EN"}
         </button>

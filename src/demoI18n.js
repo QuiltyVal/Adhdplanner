@@ -53,6 +53,7 @@ const EXACT_TEXT = new Map([
   ["Пока пусто. Сохрани первый дамп выше.", "Empty for now. Save the first dump above."],
   ["Делаю черновой разбор...", "Making a draft breakdown..."],
   ["После сохранения здесь появятся карточки задач и опциональные шаги.", "After saving, task cards and optional steps will appear here."],
+  ["Начни здесь: нажми Today Mission, чтобы открыть Rescue.", "Start here: click Today Mission to open Rescue."],
   ["В существующую задачу", "Into an existing task"],
   ["Шум/неясно — лучше пропустить", "Noise/unclear — better skip"],
   ["Пока без новых подшагов для добавления.", "No new subtasks to add yet."],
@@ -344,7 +345,14 @@ function walkTextNodes(root) {
 function restoreOriginals(root) {
   for (const node of walkTextNodes(root)) {
     if (originalText.has(node)) {
-      node.nodeValue = originalText.get(node);
+      const original = originalText.get(node);
+      const translatedOriginal = translateDemoText(original);
+      const currentValue = node.nodeValue;
+      if (currentValue === original || currentValue === translatedOriginal) {
+        node.nodeValue = original;
+      } else {
+        originalText.delete(node);
+      }
     }
   }
 
@@ -353,8 +361,13 @@ function restoreOriginals(root) {
     const attrs = originalAttrs.get(element);
     if (!attrs) continue;
     Object.entries(attrs).forEach(([name, value]) => {
-      if (value == null) element.removeAttribute(name);
-      else element.setAttribute(name, value);
+      const currentValue = element.getAttribute(name);
+      const translatedValue = translateDemoText(value);
+      if (currentValue === value || currentValue === translatedValue) {
+        element.setAttribute(name, value);
+      } else {
+        delete attrs[name];
+      }
     });
   }
 }
@@ -374,28 +387,52 @@ export function applyDemoTranslations(language) {
 
   for (const node of walkTextNodes(root)) {
     const currentValue = node.nodeValue;
+    const translatedCurrent = translateDemoText(currentValue);
     const storedOriginal = originalText.get(node);
-    if (!storedOriginal || translateDemoText(storedOriginal) !== currentValue) {
+
+    if (translatedCurrent !== currentValue) {
       originalText.set(node, currentValue);
+      node.nodeValue = translatedCurrent;
+      continue;
     }
-    node.nodeValue = translateDemoText(originalText.get(node));
+
+    if (!storedOriginal) continue;
+
+    const translatedOriginal = translateDemoText(storedOriginal);
+    if (currentValue === storedOriginal || currentValue === translatedOriginal) {
+      node.nodeValue = translatedOriginal;
+    } else {
+      originalText.delete(node);
+    }
   }
 
   const elements = root.querySelectorAll("[title], [placeholder], [aria-label]");
   for (const element of elements) {
-    let attrs = originalAttrs.get(element);
-    if (!attrs) {
-      attrs = {};
-      originalAttrs.set(element, attrs);
-    }
-
     ["title", "placeholder", "aria-label"].forEach((name) => {
-      if (!Object.prototype.hasOwnProperty.call(attrs, name)) {
-        attrs[name] = element.getAttribute(name);
+      const currentValue = element.getAttribute(name);
+      if (currentValue == null) return;
+
+      const translatedCurrent = translateDemoText(currentValue);
+      let attrs = originalAttrs.get(element);
+      const storedOriginal = attrs?.[name];
+
+      if (translatedCurrent !== currentValue) {
+        if (!attrs) {
+          attrs = {};
+          originalAttrs.set(element, attrs);
+        }
+        attrs[name] = currentValue;
+        element.setAttribute(name, translatedCurrent);
+        return;
       }
-      const original = attrs[name];
-      if (original) {
-        element.setAttribute(name, translateDemoText(original));
+
+      if (!storedOriginal) return;
+
+      const translatedOriginal = translateDemoText(storedOriginal);
+      if (currentValue === storedOriginal || currentValue === translatedOriginal) {
+        element.setAttribute(name, translatedOriginal);
+      } else {
+        delete attrs[name];
       }
     });
   }

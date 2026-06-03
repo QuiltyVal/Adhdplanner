@@ -156,10 +156,11 @@ const ONBOARDING_COPY = {
   },
 };
 
-function OnboardingOverlay({ open, onClose, demoMode = false }) {
-  const [language, setLanguage] = useState("en");
+function OnboardingOverlay({ open, onClose, demoMode = false, language: controlledLanguage, onLanguageChange }) {
+  const [localLanguage, setLocalLanguage] = useState("en");
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
+  const language = controlledLanguage === "ru" || controlledLanguage === "en" ? controlledLanguage : localLanguage;
   const copy = ONBOARDING_COPY[language] || ONBOARDING_COPY.en;
   const steps = copy.steps;
   const step = steps[stepIndex] || steps[0];
@@ -171,6 +172,14 @@ function OnboardingOverlay({ open, onClose, demoMode = false }) {
   useEffect(() => {
     if (open) setStepIndex(0);
   }, [open]);
+
+  const setLanguage = (nextLanguage) => {
+    if (typeof onLanguageChange === "function") {
+      onLanguageChange(nextLanguage);
+      return;
+    }
+    setLocalLanguage(nextLanguage);
+  };
 
   useEffect(() => {
     if (!open) return undefined;
