@@ -4191,10 +4191,10 @@ function getPlannerEngineDecisions(plannerMeta, language = "ru") {
       return {
         key: `${type}-${decision?.task?.id || index}`,
         persona,
-        label: isEnglish ? "Rescue" : "Rescue",
+        label: isEnglish ? "Engine rescue target" : "Rescue-цель движка",
         text: taskText
-          ? (isEnglish ? `If you get stuck, start with “${taskText}”.` : `Если застрянешь, начинаем с «${taskText}».`)
-          : (isEnglish ? "Rescue target prepared." : "Rescue-цель подготовлена."),
+          ? (isEnglish ? `Separate from the mission; if pressure gets cold, start with “${taskText}”.` : `Отдельно от миссии; если давление остывает, начинаем с «${taskText}».`)
+          : (isEnglish ? "Separate rescue target prepared." : "Отдельная rescue-цель подготовлена."),
       };
     }
     if (type === "at_risk") {
@@ -10432,7 +10432,7 @@ export default function App() {
     if (plannerEngineDecisions.length > 0) {
       lines.push(
         "",
-        "Latest engine decisions:",
+        "Latest engine snapshot decisions:",
         ...plannerEngineDecisions.slice(0, 5).map((decision) => `- ${decision.label}: ${decision.text}`),
       );
     }

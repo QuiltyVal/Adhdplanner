@@ -1,3 +1,20 @@
+## 2026-06-03 12:45 Europe/Berlin - Codex
+
+- Summary: Clarified QA packet wording after the authenticated live Angel Lab verification run.
+- Live QA evidence:
+  - Starting packet at `2026-06-03T10:07:08.380Z`: `mode: cloud-authenticated`, `liveQaReady: yes`, `active: 8`, `actionsToday: 0`, outbox `0/0/0/0`.
+  - Final packet at `2026-06-03T10:31:37.847Z`: `mode: cloud-authenticated`, `liveQaReady: yes`, `active: 9`, `actionsToday: 1`, latest human event `2026-06-03T10:30:45.582Z`, engine tick `03 июн., 12:30`, outbox `0/0/0/0`.
+  - Result: Angel Lab created exactly one live QA task and the command-path/engine hook stayed healthy.
+  - Follow-up: clean up the QA task through normal UI after this verification path is recorded.
+- Changed:
+  - `src/App.js` — renamed the latest engine `rescue` snapshot label to `Engine rescue target` / `Rescue-цель движка` and clarified that it can be separate from the current mission. The QA packet export now says `Latest engine snapshot decisions` instead of implying every row is the current mission.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the clarified engine rescue evidence wording.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/main?qa=engine-rescue-label`: guest/local Progress renders `След решения`, Decision Safety, primary `Скопировать QA packet`, and the copy-options disclosure without console errors.
+
 ## 2026-06-03 10:27 Europe/Berlin - Codex
 
 - Summary: Aligned the live Angel verification checklist with the new QA packet workflow.

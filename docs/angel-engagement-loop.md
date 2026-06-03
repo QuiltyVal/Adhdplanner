@@ -1783,6 +1783,10 @@ Progress Decision Safety now has `Copy QA packet` / `Скопировать QA p
 
 Guest/local sessions now disable the live safety snapshot action inside Decision Safety and label it as unavailable. `Copy QA baseline` and `Copy decision trace` still work, but both include `liveQaReady` and `stopReason` so a pasted QA packet clearly says whether the browser is allowed to run an authenticated live checklist.
 
+### 2026-06-03 - Live QA packet clarifies engine rescue evidence
+
+The first authenticated live Angel Lab verification pass added exactly one QA task and left the Engine/outbox state healthy. The QA packet wording now distinguishes the current mission's visible rescue step from the latest Engine `rescue` snapshot. When the Engine surfaces a cold task separately from the mission, the exported/latest evidence labels it as `Engine rescue target` / `Rescue-цель движка` instead of a generic `Rescue` row.
+
 ### 2026-06-02 - Angel Lab post-add next state
 
 After a draft card is added or skipped and more draft cards remain, Angel Lab now shows a compact next-state strip above the queue. It confirms that added cards are already in the planner, shows how many cards still need a decision, names the next draft card, and keeps a `Back to planner — draft stays here` action near the top so the user is not stranded after the first confirmation.
