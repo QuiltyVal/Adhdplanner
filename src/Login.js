@@ -2,12 +2,22 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  browserLocalPersistence,
   getRedirectResult,
   onAuthStateChanged,
+  setPersistence,
   signInWithRedirect,
 } from "firebase/auth";
 import { auth, googleProvider } from "./firebase";
 import "./Login.css";
+
+const prepareRedirectAuth = async () => {
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+  } catch (err) {
+    console.warn("Auth persistence fallback failed:", err.code, err.message);
+  }
+};
 
 const storeFirebaseUser = (user) => {
   if (!user) return;
@@ -36,6 +46,7 @@ export default function Login() {
     const finishRedirectLogin = async () => {
       try {
         setIsProcessing(true);
+        await prepareRedirectAuth();
         const result = await getRedirectResult(auth);
         if (!mounted || !result?.user) return;
         storeFirebaseUser(result.user);
@@ -63,6 +74,7 @@ export default function Login() {
     try {
       setIsProcessing(true);
       setError(null);
+      await prepareRedirectAuth();
       await signInWithRedirect(auth, googleProvider);
     } catch (err) {
       console.error("Auth Error:", err.code, err.message);
