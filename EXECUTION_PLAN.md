@@ -309,7 +309,7 @@ Notes:
 - As of 2026-06-02, Progress Decision Safety also includes `Copy decision trace`, a non-mutating text export of the visible Decision Trace plus latest Engine decisions/inbox evidence.
 - As of 2026-06-03, Progress Decision Safety treats `Copy QA packet` as the primary copy action and hides the separate baseline/trace buttons inside a secondary copy-options disclosure.
 - As of 2026-06-03, the live verification checklist now asks for `Copy QA packet` as the primary evidence artifact and records starting/final QA packets for authenticated runs.
-- As of 2026-06-03, the first authenticated live Angel Lab verification pass created exactly one QA task and kept the Engine/outbox state healthy; cleanup of the QA task remains a normal UI follow-up.
+- As of 2026-06-03, the first authenticated live Angel Lab verification pass created exactly one QA task, kept the Engine/outbox state healthy, and cleaned up the QA task through normal UI.
 - As of 2026-06-03, latest Engine evidence labels a separate rescue snapshot as `Engine rescue target` / `Rescue-цель движка`, so QA packets do not imply that the rescue target must match the current mission.
 - As of 2026-06-02, Progress Decision Safety also shows a visible live-QA mode badge and disables the live safety snapshot action in guest/local sessions. Copied baseline/trace exports include `liveQaReady` and `stopReason`.
 

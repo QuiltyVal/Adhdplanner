@@ -5,7 +5,9 @@
   - Starting packet at `2026-06-03T10:07:08.380Z`: `mode: cloud-authenticated`, `liveQaReady: yes`, `active: 8`, `actionsToday: 0`, outbox `0/0/0/0`.
   - Final packet at `2026-06-03T10:31:37.847Z`: `mode: cloud-authenticated`, `liveQaReady: yes`, `active: 9`, `actionsToday: 1`, latest human event `2026-06-03T10:30:45.582Z`, engine tick `03 июн., 12:30`, outbox `0/0/0/0`.
   - Result: Angel Lab created exactly one live QA task and the command-path/engine hook stayed healthy.
-  - Follow-up: clean up the QA task through normal UI after this verification path is recorded.
+  - Cleanup packet at `2026-06-03T11:39:56.500Z`: `mode: cloud-authenticated`, `liveQaReady: yes`, `active: 8`, `actionsToday: 2`, latest human event `2026-06-03T11:38:33.635Z`, engine tick `03 июн., 13:39`, outbox `0/0/0/0`.
+  - Result after cleanup: QA task was removed or completed through normal UI, and the authenticated live verification pass is complete.
+  - Note: the cleanup packet still showed the pre-refresh `Latest engine decisions` / `Rescue` wording, so the browser tab likely had the older app bundle until reload. Data state was healthy.
 - Changed:
   - `src/App.js` — renamed the latest engine `rescue` snapshot label to `Engine rescue target` / `Rescue-цель движка` and clarified that it can be separate from the current mission. The QA packet export now says `Latest engine snapshot decisions` instead of implying every row is the current mission.
   - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the clarified engine rescue evidence wording.
@@ -14,6 +16,7 @@
   - `npm run verify:server`
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
   - Browser QA at `http://localhost:3001/main?qa=engine-rescue-label`: guest/local Progress renders `След решения`, Decision Safety, primary `Скопировать QA packet`, and the copy-options disclosure without console errors.
+  - Final live cleanup packet confirmed `active: 8`, `actionsToday: 2`, clean outbox counts, and fresh Engine tick.
 
 ## 2026-06-03 10:27 Europe/Berlin - Codex
 
