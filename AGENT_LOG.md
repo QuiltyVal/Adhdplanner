@@ -1391,3 +1391,17 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - Some product labels intentionally remain English in Russian mode (`Today Mission`, `Rescue`, task titles in demo data). This fix targets the broken toggle/stale translation behavior, not a full copy audit.
+
+## 2026-06-03 - Codex
+
+- Summary: Switched Google login from popup-first auth to Firebase redirect auth for embedded-browser access.
+- Changed:
+  - `src/Login.js` — removed `signInWithPopup` as the primary login path and starts Google auth with `signInWithRedirect`.
+  - `SESSION_HANDOFF.md`, `EXECUTION_PLAN.md` — recorded the auth boundary and live-QA access implication.
+- Verified:
+  - Reproduced the Codex in-app browser failure: popup login navigated the selected tab to `telegrammadhd.firebaseapp.com/__/auth/handler` with no opener, blank body, and no saved `adhdUser`.
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - Needs production deploy and one fresh in-app browser login attempt to confirm Firebase redirect returns to `/main` as a cloud-authenticated user.

@@ -4,16 +4,10 @@ import { useNavigate } from "react-router-dom";
 import {
   getRedirectResult,
   onAuthStateChanged,
-  signInWithPopup,
   signInWithRedirect,
 } from "firebase/auth";
 import { auth, googleProvider } from "./firebase";
 import "./Login.css";
-
-const POPUP_BLOCKED_CODES = new Set([
-  "auth/popup-blocked",
-  "auth/popup-blocked-by-browser",
-]);
 
 const storeFirebaseUser = (user) => {
   if (!user) return;
@@ -69,21 +63,11 @@ export default function Login() {
     try {
       setIsProcessing(true);
       setError(null);
-      const result = await signInWithPopup(auth, googleProvider);
-      storeFirebaseUser(result.user);
-      navigate("/main");
+      await signInWithRedirect(auth, googleProvider);
     } catch (err) {
       console.error("Auth Error:", err.code, err.message);
-      if (POPUP_BLOCKED_CODES.has(err.code)) {
-        setError("Popup sign-in is blocked here. Redirecting to Google sign-in...");
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      } else if (err.code === 'auth/operation-not-allowed') {
+      if (err.code === 'auth/operation-not-allowed') {
         setError("Google Sign-In is not enabled in Firebase Console. Go to Authentication -> Sign-in method -> Google -> Enable.");
-      } else if (err.code === 'auth/popup-closed-by-user') {
-        setError("The sign-in window was closed. Press the button again and wait for the Google window to load.");
-      } else if (err.code === 'auth/cancelled-popup-request') {
-        setError("Another sign-in request is already open. Wait a second and try again.");
       } else {
         setError(`Error: ${err.code} - ${err.message}`);
       }
