@@ -1,3 +1,16 @@
+## 2026-06-03 01:05 Europe/Berlin - Codex
+
+- Summary: Reduced Decision Safety copy-button clutter.
+- Changed:
+  - `src/App.js` — kept `Copy QA packet` / `Скопировать QA packet` as the primary visible copy action and moved separate baseline/trace buttons into a secondary copy-options disclosure.
+  - `src/App.css` — styled the disclosure summary and made diagnostic copy buttons appear only when the disclosure is open.
+  - `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/angel-engagement-loop.md` — document the new primary/secondary copy layout.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/main?qa=qa-packet-options`: in the collapsed state, visible Decision Safety actions include `Скопировать QA packet` and `Ещё копировать` while baseline/trace are hidden; opening `Ещё копировать` reveals `Скопировать baseline` and `Скопировать trace`; `Скопировать trace` still displays a trace export with `liveQaReady: no`; no app console errors.
+
 ## 2026-06-02 23:04 Europe/Berlin - Codex
 
 - Summary: Made the combined Decision Safety QA packet the primary copy action.

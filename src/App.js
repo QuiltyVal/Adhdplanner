@@ -13409,12 +13409,17 @@ export default function App() {
                           >
                             {language === "en" ? "Copy QA packet" : "Скопировать QA packet"}
                           </button>
-                          <button type="button" onClick={handleCopyDecisionQaBaseline}>
-                            {language === "en" ? "Copy QA baseline" : "Скопировать baseline"}
-                          </button>
-                          <button type="button" onClick={handleCopyDecisionTrace}>
-                            {language === "en" ? "Copy decision trace" : "Скопировать trace"}
-                          </button>
+                          <details className="decision-safety-copy-more">
+                            <summary>{language === "en" ? "More copy options" : "Ещё копировать"}</summary>
+                            <div className="decision-safety-copy-more-actions">
+                              <button type="button" onClick={handleCopyDecisionQaBaseline}>
+                                {language === "en" ? "Copy QA baseline" : "Скопировать baseline"}
+                              </button>
+                              <button type="button" onClick={handleCopyDecisionTrace}>
+                                {language === "en" ? "Copy decision trace" : "Скопировать trace"}
+                              </button>
+                            </div>
+                          </details>
                         </div>
                         {decisionQaBaseline && (
                           <pre className="decision-safety-baseline">{decisionQaBaseline}</pre>
