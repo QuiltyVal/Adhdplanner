@@ -1402,8 +1402,9 @@ Entry template:
   - Reproduced the Codex in-app browser failure: popup login navigated the selected tab to `telegrammadhd.firebaseapp.com/__/auth/handler` with no opener, blank body, and no saved `adhdUser`.
   - Reproduced the first redirect attempt returning from the handler to `/login` without a user while the embedded browser reported no IndexedDB.
   - Reproduced the final embedded-browser limitation: the Codex in-app browser also reported no localStorage/Web Storage, so Firebase Auth cannot persist a live session there.
+  - Production deploy `dpl_HjoeZZk8wnjpuRD8VrCu4Jvtb6ad` returns from the Firebase handler back to `/login`, but still does not produce an authenticated session inside the Codex in-app browser.
   - `git diff --check`
   - `npm run verify:server`
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
-  - Authenticated live QA still needs a normal browser session plus copied QA packet; Codex in-app browser cannot be used as the live authenticated surface when Web Storage is unavailable.
+  - Authenticated live QA still needs a normal browser session plus copied QA packet; do not treat Codex in-app browser as a usable Firebase-authenticated surface.
