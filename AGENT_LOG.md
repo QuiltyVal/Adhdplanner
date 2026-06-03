@@ -1,3 +1,14 @@
+## 2026-06-03 10:27 Europe/Berlin - Codex
+
+- Summary: Aligned the live Angel verification checklist with the new QA packet workflow.
+- Changed:
+  - `docs/live-angel-verification-checklist.md` — now uses `Copy QA packet` as the primary Decision Safety evidence artifact, checks `liveQaReady: yes`, asks for a fresh packet after the Engine run, and changes pass criteria from baseline-only notes to starting/final QA packets.
+  - `EXECUTION_PLAN.md` and `SESSION_HANDOFF.md` — record that the checklist now follows the QA packet flow.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+
 ## 2026-06-03 01:05 Europe/Berlin - Codex
 
 - Summary: Reduced Decision Safety copy-button clutter.

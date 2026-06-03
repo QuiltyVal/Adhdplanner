@@ -25,12 +25,13 @@ This checklist covers the real end-to-end path:
 - Open Progress -> Decision Safety and confirm the visible badge says `Live QA: cloud-authenticated`. If it says `Live QA blocked: guest/local session`, stop.
 - Run `Run self-test` from Progress before starting any live mutation.
 - Create a safety snapshot from Progress Decision Safety before a test that may mutate real tasks.
-- Use `Copy QA baseline` in Progress -> Decision Safety, then keep that copied or displayed text with the test notes. It records auth mode, user id, active/today/at-risk/actions counts, outbox pending/retry/dead/sending counts, mission, delivery summary, Engine decisions, report items, and the visible event-log window.
-- Treat `visibleHumanEvents` as a recent-window diagnostic, not an append-only total. Compare `latestHumanEventAt`, `eventWindowLimit`, and the report/event rows when deciding whether an event trace is healthy.
-- Confirm the copied baseline says `mode: cloud-authenticated`. If it says `guest-or-local`, stop; the browser is not in the real live account.
+- Use `Copy QA packet` in Progress -> Decision Safety, then keep that copied or displayed text with the test notes. It combines the QA baseline and Decision Trace in one block with one timestamp.
+- Confirm the copied QA packet says `mode: cloud-authenticated` and `liveQaReady: yes`. If it says `guest-or-local` or `liveQaReady: no`, stop; the browser is not in the real live account.
+- Treat `visibleHumanEvents` inside the packet as a recent-window diagnostic, not an append-only total. Compare `latestHumanEventAt`, `eventWindowLimit`, and the report/event rows when deciding whether an event trace is healthy.
+- Use `More copy options` / `Ещё копировать` only when you need a narrower `Copy QA baseline` or `Copy decision trace` diagnostic.
 - Use one deliberately named QA task/capture so cleanup is unambiguous, for example `QA angel verification <date>`.
 
-Stop immediately if baseline state looks wrong, old tasks disappear, outbox has unexpected retry/dead rows, or the app shows stale cloud/cache warnings.
+Stop immediately if the QA packet state looks wrong, old tasks disappear, outbox has unexpected retry/dead rows, or the app shows stale cloud/cache warnings.
 
 ## 1. Capture Ingestion
 
@@ -97,10 +98,12 @@ Stop if commitment hints overwrite unrelated task metadata.
 Action:
 - In Progress, run `Run engine now`.
 - Re-open or refresh Progress.
+- Copy a fresh `QA packet` after the run.
 
 Expected evidence:
 - Decision Trace still explains the current mission, reason, rescue step, manual Today boundary, delivery state, and report/event trace.
 - Latest Engine evidence updates with a recent run.
+- The fresh QA packet still says `liveQaReady: yes` and includes the updated Decision Trace.
 - If the QA task is not selected, there is a plausible reason: deadline order, existing Today shortlist, vital task, or fallback priority.
 - If the QA task is selected, the reason is visible and not just hidden in raw Firestore.
 
@@ -181,7 +184,8 @@ Expected evidence:
 A live validation pass is complete only when:
 
 - exact commit and deployment are recorded;
-- baseline and final copied QA counts are recorded;
+- starting and final QA packets are recorded;
+- both QA packets say `liveQaReady: yes`;
 - one capture/draft path was inspected before task creation;
 - one confirmed task went through the app without duplicate writes;
 - Decision Trace explains the Engine state;

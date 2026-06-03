@@ -308,6 +308,7 @@ Notes:
 - As of 2026-06-02, Progress Decision Safety includes `Copy QA baseline`, a non-mutating way to copy or display auth mode, user id, planner counts, outbox counts, mission, delivery, Engine decision count, report count, and visible event-log window before a live QA pass. Event-log counts are labeled as visible-window diagnostics, not full append-only totals.
 - As of 2026-06-02, Progress Decision Safety also includes `Copy decision trace`, a non-mutating text export of the visible Decision Trace plus latest Engine decisions/inbox evidence.
 - As of 2026-06-03, Progress Decision Safety treats `Copy QA packet` as the primary copy action and hides the separate baseline/trace buttons inside a secondary copy-options disclosure.
+- As of 2026-06-03, the live verification checklist now asks for `Copy QA packet` as the primary evidence artifact and records starting/final QA packets for authenticated runs.
 - As of 2026-06-02, Progress Decision Safety also shows a visible live-QA mode badge and disables the live safety snapshot action in guest/local sessions. Copied baseline/trace exports include `liveQaReady` and `stopReason`.
 
 Done when:
