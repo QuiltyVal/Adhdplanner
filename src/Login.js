@@ -19,6 +19,18 @@ const prepareRedirectAuth = async () => {
   }
 };
 
+const canUseBrowserStorage = () => {
+  try {
+    if (!window.localStorage) return false;
+    const probeKey = "__planner_auth_storage_probe__";
+    window.localStorage.setItem(probeKey, "1");
+    window.localStorage.removeItem(probeKey);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const storeFirebaseUser = (user) => {
   if (!user) return;
   const userData = {
@@ -74,6 +86,10 @@ export default function Login() {
     try {
       setIsProcessing(true);
       setError(null);
+      if (!canUseBrowserStorage()) {
+        setError("This browser cannot store Google sign-in. Open Planner in Chrome/Safari and copy the QA packet here.");
+        return;
+      }
       await prepareRedirectAuth();
       await signInWithRedirect(auth, googleProvider);
     } catch (err) {
@@ -156,6 +172,10 @@ export default function Login() {
 
         <button
           onClick={() => {
+            if (!canUseBrowserStorage()) {
+              setError("This browser cannot store planner state. Open Planner in Chrome/Safari instead.");
+              return;
+            }
             const guestUser = { id: "guest_" + Date.now(), first_name: "Guest" };
             localStorage.setItem("adhdUser", JSON.stringify(guestUser));
             navigate("/main");

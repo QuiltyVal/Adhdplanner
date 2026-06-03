@@ -1396,13 +1396,14 @@ Entry template:
 
 - Summary: Switched Google login from popup-first auth to Firebase redirect auth for embedded-browser access.
 - Changed:
-  - `src/Login.js` — removed `signInWithPopup` as the primary login path, starts Google auth with `signInWithRedirect`, and forces `browserLocalPersistence` before redirect/result handling.
+  - `src/Login.js` — removed `signInWithPopup` as the primary login path, starts Google auth with `signInWithRedirect`, forces `browserLocalPersistence` before redirect/result handling, and blocks login/offline guest attempts with a clear message when Web Storage is unavailable.
   - `SESSION_HANDOFF.md`, `EXECUTION_PLAN.md` — recorded the auth boundary and live-QA access implication.
 - Verified:
   - Reproduced the Codex in-app browser failure: popup login navigated the selected tab to `telegrammadhd.firebaseapp.com/__/auth/handler` with no opener, blank body, and no saved `adhdUser`.
   - Reproduced the first redirect attempt returning from the handler to `/login` without a user while the embedded browser reported no IndexedDB.
+  - Reproduced the final embedded-browser limitation: the Codex in-app browser also reported no localStorage/Web Storage, so Firebase Auth cannot persist a live session there.
   - `git diff --check`
   - `npm run verify:server`
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
-  - Needs production deploy and one fresh in-app browser login attempt to confirm Firebase redirect plus local persistence returns to `/main` as a cloud-authenticated user.
+  - Authenticated live QA still needs a normal browser session plus copied QA packet; Codex in-app browser cannot be used as the live authenticated surface when Web Storage is unavailable.
