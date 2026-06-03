@@ -36,7 +36,8 @@ It turns the "angel / executive-function companion" direction into concrete deli
 - [x] Planner Engine now projects mission/rescue, events, reports, outbox, delivery status, and health snapshots through `plannerMeta`.
 - [x] Public `/demo` now exists as a portfolio demo entrypoint for the core loop: Today Mission -> Rescue -> one tiny step, plus demo Angel Lab.
 - [x] Public `/demo` language switching is session-stable across onboarding, Apus header, `html lang`, and Today Mission demo status.
-- [x] Google login has a redirect-based path that works for embedded-browser access; popup-only auth is not required for live QA.
+- [x] Google login has a redirect-based path for normal browsers; Codex in-app browser remains unsuitable for Firebase-authenticated live QA.
+- [x] QA packets distinguish cloud login from completed Engine bootstrap via `plannerBootstrapStatus`.
 
 ## 2026-05-31 roadmap reconciliation
 

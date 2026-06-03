@@ -113,6 +113,36 @@ const OVERDUE_COMPLETION_REWARD_TIERS = [
 ];
 const DEVIL_AUTO_CLEAN_THRESHOLD = 5;   // purgatory tasks before devil intervenes
 const DEVIL_AUTO_CLEAN_COOLDOWN_MS = 30 * 60 * 1000; // 30 min between auto-cleans
+
+function resolvePlannerAuthUser(expectedUserId = "", timeoutMs = 3000) {
+  const expected = String(expectedUserId || "").trim();
+  const current = auth.currentUser;
+  if (current && (!expected || String(current.uid) === expected)) {
+    return Promise.resolve(current);
+  }
+
+  return new Promise((resolve) => {
+    let done = false;
+    let unsubscribe = () => {};
+    const finish = (user) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      unsubscribe();
+      resolve(user || null);
+    };
+    const timer = setTimeout(() => {
+      const fallback = auth.currentUser;
+      finish(fallback && (!expected || String(fallback.uid) === expected) ? fallback : null);
+    }, timeoutMs);
+
+    unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && (!expected || String(user.uid) === expected)) {
+        finish(user);
+      }
+    });
+  });
+}
 const PLANNER_EVENT_LIMIT = 25;
 const USE_APUS_SHELL = true;
 const DEMO_USER_ID = "guest_demo_portfolio";
@@ -4995,6 +5025,7 @@ export default function App() {
   const [plannerMeta, setPlannerMeta] = useState(null);
   const [dismissedAngelEntryId, setDismissedAngelEntryId] = useState("");
   const [plannerClientContractStatus, setPlannerClientContractStatus] = useState(null);
+  const [plannerBootstrapStatus, setPlannerBootstrapStatus] = useState({ status: "idle", reason: "not_started", updatedAt: 0 });
   const [engineDebugBusy, setEngineDebugBusy] = useState("");
   const [lastDebugActionResult, setLastDebugActionResult] = useState(null);
   const [plannerSelfTestResult, setPlannerSelfTestResult] = useState(null);
@@ -5445,6 +5476,7 @@ export default function App() {
       setPlannerEvents([]);
       setPlannerReportItems([]);
       setPlannerMeta(null);
+      setPlannerBootstrapStatus({ status: "idle", reason: "no_user", updatedAt: Date.now() });
       return undefined;
     }
 
@@ -5452,6 +5484,7 @@ export default function App() {
     setPlannerEvents(cachedEvents);
 
     if (String(user.id).startsWith("guest_")) {
+      setPlannerBootstrapStatus({ status: "idle", reason: "guest_or_demo", updatedAt: Date.now() });
       return undefined;
     }
 
@@ -5514,10 +5547,16 @@ export default function App() {
 
     const loadPlannerBootstrapReport = async () => {
       try {
-        if (!auth.currentUser) return;
+        setPlannerBootstrapStatus({ status: "loading", reason: "bootstrap_requested", updatedAt: Date.now() });
+        const authUser = await resolvePlannerAuthUser(user.id);
+        if (cancelled) return;
+        if (!authUser) {
+          setPlannerBootstrapStatus({ status: "blocked", reason: "auth_user_unavailable", updatedAt: Date.now() });
+          return;
+        }
 
         const payload = await runPlannerBootstrap({
-          authUser: auth.currentUser,
+          authUser,
           reportLimit: 10,
           language,
         });
@@ -5541,8 +5580,16 @@ export default function App() {
           mergePlannerEventItemsIntoState,
           saveCloudCache,
         });
+        setPlannerBootstrapStatus({ status: "success", reason: "bootstrap_applied", updatedAt: Date.now() });
       } catch (error) {
         console.warn("[Planner] Не удалось загрузить report items:", error);
+        if (!cancelled) {
+          setPlannerBootstrapStatus({
+            status: "failed",
+            reason: error?.message || "bootstrap_failed",
+            updatedAt: Date.now(),
+          });
+        }
       } finally {
         if (!cancelled) {
           plannerReportEntryWindowOpenRef.current = false;
@@ -6603,6 +6650,21 @@ export default function App() {
 
   // ── Cloud persistence helpers ──────────────────────────────────────────────
   const isCloudUser = user?.id && !user.id.startsWith("guest_") && !isDemoRoute;
+  const plannerBootstrapState = String(plannerBootstrapStatus?.status || "idle");
+  const plannerBootstrapReason = String(plannerBootstrapStatus?.reason || "not_started").replace(/\s+/g, " ").slice(0, 120);
+  const plannerBootstrapReady = !isCloudUser
+    || plannerBootstrapState === "success"
+    || Boolean(plannerMeta?.last_engine_run || plannerMeta?.health_snapshot?.engine?.lastAt);
+  const liveQaReady = Boolean(isCloudUser && plannerBootstrapReady);
+  const liveQaStopReason = !isCloudUser
+    ? "guest-or-local session"
+    : liveQaReady
+      ? "none"
+      : plannerBootstrapState === "failed"
+        ? "planner-bootstrap-failed"
+        : plannerBootstrapState === "blocked"
+          ? "planner-bootstrap-blocked"
+          : "planner-bootstrap-pending";
 
   const persistTask = (task) => {
     if (!isCloudUser || !task) return;
@@ -10410,8 +10472,10 @@ export default function App() {
       `capturedAt: ${capturedAt}`,
       `url: ${window.location.href}`,
       `mode: ${isCloudUser ? "cloud-authenticated" : "guest-or-local"}`,
-      `liveQaReady: ${isCloudUser ? "yes" : "no"}`,
-      `stopReason: ${isCloudUser ? "none" : "guest-or-local session"}`,
+      `liveQaReady: ${liveQaReady ? "yes" : "no"}`,
+      `stopReason: ${liveQaStopReason}`,
+      `plannerBootstrapStatus: ${plannerBootstrapState}`,
+      `plannerBootstrapReason: ${plannerBootstrapReason}`,
       `userId: ${user?.id || "missing"}`,
       `active: ${plannerStatusCounts.active}`,
       `today: ${plannerStatusCounts.today}`,
@@ -10442,8 +10506,10 @@ export default function App() {
       `capturedAt: ${capturedAt}`,
       `url: ${window.location.href}`,
       `mode: ${isCloudUser ? "cloud-authenticated" : "guest-or-local"}`,
-      `liveQaReady: ${isCloudUser ? "yes" : "no"}`,
-      `stopReason: ${isCloudUser ? "none" : "guest-or-local session"}`,
+      `liveQaReady: ${liveQaReady ? "yes" : "no"}`,
+      `stopReason: ${liveQaStopReason}`,
+      `plannerBootstrapStatus: ${plannerBootstrapState}`,
+      `plannerBootstrapReason: ${plannerBootstrapReason}`,
       `userId: ${user?.id || "missing"}`,
       `mission: ${missionTitle || "none"}`,
       `missionReason: ${missionReason || "none"}`,
@@ -10500,8 +10566,10 @@ export default function App() {
       `capturedAt: ${capturedAt}`,
       `url: ${window.location.href}`,
       `mode: ${isCloudUser ? "cloud-authenticated" : "guest-or-local"}`,
-      `liveQaReady: ${isCloudUser ? "yes" : "no"}`,
-      `stopReason: ${isCloudUser ? "none" : "guest-or-local session"}`,
+      `liveQaReady: ${liveQaReady ? "yes" : "no"}`,
+      `stopReason: ${liveQaStopReason}`,
+      `plannerBootstrapStatus: ${plannerBootstrapState}`,
+      `plannerBootstrapReason: ${plannerBootstrapReason}`,
       "",
       "=== QA baseline ===",
       buildDecisionQaBaselineText(capturedAt),

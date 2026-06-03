@@ -1408,3 +1408,17 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - Authenticated live QA still needs a normal browser session plus copied QA packet; do not treat Codex in-app browser as a usable Firebase-authenticated surface.
+
+## 2026-06-03 - Codex
+
+- Summary: Tightened live QA readiness around Planner Engine bootstrap.
+- Changed:
+  - `src/App.js` — added a short Firebase-auth wait before `planner_bootstrap` so Engine/report refresh is not silently skipped when `auth.currentUser` is briefly unset.
+  - `src/App.js` — added `plannerBootstrapStatus` / `plannerBootstrapReason` to QA exports and made `liveQaReady` require completed bootstrap/meta readiness, not just cloud login.
+  - `SESSION_HANDOFF.md`, `EXECUTION_PLAN.md` — recorded the bootstrap readiness boundary.
+- Verified:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - Needs one fresh authenticated Chrome/Safari QA packet after deploy; expected good state is `plannerBootstrapStatus: success` plus Engine decisions/report evidence.
