@@ -7145,6 +7145,24 @@ export default function App() {
     const cleanText = String(text || "").trim();
     if (!cleanText) return null;
     const now = Date.now();
+    const source = String(options.source || "web");
+    const isPlainKanbanAdd = source === "web";
+    const shouldKeepCurrentMissionVisible =
+      isPlainKanbanAdd &&
+      rescueTask?.id &&
+      (!Array.isArray(options.subtasks) || options.subtasks.length === 0);
+    const keepCurrentMissionVisibleBriefly = () => {
+      if (!shouldKeepCurrentMissionVisible) return;
+      const heldMissionTask = tasksRef.current.find((task) => String(task.id) === String(rescueTask.id)) || rescueTask;
+      if (!heldMissionTask?.id) return;
+      const heldMissionTaskId = String(heldMissionTask.id);
+      setMissionDisplayFallbackTask(heldMissionTask);
+      window.setTimeout(() => {
+        setMissionDisplayFallbackTask((current) => (
+          String(current?.id || "") === heldMissionTaskId ? null : current
+        ));
+      }, 12000);
+    };
     const duplicateKey = normalizeTaskTitleForDuplicateCheck(cleanText);
     const existingActiveTask = tasksRef.current.find((task) => (
       task.status === "active" &&
@@ -7183,10 +7201,11 @@ export default function App() {
       }));
 
     if (isCloudUser) {
+      keepCurrentMissionVisibleBriefly();
       setNudgeStatus(language === "en" ? "Adding task through backend..." : "Добавляю задачу через backend...");
       runPlannerClientAction({
         action: PLANNER_ACTIONS.ADD_TASK,
-        source: String(options.source || "web"),
+        source,
         payload: {
           taskText: cleanText,
           urgency: options.urgency || "medium",
@@ -7202,7 +7221,12 @@ export default function App() {
             normalizeTaskTitleForDuplicateCheck(task.text) === duplicateKey
           ));
           if (serverTask?.id) {
-            setHighlightTaskId(serverTask.id);
+            if (!isPlainKanbanAdd) {
+              setHighlightTaskId(serverTask.id);
+            } else {
+              setHighlightTaskId(null);
+              setHighlightTaskLabel("");
+            }
           }
           setNudgeStatus(language === "en" ? "Task added." : "Задача добавлена.");
           trackDailyAction();
@@ -7235,20 +7259,26 @@ export default function App() {
       resistance: "medium",
     });
     if (!newTask) return null;
+    keepCurrentMissionVisibleBriefly();
     commitTasks(sortTasksByOrder([...tasksRef.current, newTask]));
 
     persistTask(newTask);
     recordPlannerEvent({
       type: "task_created",
       actor: "angel",
-      source: String(options.source || "web"),
+      source,
       taskId: newTask.id,
       taskText: newTask.text,
       message: `Ангел записал новую задачу «${newTask.text || "без названия"}».`,
       createdAt: now,
     });
 
-    setHighlightTaskId(newTask.id);
+    if (!isPlainKanbanAdd) {
+      setHighlightTaskId(newTask.id);
+    } else {
+      setHighlightTaskId(null);
+      setHighlightTaskLabel("");
+    }
     trackDailyAction();
     return newTask;
   };
@@ -9937,6 +9967,7 @@ export default function App() {
     });
     const createdTask = handleAddTask(candidateText, {
       subtasks: withSelectedSteps ? cleanSteps : [],
+      source: "web_angel_lab_create",
       onAlreadyExists: (existingTask) => {
         handledExistingTask = true;
         markAngelLabCreateCardAlreadyExists(existingTask);

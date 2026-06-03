@@ -71,6 +71,7 @@ Companion file:
 - As of 2026-06-03, `docs/live-angel-verification-checklist.md` also treats `Copy QA packet` as the primary live-QA evidence artifact and asks for starting/final packets instead of separate baseline-only notes.
 - As of 2026-06-03, the first authenticated live Angel Lab verification pass created exactly one QA task (`active: 8 -> 9`, `actionsToday: 0 -> 1`) and then cleaned it up through normal UI (`active: 9 -> 8`, `actionsToday: 2`). Starting/add/cleanup packets all showed `liveQaReady: yes`, clean outbox counts, and fresh Engine ticks where expected.
 - As of 2026-06-03, copied/latest Engine evidence labels the separate rescue snapshot as `Engine rescue target` / `Rescue-цель движка`, because Engine rescue pressure can target a cold task separately from the current mission.
+- As of 2026-06-03, plain Kanban task creation no longer uses the generic task-highlight path. This prevents a newly typed task from auto-scrolling the board and showing the fallback `DAY MISSION` badge. Angel Lab create still uses its own `Added from Angel` focus label.
 - As of 2026-06-02, Progress Decision Safety shows the auth boundary visibly, disables the live safety snapshot action in guest/local sessions, and writes `liveQaReady` / `stopReason` into copied baseline and trace exports.
 - As of 2026-05-31, public `/demo` is a portfolio entrypoint for Today Mission -> Rescue -> one tiny step, with demo Angel Lab parsing tuned for the portfolio story.
 - This is only the first ingestion slice:

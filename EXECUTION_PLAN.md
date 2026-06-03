@@ -311,6 +311,7 @@ Notes:
 - As of 2026-06-03, the live verification checklist now asks for `Copy QA packet` as the primary evidence artifact and records starting/final QA packets for authenticated runs.
 - As of 2026-06-03, the first authenticated live Angel Lab verification pass created exactly one QA task, kept the Engine/outbox state healthy, and cleaned up the QA task through normal UI.
 - As of 2026-06-03, latest Engine evidence labels a separate rescue snapshot as `Engine rescue target` / `Rescue-цель движка`, so QA packets do not imply that the rescue target must match the current mission.
+- As of 2026-06-03, plain Kanban task creation keeps the current mission stable briefly and avoids task-highlight auto-scroll / fallback `DAY MISSION` labeling. Angel Lab create remains explicitly sourced and keeps its own post-add focus behavior.
 - As of 2026-06-02, Progress Decision Safety also shows a visible live-QA mode badge and disables the live safety snapshot action in guest/local sessions. Copied baseline/trace exports include `liveQaReady` and `stopReason`.
 
 Done when:

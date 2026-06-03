@@ -1787,6 +1787,10 @@ Guest/local sessions now disable the live safety snapshot action inside Decision
 
 The first authenticated live Angel Lab verification pass added exactly one QA task and left the Engine/outbox state healthy. The QA packet wording now distinguishes the current mission's visible rescue step from the latest Engine `rescue` snapshot. When the Engine surfaces a cold task separately from the mission, the exported/latest evidence labels it as `Engine rescue target` / `Rescue-цель движка` instead of a generic `Rescue` row.
 
+### 2026-06-03 - Plain Kanban add no longer impersonates mission focus
+
+Plain task creation from the Kanban input no longer reuses the generic task-highlight path. This avoids a misleading `DAY MISSION` badge and board auto-scroll immediately after typing a normal task. Angel Lab creates are now explicitly sourced as Angel Lab actions, so their post-add `Added from Angel` focus behavior stays intact.
+
 ### 2026-06-02 - Angel Lab post-add next state
 
 After a draft card is added or skipped and more draft cards remain, Angel Lab now shows a compact next-state strip above the queue. It confirms that added cards are already in the planner, shows how many cards still need a decision, names the next draft card, and keeps a `Back to planner — draft stays here` action near the top so the user is not stranded after the first confirmation.

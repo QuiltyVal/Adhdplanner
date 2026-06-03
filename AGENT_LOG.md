@@ -1,3 +1,20 @@
+## 2026-06-03 17:45 Europe/Berlin - Codex
+
+- Summary: Investigated the live demo breakage report and stabilized plain Kanban task creation.
+- Evidence:
+  - Vercel production errors for the last 2h only showed `/api/telegram-nudge` deprecation warnings with HTTP 200; no Angel Lab or task-create server failures were visible.
+  - Browser repro on production `/demo?reset=1&qa=bug-repro`: Angel Lab opened, accepted text, drafted a card, confirmed one task, and showed no console errors.
+  - Repro found a real Kanban UX bug: plain task add reused the generic highlighted-task path, which auto-scrolled to the new card and rendered the fallback `DAY MISSION` badge even though the user had only added a normal Kanban task.
+- Changed:
+  - `src/App.js` — plain Kanban adds now keep the current mission visible briefly and do not trigger task highlight/auto-scroll or the misleading `DAY MISSION` fallback badge.
+  - `src/App.js` — guest/demo Angel Lab create calls now pass `source: "web_angel_lab_create"` so Angel Lab keeps its own post-add focus behavior separate from plain Kanban adds.
+- Verification:
+  - `git diff --check`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=kanban-no-jump-after-patch`: adding `QA kanban no jump 2026-06-03` no longer gives the new card `DAY MISSION` or `.priority-target`, and no console errors appear.
+  - Browser QA at `http://localhost:3001/demo?reset=1&qa=angel-source-regression`: Angel Lab drafts and adds one card, `Done — back to planner` returns to a card with `ADDED FROM ANGEL`, and no console errors appear.
+
 ## 2026-06-03 12:45 Europe/Berlin - Codex
 
 - Summary: Clarified QA packet wording after the authenticated live Angel Lab verification run.
