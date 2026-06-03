@@ -1396,7 +1396,7 @@ Entry template:
 
 - Summary: Switched Google login from popup-first auth to Firebase redirect auth for embedded-browser access.
 - Changed:
-  - `src/Login.js` — removed `signInWithPopup` as the primary login path, starts Google auth with `signInWithRedirect`, forces `browserLocalPersistence` before redirect/result handling, and blocks login/offline guest attempts with a clear message when Web Storage is unavailable.
+  - `src/Login.js` — removed `signInWithPopup` as the primary login path, starts Google auth with `signInWithRedirect`, forces `browserLocalPersistence` before redirect/result handling, and blocks login/offline guest attempts with a clear message when required browser storage is unavailable.
   - `SESSION_HANDOFF.md`, `EXECUTION_PLAN.md` — recorded the auth boundary and live-QA access implication.
 - Verified:
   - Reproduced the Codex in-app browser failure: popup login navigated the selected tab to `telegrammadhd.firebaseapp.com/__/auth/handler` with no opener, blank body, and no saved `adhdUser`.

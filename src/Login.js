@@ -21,6 +21,7 @@ const prepareRedirectAuth = async () => {
 
 const canUseBrowserStorage = () => {
   try {
+    if (!window.indexedDB) return false;
     if (!window.localStorage) return false;
     const probeKey = "__planner_auth_storage_probe__";
     window.localStorage.setItem(probeKey, "1");
