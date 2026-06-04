@@ -1422,3 +1422,12 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - Needs one fresh authenticated Chrome/Safari QA packet after deploy; expected good state is `plannerBootstrapStatus: success` plus Engine decisions/report evidence.
+
+## 2026-06-04 - Codex
+
+- Summary: Confirmed the deployed bootstrap readiness fix on authenticated production.
+- Verified:
+  - User-provided Chrome/Safari live QA packet at `2026-06-04T15:02:43.209Z` showed `mode: cloud-authenticated`, `liveQaReady: yes`, `plannerBootstrapStatus: success`, `plannerBootstrapReason: bootstrap_applied`.
+  - Engine health was fresh: last tick `04 июн., 17:02`, `engineDecisions: 3`, `engineInbox: 1`, `reportItems: 30`, and outbox counts all `0`.
+- Risks / follow-up:
+  - Bootstrap/heartbeat is no longer the blocker. Continue with controlled authenticated smoke QA for Kanban add stability and Angel Lab add/cleanup.
