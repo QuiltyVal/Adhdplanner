@@ -1431,3 +1431,14 @@ Entry template:
   - Engine health was fresh: last tick `04 июн., 17:02`, `engineDecisions: 3`, `engineInbox: 1`, `reportItems: 30`, and outbox counts all `0`.
 - Risks / follow-up:
   - Bootstrap/heartbeat is no longer the blocker. Continue with controlled authenticated smoke QA for Kanban add stability and Angel Lab add/cleanup.
+
+## 2026-06-04 - Codex
+
+- Summary: Confirmed controlled authenticated smoke QA for Kanban and Angel Lab.
+- Verified:
+  - Starting QA packet at `2026-06-04T16:17:06.117Z`: `active: 7`, `actionsToday: 0`, mission `Выставить свитер Stone Island на продажу`, fresh Engine tick, outbox all zero.
+  - Kanban smoke add/delete returned `active` to `7`, raised `actionsToday` to `1`, kept mission stable, and kept outbox all zero.
+  - Angel Lab safety filter correctly refused the technical phrase `QA smoke angel lab — удалить после теста` as noise/unclear.
+  - Angel Lab smoke with a human-style task was added and cleaned up; final packet at `2026-06-04T16:46:10.452Z` showed `active: 7`, `actionsToday: 3`, mission stable, `plannerBootstrapStatus: success`, `engineDecisions: 3`, `reportItems: 30`, and outbox all zero.
+- Risks / follow-up:
+  - No current live blocker from bootstrap, Kanban add/delete, or Angel Lab add/cleanup. Remaining work should be treated as polish or broader product roadmap, not emergency stabilization.
