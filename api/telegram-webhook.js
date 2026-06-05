@@ -785,7 +785,54 @@ async function resolveUnifiedCallbackRoute(callbackQuery) {
   };
 }
 
+async function handleKillPromptCallback(chatId, callbackQuery) {
+  const userId = getTargetUserId();
+  const [, taskId] = String(callbackQuery?.data || "").split(":");
+  const task = taskId ? await getTaskById(userId, taskId) : null;
+
+  if (!task) {
+    await answerCallback(callbackQuery.id, "Task not found.");
+    return;
+  }
+
+  if (task.status !== "active") {
+    await answerCallback(callbackQuery.id, "Task is not active.");
+    return;
+  }
+
+  const route = { type: PLANNER_ACTIONS.KILL_TASK, taskRef: "", source: "callback_prompt" };
+  await safeWriteTelegramLog({
+    kind: "intent",
+    chatId: String(chatId),
+    callbackData: String(callbackQuery.data || ""),
+    intent: route,
+  });
+  await safeWriteTelegramTrace(userId, {
+    type: "telegram_callback_resolved",
+    event_type: "TELEGRAM_CALLBACK_RESOLVED",
+    entity_id: callbackQuery.id || callbackQuery.data || Date.now(),
+    message: "Telegram callback routed as kill confirmation prompt.",
+    payload: {
+      callbackData: String(callbackQuery.data || ""),
+      routeType: String(route.type || ""),
+      taskId: String(task.id || ""),
+      feedback: "Confirm before Cemetery.",
+    },
+  });
+
+  await sendText(chatId, buildAiActionConfirmationText(route, task), {
+    reply_markup: buildAiActionConfirmationKeyboard(PLANNER_ACTIONS.KILL_TASK, task.id),
+  });
+  await answerCallback(callbackQuery.id, "Confirm before Cemetery.");
+}
+
 async function handleCallback(chatId, callbackQuery) {
+  const [action] = String(callbackQuery?.data || "").split(":");
+  if (action === "kill") {
+    await handleKillPromptCallback(chatId, callbackQuery);
+    return;
+  }
+
   const {
     errorText,
     callbackRoute,

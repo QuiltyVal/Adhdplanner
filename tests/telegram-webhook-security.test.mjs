@@ -24,6 +24,12 @@ function keyboardHasPlannerLink(keyboard) {
     .some((button) => button?.text === "🌐 Open planner" && button?.url === "https://planner.valquilty.com"));
 }
 
+function keyboardHasCallback(keyboard, callbackData) {
+  return Boolean((keyboard?.inline_keyboard || [])
+    .flat()
+    .some((button) => button?.callback_data === callbackData));
+}
+
 {
   const decision = buildTelegramSecurityDecision({
     chatId: "spam-chat",
@@ -87,8 +93,11 @@ function keyboardHasPlannerLink(keyboard) {
 }
 
 {
+  const taskKeyboard = plannerTaskKeyboard("task-1");
   assert.equal(keyboardHasPlannerLink(plannerOpenKeyboard()), true);
-  assert.equal(keyboardHasPlannerLink(plannerTaskKeyboard("task-1")), true);
+  assert.equal(keyboardHasPlannerLink(taskKeyboard), true);
+  assert.equal(keyboardHasCallback(taskKeyboard, "kill:task-1"), true);
+  assert.equal(keyboardHasCallback(taskKeyboard, "confirm_kill:task-1"), false);
   assert.equal(keyboardHasPlannerLink(completedTaskKeyboard("task-1")), true);
   assert.equal(keyboardHasPlannerLink(calendarConnectKeyboard("https://calendar.example/connect")), true);
 }

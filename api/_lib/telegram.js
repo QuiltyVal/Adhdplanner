@@ -40,6 +40,9 @@ function plannerTaskKeyboard(taskId) {
         { text: "🆘 I’m stuck", callback_data: `panic:${taskId}` },
       ],
       [
+        { text: "🪦 Cemetery", callback_data: `kill:${taskId}` },
+      ],
+      [
         PLANNER_WEB_BUTTON,
       ],
     ],

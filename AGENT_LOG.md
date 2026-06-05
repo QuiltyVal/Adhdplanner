@@ -1486,3 +1486,19 @@ Entry template:
   - The restored active-task response rendered the normal active action keyboard (`Done`, `Pin today`, `Critical`, `I'm stuck`) plus `🌐 Open planner`.
 - Risks / follow-up:
   - The restored test task may now remain active unless the user completes/deletes it again intentionally. Continue smoke queue with `/start`, `/today`, and calendar-connect if full Telegram keyboard coverage is needed.
+
+## 2026-06-05 - Codex
+
+- Summary: Added a safe Telegram task-keyboard entry point for moving active tasks to Cemetery.
+- Changed:
+  - `api/_lib/telegram.js` — added `🪦 Cemetery` to the active task keyboard as `kill:<taskId>`.
+  - `api/telegram-webhook.js` — added a `kill:<taskId>` callback prompt that sends the existing Cemetery confirmation UI without mutating task state.
+  - `tests/telegram-webhook-security.test.mjs` — asserted task keyboards expose `kill:<taskId>` but never expose `confirm_kill:<taskId>` directly.
+  - `SESSION_HANDOFF.md` — recorded that the button is two-step and still needs live Telegram smoke after deployment.
+- Verified:
+  - `node --check api/_lib/telegram.js && node --check api/telegram-webhook.js`
+  - `npm run verify:server`
+  - `node tests/telegram-webhook-security.test.mjs`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - Production/live Telegram smoke is still needed: send or open any active task keyboard, tap `🪦 Cemetery`, verify it shows the confirmation prompt, then cancel or use a test task for the full Cemetery -> Return to active loop.
