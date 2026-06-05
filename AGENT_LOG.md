@@ -1442,3 +1442,17 @@ Entry template:
   - Angel Lab smoke with a human-style task was added and cleaned up; final packet at `2026-06-04T16:46:10.452Z` showed `active: 7`, `actionsToday: 3`, mission stable, `plannerBootstrapStatus: success`, `engineDecisions: 3`, `reportItems: 30`, and outbox all zero.
 - Risks / follow-up:
   - No current live blocker from bootstrap, Kanban add/delete, or Angel Lab add/cleanup. Remaining work should be treated as polish or broader product roadmap, not emergency stabilization.
+
+## 2026-06-05 - Codex
+
+- Summary: Switched focus from portfolio polish back to ADHD Planner and closed the small Telegram return-link backlog item.
+- Changed:
+  - `api/_lib/telegram.js` — added a shared `plannerOpenKeyboard()` and reused the `🌐 Open planner` button across task, completed/restore, and calendar-connect keyboards.
+  - `api/telegram-webhook.js` — added the planner link to `/start` and AI action-confirmation keyboards without changing planner action semantics.
+  - `tests/telegram-webhook-security.test.mjs` — added regression assertions that Telegram keyboards include the planner web link.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded the closed Telegram web-link item.
+- Verified:
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This did not send a live Telegram message. After deploy, a normal `/start`, `/today`, completed-task, and calendar-connect smoke pass should confirm the button appears in Telegram clients.

@@ -6,11 +6,23 @@ const telegramWebhook = require("../api/telegram-webhook.js");
 const {
   buildScheduledNudgeOutboxPayload,
 } = require("../api/_lib/planner-scheduled-nudge-outbox.js");
+const {
+  calendarConnectKeyboard,
+  completedTaskKeyboard,
+  plannerOpenKeyboard,
+  plannerTaskKeyboard,
+} = require("../api/_lib/telegram.js");
 
 const { buildTelegramSecurityDecision, isAllowedChat } = telegramWebhook._test;
 
 assert.equal(typeof buildTelegramSecurityDecision, "function");
 assert.equal(typeof isAllowedChat, "function");
+
+function keyboardHasPlannerLink(keyboard) {
+  return Boolean((keyboard?.inline_keyboard || [])
+    .flat()
+    .some((button) => button?.text === "🌐 Open planner" && button?.url === "https://planner.valquilty.com"));
+}
 
 {
   const decision = buildTelegramSecurityDecision({
@@ -72,6 +84,13 @@ assert.equal(typeof isAllowedChat, "function");
       process.env.TELEGRAM_ALLOWED_CHAT_ID = previousAllowedChatId;
     }
   }
+}
+
+{
+  assert.equal(keyboardHasPlannerLink(plannerOpenKeyboard()), true);
+  assert.equal(keyboardHasPlannerLink(plannerTaskKeyboard("task-1")), true);
+  assert.equal(keyboardHasPlannerLink(completedTaskKeyboard("task-1")), true);
+  assert.equal(keyboardHasPlannerLink(calendarConnectKeyboard("https://calendar.example/connect")), true);
 }
 
 console.log("telegram webhook security tests passed");

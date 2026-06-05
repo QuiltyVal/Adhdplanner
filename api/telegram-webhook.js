@@ -18,7 +18,7 @@ const { buildTaskMemoryEnrichment, mergeTelegramTaskMemoryIntoRoute, processTele
 const { routePlannerAgentInput } = require("./_lib/planner-agent-router");
 const { executePlannerAction } = require("./_lib/planner-action-executor");
 const { runPlannerTick } = require("./_lib/planner-engine");
-const { calendarConnectKeyboard, completedTaskKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
+const { calendarConnectKeyboard, completedTaskKeyboard, plannerOpenKeyboard, plannerTaskKeyboard, telegramRequest } = require("./_lib/telegram");
 
 const DEFAULT_USER_ID = process.env.PLANNER_DEFAULT_USER_ID;
 const ALLOWED_CHAT_ID = process.env.TELEGRAM_ALLOWED_CHAT_ID || "";
@@ -186,6 +186,7 @@ function buildAiActionConfirmationKeyboard(routeType, taskId) {
           { text: "🆘 Make smaller", callback_data: `panic:${safeTaskId}` },
           { text: "Cancel", callback_data: `cancel:${safeTaskId}` },
         ],
+        ...plannerOpenKeyboard().inline_keyboard,
       ],
     };
   }
@@ -197,6 +198,7 @@ function buildAiActionConfirmationKeyboard(routeType, taskId) {
         { text: "🆘 Rescue instead", callback_data: `panic:${safeTaskId}` },
         { text: "Cancel", callback_data: `cancel:${safeTaskId}` },
       ],
+      ...plannerOpenKeyboard().inline_keyboard,
     ],
   };
 }
@@ -402,6 +404,9 @@ async function handleStart(chatId, options = {}) {
         "",
         "Any plain message is also saved as a new task for now.",
       ].join("\n"),
+    {
+      reply_markup: plannerOpenKeyboard(),
+    },
   );
   if (shouldLinkChat) {
     await sendText(

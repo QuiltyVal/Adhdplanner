@@ -1,5 +1,6 @@
 const TELEGRAM_API_BASE = "https://api.telegram.org";
 const PLANNER_WEB_URL = process.env.PLANNER_WEB_URL || "https://planner.valquilty.com";
+const PLANNER_WEB_BUTTON = { text: "🌐 Open planner", url: PLANNER_WEB_URL };
 
 function getTelegramBotToken() {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -39,7 +40,7 @@ function plannerTaskKeyboard(taskId) {
         { text: "🆘 I’m stuck", callback_data: `panic:${taskId}` },
       ],
       [
-        { text: "🌐 Open planner", url: PLANNER_WEB_URL },
+        PLANNER_WEB_BUTTON,
       ],
     ],
   };
@@ -47,19 +48,32 @@ function plannerTaskKeyboard(taskId) {
 
 function completedTaskKeyboard(taskId) {
   return {
-    inline_keyboard: [[{ text: "↩️ Return to active", callback_data: `reopen:${taskId}` }]],
+    inline_keyboard: [
+      [{ text: "↩️ Return to active", callback_data: `reopen:${taskId}` }],
+      [PLANNER_WEB_BUTTON],
+    ],
   };
 }
 
 function calendarConnectKeyboard(url) {
   return {
-    inline_keyboard: [[{ text: "📅 Connect Google Calendar", url }]],
+    inline_keyboard: [
+      [{ text: "📅 Connect Google Calendar", url }],
+      [PLANNER_WEB_BUTTON],
+    ],
+  };
+}
+
+function plannerOpenKeyboard() {
+  return {
+    inline_keyboard: [[PLANNER_WEB_BUTTON]],
   };
 }
 
 module.exports = {
   calendarConnectKeyboard,
   completedTaskKeyboard,
+  plannerOpenKeyboard,
   plannerTaskKeyboard,
   telegramRequest,
 };

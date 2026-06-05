@@ -67,7 +67,7 @@ The product should do three things well:
 
 ### P1: Telegram as Main Daily Interface
 
-- Add planner web link into Telegram bot replies.
+- [x] Add planner web link into Telegram bot replies.
 - Add "return from completed to active" from Telegram.
 - Add "kill / revive" from free text and buttons.
 - Improve Telegram nudges:
@@ -153,7 +153,7 @@ The product should do three things well:
 
 ## Backlog Captured From Telegram
 
-- add planner website link into Telegram bot
+- [x] add planner website link into Telegram bot
 - return completed tasks back to active from Telegram
 - investigate why Telegram nudge came at 09:44 instead of 09:00
 - add time tracking per task
