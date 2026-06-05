@@ -13,8 +13,9 @@ const {
   plannerTaskKeyboard,
 } = require("../api/_lib/telegram.js");
 
-const { buildTelegramSecurityDecision, isAllowedChat } = telegramWebhook._test;
+const { buildTelegramHelpText, buildTelegramSecurityDecision, isAllowedChat } = telegramWebhook._test;
 
+assert.equal(typeof buildTelegramHelpText, "function");
 assert.equal(typeof buildTelegramSecurityDecision, "function");
 assert.equal(typeof isAllowedChat, "function");
 
@@ -90,6 +91,13 @@ function keyboardHasCallback(keyboard, callbackData) {
       process.env.TELEGRAM_ALLOWED_CHAT_ID = previousAllowedChatId;
     }
   }
+}
+
+{
+  const helpText = buildTelegramHelpText();
+  assert.match(helpText, /\/help/);
+  assert.match(helpText, /\/calendar/);
+  assert.match(helpText, /\/cemetery/);
 }
 
 {

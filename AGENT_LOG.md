@@ -1534,3 +1534,19 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This does not prove live Google OAuth. Next live-smoke step is still to send `/calendar` in Telegram and confirm the connect card includes both the Google Calendar button and `🌐 Open planner`.
+
+## 2026-06-06 - Codex
+
+- Summary: Added a read-only Telegram `/help` command for safer live-smoke guidance.
+- Changed:
+  - `api/telegram-webhook.js` — added shared help text, handled `/help` without chat re-linking or diagnostic ping, and kept `/start` using the same command list.
+  - `api/_lib/planner-action-executor.js` — added `/help` to the unknown-command fallback list.
+  - `tests/telegram-webhook-security.test.mjs` — asserted help text includes `/help`, `/calendar`, and `/cemetery`.
+  - `SESSION_HANDOFF.md` — recorded `/help` as the safe read-only Telegram smoke entrypoint.
+- Verified:
+  - `node --check api/telegram-webhook.js && node --check api/_lib/planner-action-executor.js`
+  - `node tests/telegram-webhook-security.test.mjs`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - Live Telegram smoke is still user/client-side: send `/help` and verify `🌐 Open planner`, then continue `/today`, `/calendar`, `/cemetery`, and `🪦 Cemetery -> Cancel`.

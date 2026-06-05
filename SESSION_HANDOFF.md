@@ -83,6 +83,7 @@ Companion file:
 - As of 2026-06-05, task keyboards include a two-step `🪦 Cemetery` button. The first tap only sends the existing kill confirmation prompt (`Yes, Cemetery` / `Make smaller` / `Cancel` / `Open planner`); the task is moved to Cemetery only after `confirm_kill`. This still needs live Telegram smoke before closing the broader kill/revive roadmap item.
 - As of 2026-06-05, Telegram supports `/cemetery`, which lists recent dead/Cemetery tasks with `↩️ Return to active` and `🌐 Open planner`. The command is read-only until the user taps restore. Live Telegram smoke is still needed for the active-task Cemetery prompt and `/cemetery` list.
 - As of 2026-06-06, Telegram help text lists `/calendar` in both `/start` and unknown-command responses. The calendar connect command itself already existed; this only makes the live-smoke path discoverable.
+- As of 2026-06-06, Telegram has a read-only `/help` command that shows the smoke-relevant commands and `🌐 Open planner` without re-linking the chat or sending the `/start` diagnostic ping.
 - As of 2026-06-02, Progress Decision Safety shows the auth boundary visibly, disables the live safety snapshot action in guest/local sessions, and writes `liveQaReady` / `stopReason` into copied baseline and trace exports.
 - As of 2026-05-31, public `/demo` is a portfolio entrypoint for Today Mission -> Rescue -> one tiny step, with demo Angel Lab parsing tuned for the portfolio story.
 - This is only the first ingestion slice:

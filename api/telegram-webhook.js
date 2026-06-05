@@ -324,6 +324,27 @@ async function linkTelegramChatViaCommand(userId, chatId, source = "telegram_web
   });
 }
 
+function buildTelegramHelpText({ connected = false } = {}) {
+  return [
+    connected
+      ? "This chat is now connected to Apus Planner nudges."
+      : "Apus Planner commands:",
+    "",
+    "Commands:",
+    "/help — show this command list",
+    "/today — show 1-3 main tasks",
+    "/completed — show completed tasks and restore one if needed",
+    "/cemetery — show tasks in Cemetery and restore one if needed",
+    "/calendar — connect Google Calendar",
+    "/reopen — restore the last completed task",
+    "/reopen [title] — restore a task by title",
+    "/panic — pick one task and one tiny step",
+    "/add text — add a task",
+    "",
+    "Any plain message is also saved as a new task for now.",
+  ].join("\n");
+}
+
 function buildPlannerActionAdapter(chatId, options = {}) {
   const suppressMessages = options.suppressMessages === true;
   return {
@@ -391,21 +412,7 @@ async function handleStart(chatId, options = {}) {
   }
   await sendText(
     chatId,
-      [
-        "This chat is now connected to Apus Planner nudges.",
-        "",
-        "Commands:",
-        "/today — show 1-3 main tasks",
-        "/completed — show completed tasks and restore one if needed",
-        "/cemetery — show tasks in Cemetery and restore one if needed",
-        "/calendar — connect Google Calendar",
-        "/reopen — restore the last completed task",
-        "/reopen [title] — restore a task by title",
-        "/panic — pick one task and one tiny step",
-        "/add text — add a task",
-        "",
-        "Any plain message is also saved as a new task for now.",
-      ].join("\n"),
+      buildTelegramHelpText({ connected: shouldLinkChat }),
     {
       reply_markup: plannerOpenKeyboard(),
     },
@@ -416,6 +423,12 @@ async function handleStart(chatId, options = {}) {
       `Apus Planner diagnostic ping · ${new Date().toISOString()}`,
     );
   }
+}
+
+async function handleHelp(chatId) {
+  await sendText(chatId, buildTelegramHelpText(), {
+    reply_markup: plannerOpenKeyboard(),
+  });
 }
 
 async function handleCalendar(chatId) {
@@ -984,6 +997,8 @@ module.exports = async function handler(req, res) {
     if (command === "/start") {
       const canLinkChat = Boolean(message?.from?.id || message?.from?.username);
       await handleStart(chatId, { linkChat: canLinkChat && securityDecision.canLinkChat });
+    } else if (command === "/help") {
+      await handleHelp(chatId);
     } else if (command === "/calendar") {
       await handleCalendar(chatId);
     } else if (text) {
@@ -1030,6 +1045,7 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports._test = {
+  buildTelegramHelpText,
   buildTelegramSecurityDecision,
   isAllowedChat,
 };

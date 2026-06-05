@@ -692,6 +692,7 @@ async function executePlannerAction({
         "",
         "Available commands now:",
         "/start",
+        "/help",
         "/today",
         "/completed",
         "/cemetery",
