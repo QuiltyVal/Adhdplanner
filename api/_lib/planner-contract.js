@@ -133,6 +133,10 @@ function buildRoute(action, payload, source, errors) {
     return { type: PLANNER_ACTIONS.SHOW_COMPLETED, source };
   }
 
+  if (action === PLANNER_ACTIONS.SHOW_CEMETERY) {
+    return { type: PLANNER_ACTIONS.SHOW_CEMETERY, source };
+  }
+
   if (action === PLANNER_ACTIONS.PANIC) {
     return { type: PLANNER_ACTIONS.PANIC, source };
   }

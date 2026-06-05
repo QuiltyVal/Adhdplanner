@@ -64,6 +64,10 @@ assertValid("valid complete_task with explicit taskRef", {
   },
 });
 
+assertValid("valid show_cemetery", {
+  action: "show_cemetery",
+});
+
 assertInvalid("invalid kill_task without taskRef", {
   action: "kill_task",
   payload: {},

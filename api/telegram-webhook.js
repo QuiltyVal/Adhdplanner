@@ -397,6 +397,7 @@ async function handleStart(chatId, options = {}) {
         "Commands:",
         "/today — show 1-3 main tasks",
         "/completed — show completed tasks and restore one if needed",
+        "/cemetery — show tasks in Cemetery and restore one if needed",
         "/reopen — restore the last completed task",
         "/reopen [title] — restore a task by title",
         "/panic — pick one task and one tiny step",
@@ -452,6 +453,19 @@ async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
       return {
         route: {
           type: PLANNER_ACTIONS.SHOW_COMPLETED,
+          source: "slash_command",
+          rawText: cleaned,
+        },
+        plannerData: null,
+        prefaceText: "",
+        errorText: "",
+      };
+    }
+
+    if (command === "/cemetery") {
+      return {
+        route: {
+          type: PLANNER_ACTIONS.SHOW_CEMETERY,
           source: "slash_command",
           rawText: cleaned,
         },

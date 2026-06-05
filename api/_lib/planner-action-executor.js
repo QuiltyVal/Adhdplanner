@@ -694,6 +694,7 @@ async function executePlannerAction({
         "/start",
         "/today",
         "/completed",
+        "/cemetery",
         "/reopen [title]",
         "/panic",
         "/add text",
@@ -764,6 +765,36 @@ async function executePlannerAction({
 
     for (const task of completedTasks) {
       await adapter.sendText(`☁️ <b>${escapeHtml(task.text)}</b>`, {
+        reply_markup: adapter.completedTaskKeyboard(task.id),
+      });
+    }
+    return;
+  }
+
+  if (route.type === PLANNER_ACTIONS.SHOW_CEMETERY) {
+    const nonActiveTasks = await getNonActiveTasks(userId);
+    const cemeteryTasks = nonActiveTasks
+      .filter((task) => task.status === "dead")
+      .sort((left, right) => (right.lastUpdated || 0) - (left.lastUpdated || 0))
+      .slice(0, 5);
+
+    if (cemeteryTasks.length === 0) {
+      await adapter.sendText("Cemetery is empty for now.");
+      return;
+    }
+
+    await adapter.sendText(
+      [
+        "🪦 <b>Cemetery tasks</b>",
+        "",
+        ...cemeteryTasks.map((task, index) => `${index + 1}. ${escapeHtml(task.text)}`),
+        "",
+        "If something still matters, use the restore button.",
+      ].join("\n"),
+    );
+
+    for (const task of cemeteryTasks) {
+      await adapter.sendText(`🪦 <b>${escapeHtml(task.text)}</b>`, {
         reply_markup: adapter.completedTaskKeyboard(task.id),
       });
     }

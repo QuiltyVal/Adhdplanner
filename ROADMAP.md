@@ -70,6 +70,7 @@ The product should do three things well:
 - [x] Add planner web link into Telegram bot replies.
 - [x] Add "return from completed to active" from Telegram.
 - Add "kill / revive" from free text and buttons.
+  - 2026-06-05: active-task `Cemetery` button and `/cemetery` restore list are implemented; live Telegram smoke is still needed before closing.
 - Improve Telegram nudges:
   - investigate why a nudge landed at 09:44 instead of 09:00
   - verify cron and timezone behavior

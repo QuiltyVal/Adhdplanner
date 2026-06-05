@@ -1502,3 +1502,21 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - Production/live Telegram smoke is still needed: send or open any active task keyboard, tap `🪦 Cemetery`, verify it shows the confirmation prompt, then cancel or use a test task for the full Cemetery -> Return to active loop.
+
+## 2026-06-05 - Codex
+
+- Summary: Added a read-only Telegram `/cemetery` list so dead tasks can be restored from Telegram buttons.
+- Changed:
+  - `api/_lib/planner-action-types.js` and `api/_lib/planner-contract.js` — added the non-mutating `show_cemetery` action.
+  - `api/telegram-webhook.js` — routed `/cemetery` and added it to `/start` help text.
+  - `api/_lib/planner-action-executor.js` — lists the five most recent `dead` tasks with `↩️ Return to active` and `🌐 Open planner`.
+  - `tests/planner-actions-contract.test.mjs` — added a contract assertion for `show_cemetery`.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded that kill/revive buttons are implemented but still need live Telegram smoke.
+- Verified:
+  - `node --check api/_lib/planner-action-types.js && node --check api/_lib/planner-contract.js && node --check api/_lib/planner-action-executor.js && node --check api/telegram-webhook.js`
+  - `node tests/planner-actions-contract.test.mjs`
+  - `node tests/telegram-webhook-security.test.mjs`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - Live Telegram smoke is still needed for `/cemetery` and for the new active-task `🪦 Cemetery` confirmation prompt. First safe smoke should cancel at the confirmation prompt or use a disposable test task.

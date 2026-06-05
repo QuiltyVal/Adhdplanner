@@ -32,6 +32,7 @@ const PLANNER_ACTIONS = Object.freeze({
   SET_URGENCY: "set_urgency",
   SET_VITAL: "set_vital",
   SHOW_COMPLETED: "show_completed",
+  SHOW_CEMETERY: "show_cemetery",
   SHOW_TODAY: "show_today",
   SUGGEST_UNPIN: "suggest_unpin",
   TOGGLE_SUBTASK: "toggle_subtask",
