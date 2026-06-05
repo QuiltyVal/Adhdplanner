@@ -398,6 +398,7 @@ async function handleStart(chatId, options = {}) {
         "/today — show 1-3 main tasks",
         "/completed — show completed tasks and restore one if needed",
         "/cemetery — show tasks in Cemetery and restore one if needed",
+        "/calendar — connect Google Calendar",
         "/reopen — restore the last completed task",
         "/reopen [title] — restore a task by title",
         "/panic — pick one task and one tiny step",

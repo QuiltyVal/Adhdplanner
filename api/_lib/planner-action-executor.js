@@ -695,6 +695,7 @@ async function executePlannerAction({
         "/today",
         "/completed",
         "/cemetery",
+        "/calendar",
         "/reopen [title]",
         "/panic",
         "/add text",

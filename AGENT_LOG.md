@@ -1520,3 +1520,17 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - Live Telegram smoke is still needed for `/cemetery` and for the new active-task `🪦 Cemetery` confirmation prompt. First safe smoke should cancel at the confirmation prompt or use a disposable test task.
+
+## 2026-06-06 - Codex
+
+- Summary: Made the existing Telegram calendar-connect command visible in bot help.
+- Changed:
+  - `api/telegram-webhook.js` — added `/calendar — connect Google Calendar` to the `/start` command list.
+  - `api/_lib/planner-action-executor.js` — added `/calendar` to the unknown-command fallback list.
+  - `SESSION_HANDOFF.md` — recorded the discoverability fix.
+- Verified:
+  - `node --check api/telegram-webhook.js && node --check api/_lib/planner-action-executor.js`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This does not prove live Google OAuth. Next live-smoke step is still to send `/calendar` in Telegram and confirm the connect card includes both the Google Calendar button and `🌐 Open planner`.
