@@ -1474,3 +1474,15 @@ Entry template:
   - Each visible completed task card included `↩️ Return to active` and `🌐 Open planner`, confirming the completed-list keyboard renders the restore and planner-link actions in the real Telegram client.
 - Risks / follow-up:
   - The restore mutation itself is not yet confirmed. Next live smoke step is to tap `↩️ Return to active` on a safe test completed task, confirm the success message/task action keyboard, then either leave it active intentionally or complete it again.
+
+## 2026-06-05 - Codex
+
+- Summary: Closed the Telegram completed-to-active roadmap item with live Telegram evidence.
+- Changed:
+  - `ROADMAP.md` — marked Telegram completed-to-active as done in both P1 priorities and captured Telegram backlog, and removed it from the next-session fix list.
+  - `SESSION_HANDOFF.md` — recorded that the restore mutation was live-smoke verified in Telegram.
+- Verified:
+  - User-provided Telegram screenshot showed tapping `↩️ Return to active` on `Добавить одну тестовую карточку для Angel Lab` returned the bot response `is active again`.
+  - The restored active-task response rendered the normal active action keyboard (`Done`, `Pin today`, `Critical`, `I'm stuck`) plus `🌐 Open planner`.
+- Risks / follow-up:
+  - The restored test task may now remain active unless the user completes/deletes it again intentionally. Continue smoke queue with `/start`, `/today`, and calendar-connect if full Telegram keyboard coverage is needed.

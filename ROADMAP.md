@@ -1,6 +1,6 @@
 # ADHD Planner Roadmap
 
-Last updated: 2026-04-08
+Last updated: 2026-06-05
 
 ## Product Direction
 
@@ -68,7 +68,7 @@ The product should do three things well:
 ### P1: Telegram as Main Daily Interface
 
 - [x] Add planner web link into Telegram bot replies.
-- Add "return from completed to active" from Telegram.
+- [x] Add "return from completed to active" from Telegram.
 - Add "kill / revive" from free text and buttons.
 - Improve Telegram nudges:
   - investigate why a nudge landed at 09:44 instead of 09:00
@@ -154,7 +154,7 @@ The product should do three things well:
 ## Backlog Captured From Telegram
 
 - [x] add planner website link into Telegram bot
-- return completed tasks back to active from Telegram
+- [x] return completed tasks back to active from Telegram
 - investigate why Telegram nudge came at 09:44 instead of 09:00
 - add time tracking per task
 - MCP to Cursor in the future
@@ -180,6 +180,6 @@ If a new chat starts, begin with these checks:
 
 1. Verify task sync after 2026-04-08 fix.
 2. Verify Telegram nudges timing.
-3. Fix "return from completed to active" in Telegram.
+3. Continue Telegram daily workflow with kill/revive, nudge timing, and free-text action polish.
 4. Fix MCP subtask write path.
 5. Decide first version of time tracking schema.
