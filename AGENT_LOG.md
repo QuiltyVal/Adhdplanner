@@ -1465,3 +1465,12 @@ Entry template:
   - The button appeared on multiple live nudge messages, confirming the production Telegram keyboard path is using the deployed planner-link change for scheduled nudges.
 - Risks / follow-up:
   - This confirms live nudge keyboards only. `/start`, `/today`, `/completed` restore, and calendar-connect smoke still need separate Telegram-client evidence before closing the full live smoke queue.
+
+## 2026-06-05 - Codex
+
+- Summary: Recorded live Telegram `/completed` list evidence.
+- Verified:
+  - User-provided Telegram screenshot showed `/completed` returning the latest completed tasks list.
+  - Each visible completed task card included `↩️ Return to active` and `🌐 Open planner`, confirming the completed-list keyboard renders the restore and planner-link actions in the real Telegram client.
+- Risks / follow-up:
+  - The restore mutation itself is not yet confirmed. Next live smoke step is to tap `↩️ Return to active` on a safe test completed task, confirm the success message/task action keyboard, then either leave it active intentionally or complete it again.
