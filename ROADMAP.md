@@ -62,7 +62,8 @@ The product should do three things well:
   - MCP / Claude actions
 - Verify that tasks added from Telegram and MCP appear in web UI without disappearing.
 - Verify that subtasks added externally show correctly in web UI.
-- Add a simple Firestore backup / export strategy.
+- [x] Add a simple Firestore backup / export strategy.
+  - 2026-06-06: read-only local JSON export script added; first live export run is still pending.
 - Add operation logging for destructive task changes.
 
 ### P1: Telegram as Main Daily Interface

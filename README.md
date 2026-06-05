@@ -45,6 +45,13 @@ If multiple agents or machines are making parallel changes at the same time, use
 
 Full workflow: [WORKFLOW.md](WORKFLOW.md)
 
+## Firestore Backup Export
+
+Read-only local export notes live in [docs/firestore-backup-export.md](docs/firestore-backup-export.md).
+
+Quick help:
+- `npm run backup:planner -- --help`
+
 ## Execution Plan
 
 Active product execution now lives in [EXECUTION_PLAN.md](EXECUTION_PLAN.md).

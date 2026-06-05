@@ -16,6 +16,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "GENERATE_SOURCEMAP=false react-scripts build",
+    "backup:planner": "node scripts/export-firestore-planner.js",
     "bootstrap": "bash scripts/bootstrap-machine.sh",
     "sync": "bash scripts/sync-local.sh",
     "verify": "DISABLE_ESLINT_PLUGIN=true npm run build",

@@ -1550,3 +1550,20 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - Live Telegram smoke is still user/client-side: send `/help` and verify `🌐 Open planner`, then continue `/today`, `/calendar`, `/cemetery`, and `🪦 Cemetery -> Cancel`.
+
+## 2026-06-06 - Codex
+
+- Summary: Added a read-only local Firestore planner export path.
+- Changed:
+  - `scripts/export-firestore-planner.js` — exports `Users/{uid}` plus key subcollections to a local JSON file under ignored `backups/`.
+  - `package.json` — added `npm run backup:planner`.
+  - `.gitignore` — ignored generated `backups/` output.
+  - `docs/firestore-backup-export.md` and `README.md` — documented requirements, command examples, default export scope, and restore boundary.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded the simple backup/export strategy.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js`
+  - `npm run backup:planner -- --help`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - No live export was run during this heartbeat. First real backup should be run intentionally with `FIREBASE_CREDENTIALS` and the target `PLANNER_DEFAULT_USER_ID`, then the generated JSON should remain uncommitted.
