@@ -1456,3 +1456,12 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This did not send a live Telegram message. After deploy, a normal `/start`, `/today`, completed-task, and calendar-connect smoke pass should confirm the button appears in Telegram clients.
+
+## 2026-06-05 - Codex
+
+- Summary: Recorded first live Telegram evidence for the planner return-link button.
+- Verified:
+  - User-provided Telegram screenshot showed scheduled nudge messages in Apusbot with the `🌐 Open planner` inline button visible under task action buttons.
+  - The button appeared on multiple live nudge messages, confirming the production Telegram keyboard path is using the deployed planner-link change for scheduled nudges.
+- Risks / follow-up:
+  - This confirms live nudge keyboards only. `/start`, `/today`, `/completed` restore, and calendar-connect smoke still need separate Telegram-client evidence before closing the full live smoke queue.
