@@ -4,6 +4,8 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { getDb } = require("../api/_lib/firebase-admin");
 
+const BACKUP_SCHEMA = "adhd-planner-firestore-export-v1";
+
 const DEFAULT_COLLECTIONS = [
   "tasks",
   "taskSnapshots",
@@ -59,6 +61,24 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
     return { help: true };
   }
 
+  const verifyFile = getArgValue("--verify-file", argv);
+  if (hasFlag("--verify-file", argv) && !verifyFile) {
+    throw new Error("Missing backup file. Pass --verify-file <path>.");
+  }
+  if (verifyFile) {
+    const expectedUserId = getArgValue("--expectUserId", argv);
+    if (expectedUserId && String(expectedUserId).includes("/")) {
+      throw new Error("Expected user id cannot contain '/'.");
+    }
+
+    return {
+      help: false,
+      dryRun: false,
+      verifyFile,
+      expectedUserId: expectedUserId ? String(expectedUserId) : "",
+    };
+  }
+
   const userId = getArgValue("--userId", argv) || env.PLANNER_DEFAULT_USER_ID;
   if (!userId) {
     throw new Error("Missing user id. Pass --userId <uid> or set PLANNER_DEFAULT_USER_ID.");
@@ -90,7 +110,7 @@ function buildOutputPath({ userId, outputArg, exportedAt, cwd = process.cwd() })
 
 function buildBackupPlan({ options, exportedAt, cwd = process.cwd() }) {
   return {
-    schema: "adhd-planner-firestore-export-v1",
+    schema: BACKUP_SCHEMA,
     exportedAt,
     userId: options.userId,
     rootPath: `Users/${options.userId}`,
@@ -118,6 +138,7 @@ function getHelpText() {
     "  --collections tasks,taskSnapshots,captures",
     "  --maxDocs 100",
     "  --dry-run",
+    "  --verify-file backups/file.json [--expectUserId <uid>]",
     "",
     "This script is read-only. It does not write to Firestore.",
   ].join("\n");
@@ -163,10 +184,100 @@ async function readCollection(userRef, collectionName, maxDocs) {
   }));
 }
 
+function validateBackupPayload(payload, { expectedUserId = "" } = {}) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Backup file must contain a JSON object.");
+  }
+  if (payload.schema !== BACKUP_SCHEMA) {
+    throw new Error(`Unsupported backup schema: ${payload.schema || "missing"}.`);
+  }
+  if (!payload.userId || typeof payload.userId !== "string") {
+    throw new Error("Backup file is missing userId.");
+  }
+  if (expectedUserId && payload.userId !== expectedUserId) {
+    throw new Error(`Backup userId mismatch: expected ${expectedUserId}, got ${payload.userId}.`);
+  }
+  if (payload.rootPath !== `Users/${payload.userId}`) {
+    throw new Error(`Backup rootPath mismatch: expected Users/${payload.userId}.`);
+  }
+  if (!payload.root || typeof payload.root !== "object" || Array.isArray(payload.root)) {
+    throw new Error("Backup file is missing root user document data.");
+  }
+  if (!payload.collections || typeof payload.collections !== "object" || Array.isArray(payload.collections)) {
+    throw new Error("Backup file is missing collections.");
+  }
+
+  const collectionCounts = {};
+  let totalDocs = 0;
+  for (const [collectionName, docs] of Object.entries(payload.collections)) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(collectionName)) {
+      throw new Error(`Invalid collection name in backup: ${collectionName}`);
+    }
+    if (!Array.isArray(docs)) {
+      throw new Error(`Backup collection ${collectionName} must be an array.`);
+    }
+
+    for (const doc of docs) {
+      if (!doc || typeof doc !== "object" || Array.isArray(doc)) {
+        throw new Error(`Backup collection ${collectionName} contains an invalid document.`);
+      }
+      if (!doc.id || typeof doc.id !== "string") {
+        throw new Error(`Backup collection ${collectionName} contains a document without id.`);
+      }
+      const expectedPathPrefix = `Users/${payload.userId}/${collectionName}/`;
+      if (!doc.path || typeof doc.path !== "string" || !doc.path.startsWith(expectedPathPrefix)) {
+        throw new Error(`Backup document ${collectionName}/${doc.id} has an unexpected path.`);
+      }
+      if (!doc.data || typeof doc.data !== "object" || Array.isArray(doc.data)) {
+        throw new Error(`Backup document ${collectionName}/${doc.id} is missing data.`);
+      }
+    }
+
+    collectionCounts[collectionName] = docs.length;
+    totalDocs += docs.length;
+  }
+
+  return {
+    schema: payload.schema,
+    userId: payload.userId,
+    rootPath: payload.rootPath,
+    collections: collectionCounts,
+    totalDocs,
+  };
+}
+
+async function verifyBackupFile(filePath, { expectedUserId = "", cwd = process.cwd() } = {}) {
+  const outputPath = path.resolve(cwd, filePath);
+  const raw = await fs.readFile(outputPath, "utf8");
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`Backup file is not valid JSON: ${error.message}`);
+  }
+
+  return {
+    outputPath,
+    ...validateBackupPayload(payload, { expectedUserId }),
+  };
+}
+
 async function main() {
   const options = parseBackupOptions();
   if (options.help) {
     console.log(getHelpText());
+    return;
+  }
+
+  if (options.verifyFile) {
+    const verification = await verifyBackupFile(options.verifyFile, {
+      expectedUserId: options.expectedUserId,
+    });
+    console.log(JSON.stringify({
+      ok: true,
+      verified: true,
+      ...verification,
+    }, null, 2));
     return;
   }
 
@@ -206,19 +317,21 @@ async function main() {
     exportData.collections[collectionName] = await readCollection(userRef, collectionName, plan.maxDocs);
   }
 
+  validateBackupPayload(exportData, { expectedUserId: plan.userId });
+
   await fs.mkdir(path.dirname(plan.outputPath), { recursive: true });
   await fs.writeFile(plan.outputPath, `${JSON.stringify(exportData, null, 2)}\n`, "utf8");
 
-  const collectionSummary = Object.fromEntries(
-    Object.entries(exportData.collections).map(([collectionName, docs]) => [collectionName, docs.length]),
-  );
+  const verification = await verifyBackupFile(plan.outputPath, { expectedUserId: plan.userId });
 
   console.log(JSON.stringify({
     ok: true,
+    verified: true,
     outputPath: plan.outputPath,
     userId: plan.userId,
     exportedAt,
-    collections: collectionSummary,
+    collections: verification.collections,
+    totalDocs: verification.totalDocs,
   }, null, 2));
 }
 
@@ -230,6 +343,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  BACKUP_SCHEMA,
   DEFAULT_COLLECTIONS,
   buildBackupPlan,
   buildOutputPath,
@@ -238,4 +352,6 @@ module.exports = {
   parseBackupOptions,
   parseCollections,
   sanitizePathSegment,
+  validateBackupPayload,
+  verifyBackupFile,
 };

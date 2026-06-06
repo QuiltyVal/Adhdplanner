@@ -30,7 +30,15 @@ npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22
 npm run backup:planner -- --collections tasks,taskSnapshots,plannerEvents,reportItems --maxDocs 500
 ```
 
+Verify a generated backup file without reading Firestore:
+
+```bash
+npm run backup:planner -- --verify-file backups/firestore-planner-user.json --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22
+```
+
 Collection names are intentionally restricted to simple Firestore collection ids (`letters`, `numbers`, `_`, `-`). This prevents an accidental nested path from being exported when the command is typed by hand.
+
+Successful real exports now validate the generated payload before writing, read the saved file back, and print `verified: true` with per-collection document counts. This does not prove semantic correctness of every task, but it catches broken JSON, wrong user ids, schema drift, and invalid document paths before a backup is trusted.
 
 ## Default Scope
 

@@ -1819,3 +1819,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This is repo-side/production behavior for empty read-only Telegram commands. It still does not replace real Telegram-client `/cemetery` evidence.
+
+## 2026-06-06 - Codex
+
+- Summary: Added local verification for Firestore planner backup files.
+- Changed:
+  - `scripts/export-firestore-planner.js` — added backup payload validation, `--verify-file`, optional `--expectUserId`, and post-write readback verification for real exports.
+  - `tests/firestore-backup-export.test.mjs` — covered verify-file parsing, schema/user/path validation, local file verification, and the CLI verify path without Firebase credentials.
+  - `docs/firestore-backup-export.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — documented the backup verification guard.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js && node --check tests/firestore-backup-export.test.mjs && node tests/firestore-backup-export.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - No live Firestore export was run. First real export still needs intentional user-approved credentials/scope, then `--verify-file` proof on the generated JSON.
