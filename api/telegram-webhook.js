@@ -224,6 +224,14 @@ function buildAiActionConfirmationText(route = {}, task = {}) {
   ].join("\n");
 }
 
+function buildTelegramKillConfirmationResponse(task = {}) {
+  const route = { type: PLANNER_ACTIONS.KILL_TASK, taskRef: "", source: "callback_prompt" };
+  return {
+    text: buildAiActionConfirmationText(route, task),
+    reply_markup: buildAiActionConfirmationKeyboard(PLANNER_ACTIONS.KILL_TASK, task?.id),
+  };
+}
+
 async function maybeSendAiActionConfirmation(chatId, route = {}, plannerData = null) {
   const routeType = String(route?.type || "");
   const source = String(route?.source || "");
@@ -855,9 +863,8 @@ async function handleKillPromptCallback(chatId, callbackQuery) {
     },
   });
 
-  await sendText(chatId, buildAiActionConfirmationText(route, task), {
-    reply_markup: buildAiActionConfirmationKeyboard(PLANNER_ACTIONS.KILL_TASK, task.id),
-  });
+  const response = buildTelegramKillConfirmationResponse(task);
+  await sendText(chatId, response.text, { reply_markup: response.reply_markup });
   await answerCallback(callbackQuery.id, "Confirm before Cemetery.");
 }
 
@@ -1055,6 +1062,7 @@ module.exports._test = {
   buildTelegramCalendarResponse,
   buildTelegramHelpResponse,
   buildTelegramHelpText,
+  buildTelegramKillConfirmationResponse,
   buildTelegramSecurityDecision,
   isAllowedChat,
 };

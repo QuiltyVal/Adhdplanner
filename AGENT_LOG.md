@@ -1690,3 +1690,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This does not contact Telegram and does not prove OAuth completion. The next real-client smoke still needs `/help`, `/today`, `/calendar`, `/cemetery`, and Cemetery confirmation/cancel evidence.
+
+## 2026-06-06 - Codex
+
+- Summary: Added repo-side coverage for the two-step Telegram Cemetery confirmation boundary.
+- Changed:
+  - `api/telegram-webhook.js` — extracted the first-tap Cemetery confirmation response so the callback handler and tests share the same payload.
+  - `tests/telegram-webhook-security.test.mjs` — added coverage that the normal task keyboard exposes only `kill:<taskId>`, while the confirmation payload exposes `confirm_kill`, `panic`, `cancel`, and `Open planner`.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded the destructive-action guard while keeping real Telegram smoke open.
+- Verified:
+  - `node --check api/telegram-webhook.js && node --check tests/telegram-webhook-security.test.mjs && node tests/telegram-webhook-security.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This does not contact Telegram and does not mutate a task. Real Telegram-client smoke still needs to tap `Cemetery`, verify the confirmation prompt, and cancel.

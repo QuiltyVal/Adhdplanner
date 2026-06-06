@@ -17,6 +17,7 @@ const {
   buildTelegramCalendarResponse,
   buildTelegramHelpResponse,
   buildTelegramHelpText,
+  buildTelegramKillConfirmationResponse,
   buildTelegramSecurityDecision,
   isAllowedChat,
 } = telegramWebhook._test;
@@ -24,6 +25,7 @@ const {
 assert.equal(typeof buildTelegramCalendarResponse, "function");
 assert.equal(typeof buildTelegramHelpResponse, "function");
 assert.equal(typeof buildTelegramHelpText, "function");
+assert.equal(typeof buildTelegramKillConfirmationResponse, "function");
 assert.equal(typeof buildTelegramSecurityDecision, "function");
 assert.equal(typeof isAllowedChat, "function");
 
@@ -159,6 +161,22 @@ function keyboardHasCallback(keyboard, callbackData) {
   assert.equal(keyboardHasCallback(taskKeyboard, "confirm_kill:task-1"), false);
   assert.equal(keyboardHasPlannerLink(completedTaskKeyboard("task-1")), true);
   assert.equal(keyboardHasPlannerLink(calendarConnectKeyboard("https://calendar.example/connect")), true);
+}
+
+{
+  const killConfirmation = buildTelegramKillConfirmationResponse({
+    id: "task-1",
+    text: "Pay rent",
+    status: "active",
+  });
+
+  assert.match(killConfirmation.text, /move a task to Cemetery/);
+  assert.match(killConfirmation.text, /Pay rent/);
+  assert.equal(keyboardHasCallback(killConfirmation.reply_markup, "confirm_kill:task-1"), true);
+  assert.equal(keyboardHasCallback(killConfirmation.reply_markup, "panic:task-1"), true);
+  assert.equal(keyboardHasCallback(killConfirmation.reply_markup, "cancel:task-1"), true);
+  assert.equal(keyboardHasCallback(killConfirmation.reply_markup, "done:task-1"), false);
+  assert.equal(keyboardHasPlannerLink(killConfirmation.reply_markup), true);
 }
 
 console.log("telegram webhook security tests passed");

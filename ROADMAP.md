@@ -78,6 +78,7 @@ The product should do three things well:
   - 2026-06-06: repo regression coverage now also checks `/help` and `/calendar` response payloads, including `Open planner` and Google Calendar connect buttons.
 - Add "kill / revive" from free text and buttons.
   - 2026-06-05: active-task `Cemetery` button and `/cemetery` restore list are implemented; live Telegram smoke is still needed before closing.
+  - 2026-06-06: repo regression coverage now checks the first-tap Cemetery confirmation payload (`Yes, Cemetery`, `Make smaller`, `Cancel`, `Open planner`) so the task keyboard does not expose direct `confirm_kill`.
 - Improve Telegram nudges:
   - investigate why a nudge landed at 09:44 instead of 09:00
     - 2026-06-06: scheduled nudge outbox payloads now include `scheduledForLocal`, `triggeredLocal`, and `retryWindow` so future delayed-looking nudges can be distinguished from intentional within-hour retries.
