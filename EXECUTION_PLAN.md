@@ -115,7 +115,7 @@ Goal: let the user dump chaos into the system without first organizing it.
 - [x] Add `Users/{uid}/captures/{captureId}` schema to the plan/docs.
 - [x] Support append-only capture creation from Telegram free text.
 - [x] Support append-only capture creation from web input.
-- [ ] Support append-only capture creation from MCP-originated notes/facts.
+- [~] Support append-only capture creation from MCP-originated notes/facts.
 - [x] Track capture lifecycle:
   - `new`
   - `processed`
@@ -179,6 +179,7 @@ Notes:
 - As of 2026-04-18, `show_today` now explicitly surfaces high-cost commitments that stayed without an active linked step longer than their `needsTaskIfSilentDays` threshold.
 - As of 2026-04-18, `processCapture` now performs safe hint upsert into existing active tasks for web capture flow (`urgency`, `resistance`, `isVital`, `deadlineAt`, `lifeArea`, `commitmentIds`) using `mutatePlanner` with stale-write protection and conservative text-match thresholds.
 - The broader Phase 2 item stays in progress because MCP-originated capture enrichment is still missing, and deadline/vital extraction is not yet fully inferred outside explicit intent fields.
+- As of 2026-06-06, `/api/captures` preserves MCP/API origin metadata when `source` is sent as `mcp`, `mcp:*`, or `api:*`, and dry-run contract coverage verifies `origin.channel: "mcp"` without Firestore writes. Live Hetzner MCP capture wiring is still pending.
 
 ## Phase 4 - Angel pin layer
 

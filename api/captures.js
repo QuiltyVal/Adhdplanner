@@ -44,6 +44,48 @@ function normalizeSelfTest(value) {
   };
 }
 
+function normalizeCaptureSource(value) {
+  const source = value == null ? "" : String(value).trim().toLowerCase();
+  return source.replace(/[^a-z0-9:_-]/g, "_").slice(0, 80);
+}
+
+function buildCaptureOrigin(source) {
+  const normalizedSource = normalizeCaptureSource(source);
+  if (!normalizedSource) {
+    return {
+      channel: "web",
+      via: "captures_api",
+    };
+  }
+
+  if (
+    normalizedSource === "mcp" ||
+    normalizedSource.startsWith("mcp_") ||
+    normalizedSource.startsWith("mcp:") ||
+    normalizedSource.includes("claude_mcp")
+  ) {
+    return {
+      channel: "mcp",
+      via: "captures_api",
+      source: normalizedSource,
+    };
+  }
+
+  if (normalizedSource === "api" || normalizedSource.startsWith("api_") || normalizedSource.startsWith("api:")) {
+    return {
+      channel: "api",
+      via: "captures_api",
+      source: normalizedSource,
+    };
+  }
+
+  return {
+    channel: "web",
+    via: "captures_api",
+    source: normalizedSource,
+  };
+}
+
 function readJsonBody(req) {
   if (!req || typeof req.body === "undefined" || req.body === null) return {};
   if (typeof req.body === "string") {
@@ -77,6 +119,7 @@ function validateInput(body) {
   }
 
   const source = body.source == null ? null : String(body.source).trim() || null;
+  const origin = buildCaptureOrigin(source);
   const idempotencyKey = body.idempotencyKey == null ? "" : String(body.idempotencyKey).trim();
   const activeTasksSnapshot = Array.isArray(body.activeTasks) ? body.activeTasks : [];
   const activeTasks = activeTasksSnapshot
@@ -114,6 +157,7 @@ function validateInput(body) {
       userId,
       text,
       source,
+      origin,
       idempotencyKey,
       activeTasks,
       selfTest,
@@ -1235,7 +1279,7 @@ async function capturesHandler(req, res) {
         source: validation.input.source,
         idempotencyKey: validation.input.idempotencyKey,
         selfTest: validation.input.selfTest,
-        origin: { channel: "web" },
+        origin: validation.input.origin,
       });
       captureId = stored.captureId;
       capture = stored.capture;
@@ -1352,6 +1396,7 @@ async function capturesHandler(req, res) {
       captureId,
       schemaVersion: 2,
       dryRun: Boolean(validation.input.dryRun),
+      origin: validation.input.origin,
       taskCards: finalTaskCards,
       executiveAssessment,
       aiDraft,
@@ -1366,6 +1411,9 @@ async function capturesHandler(req, res) {
 
 module.exports = capturesHandler;
 module.exports._test = {
+  buildCaptureOrigin,
+  normalizeCaptureSource,
+  validateInput,
   applyCreateCardSubtaskPreselection,
   polishAngelLabTaskCards,
 };

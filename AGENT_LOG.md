@@ -1773,3 +1773,20 @@ Entry template:
   - Documentation-only update; no code checks required.
 - Risks / follow-up:
   - This does not add new Telegram evidence. The remaining confirmation/cancel path still depends on the user's real Telegram client.
+
+## 2026-06-06 - Codex
+
+- Summary: Added repo-side MCP/API origin support for capture intake.
+- Changed:
+  - `api/captures.js` — added capture source normalization and origin classification so `source=mcp`, `source=mcp:*`, and Claude-MCP-like source strings produce `origin.channel: "mcp"` instead of always writing web-origin metadata. `source=api:*` now maps to `origin.channel: "api"`. Dry-run responses include the computed origin.
+  - `tests/captures-origin-contract.test.mjs` — added no-Firestore coverage for MCP/API/web origin classification and a dry-run handler response with `origin.channel: "mcp"`.
+  - `package.json` — added the captures origin contract test to `test:contract` and `verify:server`.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded that repo/API-side MCP-origin capture support exists while live Hetzner MCP wiring remains unverified.
+- Verified:
+  - `node --check api/captures.js && node --check tests/captures-origin-contract.test.mjs && node tests/captures-origin-contract.test.mjs`
+  - `node tests/angel-lab-draft-quality.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This does not contact the live Hetzner MCP server and does not write Firestore data. A real MCP capture/write smoke is still required before marking the MCP-originated capture item fully done.

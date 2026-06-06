@@ -101,6 +101,7 @@ The product should do three things well:
 - Ensure MCP updates also maintain `lastUpdated`.
 - Ensure web merge logic and MCP writes do not conflict.
   - 2026-06-06: local shared server path already sets `lastUpdated` for `TASK_ADD_SUBTASK`; regression coverage was added for the API contract and route-to-command mapping. Separate live MCP verification remains required.
+  - 2026-06-06: `/api/captures` now preserves MCP/API origin metadata for `source=mcp...` dry-run and stored capture paths, with contract coverage. Separate live Hetzner MCP capture/write smoke remains required.
 
 ## Next Product Features
 
