@@ -81,6 +81,7 @@ The product should do three things well:
   - 2026-06-06: repo regression coverage now also checks `/help` and `/calendar` response payloads, including `Open planner` and Google Calendar connect buttons.
   - 2026-06-06: user-provided real Telegram screenshots confirmed `/today` renders the daily digest with active task buttons including `Cemetery` and `Open planner`, and `/calendar` renders the Google Calendar connect CTA. OAuth completion was not tested.
   - 2026-06-06: empty `/completed` and empty `/cemetery` Telegram replies now also include `Open planner`, with repo-side read-only coverage.
+  - 2026-06-06: Google Calendar OAuth state now has repo-side TTL/user-id validation coverage, so stale Telegram connect links are rejected before token exchange.
 - Add "kill / revive" from free text and buttons.
   - 2026-06-05: active-task `Cemetery` button and `/cemetery` restore list are implemented; live Telegram smoke is still needed before closing.
   - 2026-06-06: repo regression coverage now checks the first-tap Cemetery confirmation payload (`Yes, Cemetery`, `Make smaller`, `Cancel`, `Open planner`) so the task keyboard does not expose direct `confirm_kill`.

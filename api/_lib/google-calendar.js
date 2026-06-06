@@ -6,6 +6,8 @@ const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
 const GOOGLE_CALENDAR_TIMEZONE = "Europe/Berlin";
+const DEFAULT_GOOGLE_OAUTH_STATE_TTL_MS = 2 * 60 * 60 * 1000;
+const GOOGLE_OAUTH_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 function pad(value) {
   return String(value).padStart(2, "0");
@@ -39,8 +41,27 @@ function getGoogleConfig() {
   };
 }
 
+function getGoogleOAuthStateTtlMs() {
+  const raw = Number.parseInt(process.env.GOOGLE_OAUTH_STATE_TTL_MS || "", 10);
+  if (Number.isFinite(raw) && raw >= 60_000 && raw <= 24 * 60 * 60 * 1000) {
+    return raw;
+  }
+  return DEFAULT_GOOGLE_OAUTH_STATE_TTL_MS;
+}
+
 function privateDoc(userId) {
   return getDb().collection("PlannerSecrets").doc(userId);
+}
+
+function normalizeOAuthUserId(userId) {
+  const safeUserId = String(userId || "").trim();
+  if (!safeUserId) {
+    throw new Error("Google OAuth user id is required");
+  }
+  if (safeUserId.includes("/")) {
+    throw new Error("Google OAuth user id cannot contain '/'.");
+  }
+  return safeUserId;
 }
 
 function base64UrlEncode(value) {
@@ -67,19 +88,57 @@ function signState(payload) {
   return `${body}.${signature}`;
 }
 
-function verifyState(state) {
+function verifyState(state, options = {}) {
   const { stateSecret } = getGoogleConfig();
-  const [body, signature] = String(state || "").split(".");
+  const [body, signature, ...extraParts] = String(state || "").split(".");
   if (!body || !signature) {
+    throw new Error("Invalid OAuth state");
+  }
+  if (extraParts.length > 0) {
     throw new Error("Invalid OAuth state");
   }
 
   const expected = crypto.createHmac("sha256", stateSecret).update(body).digest("hex");
-  if (expected !== signature) {
+  const expectedBytes = Buffer.from(expected, "hex");
+  const signatureBytes = Buffer.from(signature, "hex");
+  if (
+    expectedBytes.length !== signatureBytes.length ||
+    !crypto.timingSafeEqual(expectedBytes, signatureBytes)
+  ) {
     throw new Error("OAuth state signature mismatch");
   }
 
-  return JSON.parse(base64UrlDecode(body));
+  let payload;
+  try {
+    payload = JSON.parse(base64UrlDecode(body));
+  } catch (_error) {
+    throw new Error("Invalid OAuth state payload");
+  }
+
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Invalid OAuth state payload");
+  }
+
+  const userId = normalizeOAuthUserId(payload.userId);
+  const ts = Number(payload.ts);
+  if (!Number.isFinite(ts) || ts <= 0) {
+    throw new Error("Invalid OAuth state timestamp");
+  }
+
+  const nowMs = Number.isFinite(Number(options.nowMs)) ? Number(options.nowMs) : Date.now();
+  const ttlMs = Number.isFinite(Number(options.ttlMs)) ? Number(options.ttlMs) : getGoogleOAuthStateTtlMs();
+  if (ts > nowMs + GOOGLE_OAUTH_CLOCK_SKEW_MS) {
+    throw new Error("OAuth state timestamp is in the future");
+  }
+  if (nowMs - ts > ttlMs) {
+    throw new Error("OAuth state expired");
+  }
+
+  return {
+    ...payload,
+    userId,
+    ts,
+  };
 }
 
 function encryptionKey() {
@@ -119,11 +178,13 @@ function decryptSecret(payload) {
   return decrypted.toString("utf8");
 }
 
-function buildGoogleCalendarConnectUrl(userId) {
+function buildGoogleCalendarConnectUrl(userId, options = {}) {
   const { clientId, redirectUri } = getGoogleConfig();
+  const safeUserId = normalizeOAuthUserId(userId);
+  const nowMs = Number.isFinite(Number(options.nowMs)) ? Number(options.nowMs) : Date.now();
   const state = signState({
-    userId,
-    ts: Date.now(),
+    userId: safeUserId,
+    ts: nowMs,
   });
   const params = new URLSearchParams({
     client_id: clientId,
@@ -274,7 +335,9 @@ module.exports = {
   buildGoogleCalendarConnectUrl,
   createCalendarEvent,
   exchangeCodeForTokens,
+  getGoogleOAuthStateTtlMs,
   hasGoogleCalendarConnection,
+  normalizeOAuthUserId,
   storeGoogleCalendarRefreshToken,
   verifyState,
 };

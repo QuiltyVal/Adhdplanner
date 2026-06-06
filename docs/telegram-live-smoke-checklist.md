@@ -79,6 +79,7 @@ Expected:
 - Keyboard includes the Google Calendar connect URL.
 - Keyboard also includes `Open planner`.
 - Do not complete OAuth unless the current test explicitly includes calendar connection.
+- If OAuth is tested, use a fresh `/calendar` response; old connect links intentionally expire.
 
 ### 4. `/cemetery`
 

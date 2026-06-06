@@ -12,6 +12,11 @@ const {
   plannerOpenKeyboard,
   plannerTaskKeyboard,
 } = require("../api/_lib/telegram.js");
+const {
+  buildGoogleCalendarConnectUrl,
+  getGoogleOAuthStateTtlMs,
+  verifyState,
+} = require("../api/_lib/google-calendar.js");
 
 const {
   buildTelegramCalendarResponse,
@@ -125,11 +130,13 @@ function keyboardHasCallback(keyboard, callbackData) {
   const previousClientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const previousRedirectUri = process.env.GOOGLE_REDIRECT_URI;
   const previousStateSecret = process.env.GOOGLE_OAUTH_STATE_SECRET;
+  const previousStateTtl = process.env.GOOGLE_OAUTH_STATE_TTL_MS;
 
   process.env.GOOGLE_CLIENT_ID = "test-google-client";
   process.env.GOOGLE_CLIENT_SECRET = "test-google-secret";
   process.env.GOOGLE_REDIRECT_URI = "https://planner.valquilty.com/api/google-calendar-callback";
   process.env.GOOGLE_OAUTH_STATE_SECRET = "test-state-secret";
+  process.env.GOOGLE_OAUTH_STATE_TTL_MS = "120000";
 
   try {
     const calendarResponse = buildTelegramCalendarResponse({ userId: "user-1" });
@@ -142,6 +149,23 @@ function keyboardHasCallback(keyboard, callbackData) {
     assert.match(calendarButton.url, /^https:\/\/accounts\.google\.com\/o\/oauth2\/v2\/auth\?/);
     assert.match(calendarButton.url, /client_id=test-google-client/);
     assert.match(calendarButton.url, /scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar/);
+
+    const liveState = new URL(calendarButton.url).searchParams.get("state");
+    const livePayload = verifyState(liveState);
+    assert.equal(livePayload.userId, "user-1");
+    assert.equal(getGoogleOAuthStateTtlMs(), 120000);
+
+    const deterministicUrl = buildGoogleCalendarConnectUrl("user-1", { nowMs: 1000 });
+    const deterministicState = new URL(deterministicUrl).searchParams.get("state");
+    assert.equal(verifyState(deterministicState, { nowMs: 61_000, ttlMs: 120_000 }).userId, "user-1");
+    assert.throws(
+      () => verifyState(deterministicState, { nowMs: 121_001, ttlMs: 120_000 }),
+      /OAuth state expired/,
+    );
+    assert.throws(
+      () => buildGoogleCalendarConnectUrl("bad/user"),
+      /Google OAuth user id cannot contain/,
+    );
   } finally {
     if (previousClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
     else process.env.GOOGLE_CLIENT_ID = previousClientId;
@@ -151,6 +175,8 @@ function keyboardHasCallback(keyboard, callbackData) {
     else process.env.GOOGLE_REDIRECT_URI = previousRedirectUri;
     if (previousStateSecret === undefined) delete process.env.GOOGLE_OAUTH_STATE_SECRET;
     else process.env.GOOGLE_OAUTH_STATE_SECRET = previousStateSecret;
+    if (previousStateTtl === undefined) delete process.env.GOOGLE_OAUTH_STATE_TTL_MS;
+    else process.env.GOOGLE_OAUTH_STATE_TTL_MS = previousStateTtl;
   }
 }
 

@@ -1849,3 +1849,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This changes production `/api/captures` dry-run response metadata and default dry-run task context only. Normal stored captures and Angel Lab requests that pass `activeTasks` keep their existing behavior.
+
+## 2026-06-06 - Codex
+
+- Summary: Hardened Google Calendar OAuth state validation.
+- Changed:
+  - `api/_lib/google-calendar.js` — validates OAuth state user id and timestamp, rejects expired/future state, uses timing-safe signature comparison, and exposes TTL helpers.
+  - `tests/telegram-webhook-security.test.mjs` — checks Calendar connect state payload, TTL override, expired-state rejection, and invalid user id rejection.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded that fresh Calendar OAuth links are required and stale state is rejected.
+- Verified:
+  - `node --check api/_lib/google-calendar.js && node --check tests/telegram-webhook-security.test.mjs && node tests/telegram-webhook-security.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - OAuth completion still needs real user-client testing. This only hardens the server state boundary before Google token exchange.
