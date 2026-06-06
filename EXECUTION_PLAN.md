@@ -100,6 +100,7 @@ Notes:
 - As of 2026-05-31, `mutatePlanner`, `PlannerCommandService`, events, report projection, outbox, and health snapshots cover many paths, but direct/legacy writers still exist. New behavior should route through command/domain services or a documented stale-safe writer.
 - Event/report/outbox/health observability exists. Capture-processing and per-task mutation traces still need to become one coherent user/debug story.
 - As of 2026-06-06, single-task status mutation events include structured `previousStatus`, `nextStatus`, and `scoreDelta` payloads where relevant, improving auditability for complete, Cemetery, and reopen flows.
+- As of 2026-06-06, `add_subtask` has repo-side contract and command-builder regression coverage, including event payload coverage for `extra.createdSubtask`; live Hetzner MCP smoke remains a separate verification step.
 
 Done when:
 - a new agent can implement on top of this plan without guessing where state is allowed to live

@@ -60,4 +60,47 @@ const { PLANNER_EVENT_TYPES } = require("../api/_lib/planner-event-types.js");
   assert.equal("scoreDelta" in event.payload, false);
 }
 
+{
+  const event = buildSingleTaskMutationCommandEvent({
+    eventId: "event-3",
+    eventName: "subtask_added",
+    eventType: PLANNER_EVENT_TYPES.TASK_SUBTASK_ADDED,
+    commandType: PLANNER_COMMAND_TYPES.TASK_ADD_SUBTASK,
+    previousTask: {
+      id: "task-3",
+      text: "Ship planner",
+      status: "active",
+      subtasks: [],
+    },
+    task: {
+      id: "task-3",
+      text: "Ship planner",
+      status: "active",
+      subtasks: [
+        {
+          id: "task-3-sub-1",
+          text: "Verify MCP subtask write",
+          completed: false,
+        },
+      ],
+    },
+    actor: { type: "agent", ref: "mcp" },
+    source: "mcp_add_subtask",
+    extra: {
+      createdSubtask: {
+        id: "task-3-sub-1",
+        text: "Verify MCP subtask write",
+        completed: false,
+      },
+    },
+    now: 1780700000002,
+  });
+
+  assert.equal(event.event_type, PLANNER_EVENT_TYPES.TASK_SUBTASK_ADDED);
+  assert.equal(event.command_type, PLANNER_COMMAND_TYPES.TASK_ADD_SUBTASK);
+  assert.equal(event.payload.extra.createdSubtask.id, "task-3-sub-1");
+  assert.equal(event.payload.extra.createdSubtask.text, "Verify MCP subtask write");
+  assert.equal("previousStatus" in event.payload, false);
+}
+
 console.log("planner command event specs tests passed");

@@ -1584,3 +1584,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This changes event metadata only, not task mutation behavior. Existing historical events will not get the new payload retroactively.
+
+## 2026-06-06 - Codex
+
+- Summary: Added repo-side regression coverage for the MCP-style `add_subtask` path.
+- Changed:
+  - `tests/planner-actions-contract.test.mjs` — added valid/invalid `add_subtask` contract cases plus route-to-command checks for `TASK_ADD_SUBTASK`.
+  - `tests/planner-command-event-specs.test.mjs` — added coverage that subtask-add events expose `payload.extra.createdSubtask`.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded that the shared repo path is guarded, while live Hetzner MCP still needs separate smoke verification.
+- Verified:
+  - `node --check tests/planner-actions-contract.test.mjs && node --check tests/planner-command-event-specs.test.mjs && node tests/planner-actions-contract.test.mjs && node tests/planner-command-event-specs.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - Hetzner MCP is a separately deployed process at `/root/adhd-mcp`; these repo tests do not prove the live MCP client path until a real MCP add-subtask smoke is run.

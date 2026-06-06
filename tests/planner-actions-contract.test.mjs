@@ -3,6 +3,11 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { validatePlannerActionRequest } = require("../api/_lib/planner-contract.js");
+const {
+  buildAddSubtaskCommand,
+  buildPlannerActionRouteCommand,
+} = require("../api/_lib/planner-command-builders.js");
+const { PLANNER_COMMAND_TYPES } = require("../api/_lib/planner-command-types.js");
 
 assert.equal(
   typeof validatePlannerActionRequest,
@@ -24,6 +29,8 @@ function assertValid(title, payload) {
     if ("valid" in result) assert.equal(result.valid, true, `${title} should return valid=true`);
     if (Array.isArray(result.errors)) assert.equal(result.errors.length, 0, `${title} should not contain errors`);
   }
+
+  return result;
 }
 
 function assertInvalid(title, payload) {
@@ -61,6 +68,32 @@ assertValid("valid complete_task with explicit taskRef", {
   action: "complete_task",
   payload: {
     taskRef: "Buy groceries",
+  },
+});
+
+const validAddSubtask = assertValid("valid add_subtask with explicit taskRef and subtaskText", {
+  action: "add_subtask",
+  payload: {
+    taskRef: "Build planner",
+    subtaskText: "Smoke Telegram buttons",
+  },
+}).request.route;
+
+assert.equal(validAddSubtask.type, "add_subtask");
+assert.equal(validAddSubtask.taskRef, "Build planner");
+assert.equal(validAddSubtask.subtaskText, "Smoke Telegram buttons");
+
+assertInvalid("invalid add_subtask without taskRef", {
+  action: "add_subtask",
+  payload: {
+    subtaskText: "Missing parent task",
+  },
+});
+
+assertInvalid("invalid add_subtask without subtaskText", {
+  action: "add_subtask",
+  payload: {
+    taskRef: "Build planner",
   },
 });
 
@@ -102,5 +135,33 @@ assertInvalid("invalid complete_task without taskRef", {
   action: "complete_task",
   payload: {},
 });
+
+{
+  const command = buildAddSubtaskCommand({ id: "task-1" }, "Write MCP regression");
+  assert.equal(command.type, PLANNER_COMMAND_TYPES.TASK_ADD_SUBTASK);
+  assert.equal(command.taskId, "task-1");
+  assert.equal(command.subtaskText, "Write MCP regression");
+}
+
+{
+  const command = buildPlannerActionRouteCommand({
+    route: validAddSubtask,
+    task: { id: "task-2" },
+  });
+  assert.equal(command.type, PLANNER_COMMAND_TYPES.TASK_ADD_SUBTASK);
+  assert.equal(command.taskId, "task-2");
+  assert.equal(command.subtaskText, "Smoke Telegram buttons");
+}
+
+{
+  const command = buildPlannerActionRouteCommand({
+    route: validAddSubtask,
+    task: { id: "task-3" },
+    subtaskText: "Prefer resolved MCP subtask text",
+  });
+  assert.equal(command.type, PLANNER_COMMAND_TYPES.TASK_ADD_SUBTASK);
+  assert.equal(command.taskId, "task-3");
+  assert.equal(command.subtaskText, "Prefer resolved MCP subtask text");
+}
 
 console.log("planner action contract tests passed");

@@ -1,6 +1,6 @@
 # ADHD Planner Roadmap
 
-Last updated: 2026-06-05
+Last updated: 2026-06-06
 
 ## Product Direction
 
@@ -62,6 +62,7 @@ The product should do three things well:
   - MCP / Claude actions
 - Verify that tasks added from Telegram and MCP appear in web UI without disappearing.
 - Verify that subtasks added externally show correctly in web UI.
+  - 2026-06-06: repo-side planner action/command regression coverage now guards `add_subtask` validation, command mapping, and event payload shape. Live Hetzner MCP smoke is still pending because that server is deployed separately.
 - [x] Add a simple Firestore backup / export strategy.
   - 2026-06-06: read-only local JSON export script added; first live export run is still pending.
 - [x] Add operation logging for destructive task changes.
@@ -88,6 +89,7 @@ The product should do three things well:
 - Fix "subtasks via MCP are not set".
 - Ensure MCP updates also maintain `lastUpdated`.
 - Ensure web merge logic and MCP writes do not conflict.
+  - 2026-06-06: local shared server path already sets `lastUpdated` for `TASK_ADD_SUBTASK`; regression coverage was added for the API contract and route-to-command mapping. Separate live MCP verification remains required.
 
 ## Next Product Features
 
