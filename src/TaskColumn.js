@@ -330,6 +330,12 @@ export default function TaskColumn({
     confirmBody: isEnglish ? "This task will move to Heaven. Are you sure?" : "Эта задача отправится в Рай. Уверены?",
     confirmYes: isEnglish ? "YES" : "ДА!",
     confirmNo: isEnglish ? "NOT YET" : "ЕЩЕ НЕТ",
+    cemeteryConfirmTitle: isEnglish ? "Move to Cemetery?" : "На кладбище?",
+    cemeteryConfirmBody: isEnglish
+      ? "This moves the task out of Active, but does not delete it forever. You can restore it from Cemetery."
+      : "Это уберёт задачу из активных, но не удалит навсегда. Её можно вернуть из кладбища.",
+    cemeteryConfirmYes: isEnglish ? "MOVE" : "ПЕРЕНЕСТИ",
+    cemeteryConfirmNo: isEnglish ? "CANCEL" : "ОТМЕНА",
     cleanTestJunk: isEnglish ? "🧹 Clean test junk" : "🧹 Убрать тестовый мусор",
     purgeTestJunk: isEnglish ? "💥 Delete forever (test junk only)" : "💥 В небытие (только тест-мусор)",
     returnActive: isEnglish ? "↩️ Restore to active" : "↩️ Вернуть в активные",
@@ -384,6 +390,7 @@ export default function TaskColumn({
   const [newTaskText, setNewTaskText] = useState("");
   const [newSubtaskText, setNewSubtaskText] = useState({}); // {taskId: text}
   const [confirmTaskId, setConfirmTaskId] = useState(null);
+  const [confirmCemeteryTaskId, setConfirmCemeteryTaskId] = useState(null);
   const [editingSubtask, setEditingSubtask] = useState(null); // { taskId, subId, text }
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [editingTaskText, setEditingTaskText] = useState("");
@@ -976,7 +983,11 @@ export default function TaskColumn({
             >📅</button>
           )}
           {isTuneOpen && (
-            <button className="action-btn task-cemetery-btn" onClick={() => onKill(task.id)}>
+            <button
+              className="action-btn task-cemetery-btn"
+              onClick={() => setConfirmCemeteryTaskId(task.id)}
+              type="button"
+            >
               {copy.cemetery}
             </button>
           )}
@@ -1071,6 +1082,35 @@ export default function TaskColumn({
                 style={{background: 'transparent', border: '2px solid var(--accent-cemetery)', color: 'var(--accent-cemetery)', fontSize: '1.2rem', padding: '12px 24px'}}
               >
                 {copy.confirmNo}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {confirmCemeteryTaskId && (
+        <div className="modal-overlay" style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
+          <div className="modal-content glass-panel animated-fade-in" style={{padding: '40px', textAlign: 'center', maxWidth: '420px', width: '90%', border: '2px solid var(--accent-cemetery)', borderRadius: '16px'}}>
+            <h2 style={{fontFamily: "'GuildensternNbp', 'VT323', monospace", marginBottom: '15px', fontSize: '2.5rem', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '2px'}}>{copy.cemeteryConfirmTitle}</h2>
+            <p style={{marginBottom: '35px', color: 'var(--text-muted)', fontSize: '1.2rem'}}>{copy.cemeteryConfirmBody}</p>
+            <div style={{display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap'}}>
+              <button
+                onClick={() => {
+                  onKill(confirmCemeteryTaskId);
+                  setConfirmCemeteryTaskId(null);
+                }}
+                className="action-btn task-cemetery-btn"
+                style={{fontSize: '1.2rem', padding: '12px 24px'}}
+                type="button"
+              >
+                {copy.cemeteryConfirmYes}
+              </button>
+              <button
+                onClick={() => setConfirmCemeteryTaskId(null)}
+                className="action-btn"
+                style={{background: 'transparent', border: '2px solid var(--text-muted)', color: 'var(--text-main)', fontSize: '1.2rem', padding: '12px 24px'}}
+                type="button"
+              >
+                {copy.cemeteryConfirmNo}
               </button>
             </div>
           </div>

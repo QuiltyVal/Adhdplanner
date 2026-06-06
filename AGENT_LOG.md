@@ -1722,3 +1722,16 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This does not contact Telegram and does not mutate live data. Real Telegram-client smoke for `/completed` and `/cemetery` restore evidence still depends on the user's Telegram client.
+
+## 2026-06-06 - Codex
+
+- Summary: Added browser confirmation before moving an active task to Cemetery.
+- Changed:
+  - `src/TaskColumn.js` — active task `To Cemetery` now opens a confirmation modal instead of calling `onKill` immediately. The copy states that the task leaves Active but is not deleted forever and can be restored from Cemetery.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded that the web Cemetery action now matches the Telegram destructive-action boundary.
+- Verified:
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This is a browser UI confirmation only. It does not change the backend Cemetery command or delete-forever behavior.
