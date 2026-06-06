@@ -51,9 +51,14 @@ function extractQuotedSegments(text = "") {
 function inferTaskReference(text = "") {
   return String(text || "")
     .replace(/^(переведи|отправь|перенеси|закинь|заверши|выполни|выполнить|открепи|сними|снять|верни|сделай|закрепи|пометь|запланируй|добавь|добавить|удали|удалить|убей|похорони)\s+/i, "")
+    .replace(/^(mark|send|move|put|complete|completed|finish|finished|done|pin|unpin|remove|restore|reopen|return|revive|bring back|kill|bury|trash|delete|make|set|unset|clear)\s+/i, "")
     .replace(/^(задач[ауи]?|дело|таск)\s+/i, "")
+    .replace(/^(task|quest|thing)\s+/i, "")
+    .replace(/^(to|from)\s+(active|heaven|completed|cemetery|today)\s+/i, "")
     .replace(/(?:^|\s)(на|в|с)\s+сегодня(?=\s|$)/giu, " ")
+    .replace(/(?:^|\s)(for|on|to|from)\s+(today|active|heaven|completed|cemetery)(?=\s|$)/giu, " ")
     .replace(/(?:^|\s)(критичн|критичност|выполненн|в\s+рай|в\s+ад(?:у)?|на\s+кладбище|в\s+кладбище|в\s+мусор|в\s+помойку|в\s+небытие|сейчас|сегодня\s+в\s+раю)(?=\s|$)/giu, " ")
+    .replace(/(?:^|\s)(critical|priority|urgent|vital|important|done|completed|finished|heaven|cemetery|trash|active|today)(?=\s|$)/giu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -61,7 +66,7 @@ function inferTaskReference(text = "") {
 function pickReferencedTask({ text = "", normalized = "", quoted = [], normalizeGeneric = false } = {}) {
   const quotedRef = quoted[0] || "";
   if (quotedRef) return quotedRef;
-  const inferred = inferTaskReference(normalized || text);
+  const inferred = inferTaskReference(text || normalized);
   return normalizeGeneric ? normalizeGenericTaskRef(inferred) : inferred;
 }
 
@@ -126,7 +131,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/(в\s+ад|в\s+аду|кладбищ|мусор|помойк|небыт|похорон|убей|умертв|снеси|выкинь|сдохни|умри|удали из актив)/u.test(normalized)) {
+  if (/(в\s+ад|в\s+аду|кладбищ|мусор|помойк|небыт|похорон|убей|умертв|снеси|выкинь|сдохни|умри|удали из актив|cemetery|trash|bury|kill|delete from active|remove from active)/u.test(normalized)) {
     const taskRef = pickReferencedTask({ text, normalized, quoted, normalizeGeneric: true });
     return {
       intent: PLANNER_ACTIONS.KILL_TASK,
@@ -136,7 +141,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/(выполн|готов(?:а|о|ы|ой|ым|ыми)?(?:\s|$)|заверш|в\s+рай)/u.test(normalized)) {
+  if (/(выполн|готов(?:а|о|ы|ой|ым|ыми)?(?:\s|$)|заверш|в\s+рай|done(?:\s|$)|complete|completed|finish|finished|heaven)/u.test(normalized)) {
     const taskRef = pickReferencedTask({ text, normalized, quoted });
     return {
       intent: PLANNER_ACTIONS.COMPLETE_TASK,
@@ -146,7 +151,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/(верн|возврат|воскрес|восстанов|спаси)/u.test(normalized)) {
+  if (/(верн|возврат|воскрес|восстанов|спаси|return.*active|restore|reopen|bring back|revive)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.REOPEN_TASK,
       task_ref: pickReferencedTask({ text, normalized, quoted }) || null,
@@ -155,7 +160,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/((сегодня|сегодняшн).*(закреп|прикреп)|(закреп|прикреп).*(сегодня|сегодняшн))/u.test(normalized)) {
+  if (/((сегодня|сегодняшн).*(закреп|прикреп)|(закреп|прикреп).*(сегодня|сегодняшн)|today.*(?:^|\s)pin(?:\s|$)|(?:^|\s)pin(?:\s|$).*today)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.SET_TODAY,
       task_ref: pickReferencedTask({ text, normalized, quoted }) || null,
@@ -164,7 +169,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/(сними|откреп|убер|удали|снять).*(сегодня|сегодняшн)/u.test(normalized)) {
+  if (/(сними|откреп|убер|удали|снять).*(сегодня|сегодняшн)|unpin.*today|remove.*from today|clear.*today/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.UNSET_TODAY,
       task_ref: pickReferencedTask({ text, normalized, quoted }) || null,
@@ -173,7 +178,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/(сними|снять|убери|убрать|без|не).*(критич|критичност|жизненн|важн|срочн)/u.test(normalized)) {
+  if (/(сними|снять|убери|убрать|без|не).*(критич|критичност|жизненн|важн|срочн)|(remove|clear|unset|not).*(critical|urgent|vital|important)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.UNSET_VITAL,
       task_ref: pickReferencedTask({ text, normalized, quoted }) || null,
@@ -182,7 +187,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/(критич|жизненн|срочно)/u.test(normalized)) {
+  if (/(критич|жизненн|срочно|critical|urgent|vital)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.SET_VITAL,
       task_ref: pickReferencedTask({ text, normalized, quoted }) || null,

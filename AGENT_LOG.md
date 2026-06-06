@@ -1660,3 +1660,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This guards the deterministic fallback parser, not the full real Telegram-client path. Live messages are still needed for `/help`, `/today`, `/calendar`, `/cemetery`, Cemetery confirmation/cancel, and representative free-text actions after deploy.
+
+## 2026-06-06 - Codex
+
+- Summary: Extended Telegram fallback intent routing to English phrases that mirror the bot's visible buttons.
+- Changed:
+  - `api/_lib/telegram-intent.js` — added deterministic fallback handling for English `done`, `mark ... done`, `return ... to active`, `send ... to cemetery`, `pin ... today`, `unpin ... from today`, `remove critical`, and `make ... critical` phrases while preserving quoted task references.
+  - `tests/telegram-intent-fallback.test.mjs` — added OpenRouter-failure coverage for the English button-style phrases.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded that fallback support now covers Russian and button-style English phrasing.
+- Verified:
+  - `node --check api/_lib/telegram-intent.js && node --check tests/telegram-intent-fallback.test.mjs && node tests/telegram-intent-fallback.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This still does not replace real Telegram smoke evidence; it only prevents the deterministic fallback path from turning common English action phrases into new tasks when the model is unavailable.

@@ -32,7 +32,22 @@ await assertIntent("отправь «Pay rent» в рай", {
   task_ref: "Pay rent",
 });
 
+await assertIntent("done «Pay rent»", {
+  intent: PLANNER_ACTIONS.COMPLETE_TASK,
+  task_ref: "Pay rent",
+});
+
+await assertIntent("mark «Pay rent» done", {
+  intent: PLANNER_ACTIONS.COMPLETE_TASK,
+  task_ref: "Pay rent",
+});
+
 await assertIntent("верни «Pay rent» из рая", {
+  intent: PLANNER_ACTIONS.REOPEN_TASK,
+  task_ref: "Pay rent",
+});
+
+await assertIntent("return «Pay rent» to active", {
   intent: PLANNER_ACTIONS.REOPEN_TASK,
   task_ref: "Pay rent",
 });
@@ -42,7 +57,17 @@ await assertIntent("убей «Pay rent»", {
   task_ref: "Pay rent",
 });
 
+await assertIntent("send «Pay rent» to cemetery", {
+  intent: PLANNER_ACTIONS.KILL_TASK,
+  task_ref: "Pay rent",
+});
+
 await assertIntent("закрепи «Pay rent» на сегодня", {
+  intent: PLANNER_ACTIONS.SET_TODAY,
+  task_ref: "Pay rent",
+});
+
+await assertIntent("pin «Pay rent» today", {
   intent: PLANNER_ACTIONS.SET_TODAY,
   task_ref: "Pay rent",
 });
@@ -57,8 +82,23 @@ await assertIntent("открепи «Pay rent» с сегодня", {
   task_ref: "Pay rent",
 });
 
+await assertIntent("unpin «Pay rent» from today", {
+  intent: PLANNER_ACTIONS.UNSET_TODAY,
+  task_ref: "Pay rent",
+});
+
 await assertIntent("сними критичность с «Pay rent»", {
   intent: PLANNER_ACTIONS.UNSET_VITAL,
+  task_ref: "Pay rent",
+});
+
+await assertIntent("remove critical from «Pay rent»", {
+  intent: PLANNER_ACTIONS.UNSET_VITAL,
+  task_ref: "Pay rent",
+});
+
+await assertIntent("make «Pay rent» critical", {
+  intent: PLANNER_ACTIONS.SET_VITAL,
   task_ref: "Pay rent",
 });
 
