@@ -1735,3 +1735,14 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This is a browser UI confirmation only. It does not change the backend Cemetery command or delete-forever behavior.
+
+## 2026-06-06 - Codex
+
+- Summary: Recorded user-provided live Telegram smoke evidence for `/today` and `/calendar`.
+- Changed:
+  - `SESSION_HANDOFF.md` — marked `/today` as live-smoke confirmed in a real Telegram client, including active task buttons for `Done`, `Pin today`, `Critical`, `I'm stuck`, `Cemetery`, and `Open planner`; marked `/calendar` connect CTA as live-visible while keeping OAuth completion unverified.
+  - `ROADMAP.md` — added the same real-client evidence under the Telegram smoke procedure.
+- Verified:
+  - Documentation-only update; no code checks required.
+- Risks / follow-up:
+  - Remaining Telegram smoke queue: `/cemetery` list and active-task `Cemetery -> Cancel` confirmation path. OAuth completion remains outside this smoke pass.
