@@ -108,6 +108,7 @@ function keyboardHasCallback(keyboard, callbackData) {
   assert.match(helpText, /\/help/);
   assert.match(helpText, /\/calendar/);
   assert.match(helpText, /\/cemetery/);
+  assert.match(helpText, /\/reopen — restore the latest completed\/Cemetery task/);
 }
 
 {

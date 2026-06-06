@@ -1705,3 +1705,20 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This does not contact Telegram and does not mutate a task. Real Telegram-client smoke still needs to tap `Cemetery`, verify the confirmation prompt, and cancel.
+
+## 2026-06-06 - Codex
+
+- Summary: Added repo-side coverage for Telegram restore/reopen execution.
+- Changed:
+  - `tests/planner-telegram-reopen-actions.test.mjs` — added fake-store/fake-command-runner coverage that `reopen_task` restores the latest non-active completed/Cemetery task when no ref is provided, restores an explicit completed title when provided, logs `reopen_from_text`, and returns the active task keyboard with `Open planner`.
+  - `package.json` — added the reopen regression test to `test:contract` and `verify:server`.
+  - `api/telegram-webhook.js` — clarified `/reopen` help text to say completed/Cemetery, matching actual executor behavior.
+  - `tests/telegram-webhook-security.test.mjs` — added coverage for the clarified `/reopen` help text.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded the repo-side restore execution coverage.
+- Verified:
+  - `node --check tests/planner-telegram-reopen-actions.test.mjs && node tests/planner-telegram-reopen-actions.test.mjs && node --check api/telegram-webhook.js && node --check tests/telegram-webhook-security.test.mjs && node tests/telegram-webhook-security.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This does not contact Telegram and does not mutate live data. Real Telegram-client smoke for `/completed` and `/cemetery` restore evidence still depends on the user's Telegram client.

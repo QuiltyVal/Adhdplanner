@@ -72,6 +72,7 @@ The product should do three things well:
 
 - [x] Add planner web link into Telegram bot replies.
 - [x] Add "return from completed to active" from Telegram.
+  - 2026-06-06: repo regression coverage now checks `reopen_task` restore execution for latest non-active tasks and explicit title refs, including returned active keyboard with `Open planner`.
 - Live Telegram smoke procedure:
   - 2026-06-06: checklist added in `docs/telegram-live-smoke-checklist.md` for `/help`, `/today`, `/calendar`, `/cemetery`, completed restore, Cemetery confirmation/cancel, and `Open planner` evidence.
   - 2026-06-06: repo regression coverage added for read-only Telegram daily actions (`/today`, `/completed`, `/cemetery`) so they keep their expected keyboards and fail if they accidentally call the mutation command runner.
