@@ -88,6 +88,7 @@ Action:
 Expected:
 - Bot lists recent Cemetery/dead tasks, or says there are none.
 - Listed task cards include `Return to active` and `Open planner`.
+- If Cemetery is empty, the empty reply still includes `Open planner`.
 - Do not tap `Return to active` during the read-only pass.
 
 ## Controlled Mutation Smoke

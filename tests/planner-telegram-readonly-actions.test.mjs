@@ -53,6 +53,7 @@ const { PLANNER_ACTIONS } = require("../api/_lib/planner-action-types.js");
 const {
   calendarConnectKeyboard,
   completedTaskKeyboard,
+  plannerOpenKeyboard,
   plannerTaskKeyboard,
 } = require("../api/_lib/telegram.js");
 
@@ -64,6 +65,7 @@ function buildAdapter(messages = []) {
     taskKeyboard: plannerTaskKeyboard,
     completedTaskKeyboard,
     calendarConnectKeyboard,
+    plannerOpenKeyboard,
   };
 }
 
@@ -77,6 +79,23 @@ function keyboardHasCallback(keyboard, callbackData) {
   return Boolean((keyboard?.inline_keyboard || [])
     .flat()
     .some((button) => button?.callback_data === callbackData));
+}
+
+{
+  nonActiveTasks = [];
+
+  const messages = [];
+  await executePlannerAction({
+    userId: "user-1",
+    chatId: "chat-1",
+    plannerData: { tasks: [] },
+    route: { type: PLANNER_ACTIONS.SHOW_COMPLETED },
+    adapter: buildAdapter(messages),
+  });
+
+  assert.equal(messages.length, 1);
+  assert.match(messages[0].text, /Completed list is empty/);
+  assert.equal(keyboardHasPlannerLink(messages[0].extra.reply_markup), true);
 }
 
 {
@@ -101,6 +120,23 @@ function keyboardHasCallback(keyboard, callbackData) {
   assert.equal(keyboardHasCallback(messages[1].extra.reply_markup, "reopen:done-new"), true);
   assert.equal(keyboardHasPlannerLink(messages[1].extra.reply_markup), true);
   assert.match(messages[2].text, /Older completed task/);
+}
+
+{
+  nonActiveTasks = [];
+
+  const messages = [];
+  await executePlannerAction({
+    userId: "user-1",
+    chatId: "chat-1",
+    plannerData: { tasks: [] },
+    route: { type: PLANNER_ACTIONS.SHOW_CEMETERY },
+    adapter: buildAdapter(messages),
+  });
+
+  assert.equal(messages.length, 1);
+  assert.match(messages[0].text, /Cemetery is empty/);
+  assert.equal(keyboardHasPlannerLink(messages[0].extra.reply_markup), true);
 }
 
 {

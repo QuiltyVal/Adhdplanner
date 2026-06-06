@@ -1802,3 +1802,20 @@ Entry template:
   - Documentation-only update; no code checks required.
 - Risks / follow-up:
   - This Codex session did not expose a callable ADHD Planner MCP tool; no live MCP task was read or mutated. Final proof still requires a real connected MCP client.
+
+## 2026-06-06 - Codex
+
+- Summary: Kept Telegram read-only empty states connected back to the planner.
+- Changed:
+  - `api/telegram-webhook.js` — passes `plannerOpenKeyboard` into the shared planner action adapter.
+  - `api/_lib/planner-action-executor.js` — empty `/completed` and `/cemetery` responses now include `Open planner` instead of plain text only.
+  - `tests/planner-telegram-readonly-actions.test.mjs` — added repo-side coverage for empty completed/Cemetery responses with planner links and no mutation command runner calls.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded the empty-state behavior.
+- Verified:
+  - `node --check api/telegram-webhook.js && node --check api/_lib/planner-action-executor.js && node --check tests/planner-telegram-readonly-actions.test.mjs && node tests/planner-telegram-readonly-actions.test.mjs`
+  - `node tests/telegram-webhook-security.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This is repo-side/production behavior for empty read-only Telegram commands. It still does not replace real Telegram-client `/cemetery` evidence.

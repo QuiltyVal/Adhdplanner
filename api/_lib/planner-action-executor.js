@@ -751,7 +751,9 @@ async function executePlannerAction({
       .slice(0, 5);
 
     if (completedTasks.length === 0) {
-      await adapter.sendText("Completed list is empty for now.");
+      await adapter.sendText("Completed list is empty for now.", {
+        reply_markup: adapter.plannerOpenKeyboard ? adapter.plannerOpenKeyboard() : undefined,
+      });
       return;
     }
 
@@ -781,7 +783,9 @@ async function executePlannerAction({
       .slice(0, 5);
 
     if (cemeteryTasks.length === 0) {
-      await adapter.sendText("Cemetery is empty for now.");
+      await adapter.sendText("Cemetery is empty for now.", {
+        reply_markup: adapter.plannerOpenKeyboard ? adapter.plannerOpenKeyboard() : undefined,
+      });
       return;
     }
 

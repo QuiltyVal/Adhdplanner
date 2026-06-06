@@ -378,6 +378,7 @@ function buildPlannerActionAdapter(chatId, options = {}) {
     taskKeyboard: plannerTaskKeyboard,
     completedTaskKeyboard,
     calendarConnectKeyboard,
+    plannerOpenKeyboard,
   };
 }
 
