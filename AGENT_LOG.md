@@ -1834,3 +1834,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - No live Firestore export was run. First real export still needs intentional user-approved credentials/scope, then `--verify-file` proof on the generated JSON.
+
+## 2026-06-06 - Codex
+
+- Summary: Made capture dry-run avoid live task reads by default.
+- Changed:
+  - `api/captures.js` — dry-run capture handling now uses request-provided `activeTasks` or no task context by default; live Firestore task reads require explicit `includeLiveTasks: true`. Responses include `activeTasksSource` and `activeTasksCount`.
+  - `tests/captures-origin-contract.test.mjs` — added coverage for MCP dry-run origin, `includeLiveTasks`, no-live-read default, and request-snapshot task context.
+  - `docs/mcp-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded the dry-run task-source boundary.
+- Verified:
+  - `node --check api/captures.js && node --check tests/captures-origin-contract.test.mjs && node tests/captures-origin-contract.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This changes production `/api/captures` dry-run response metadata and default dry-run task context only. Normal stored captures and Angel Lab requests that pass `activeTasks` keep their existing behavior.

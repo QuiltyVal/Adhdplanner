@@ -113,6 +113,7 @@ function validateInput(body) {
   }
 
   const dryRun = body.dryRun === true || body.dryRun === "1";
+  const includeLiveTasks = body.includeLiveTasks === true || body.includeLiveTasks === "1";
   const userId = getDefaultUserId();
   if (!userId && !dryRun) {
     return { ok: false, statusCode: 503, message: "PLANNER_DEFAULT_USER_ID is not configured" };
@@ -162,6 +163,7 @@ function validateInput(body) {
       activeTasks,
       selfTest,
       dryRun,
+      includeLiveTasks,
     },
   };
 }
@@ -798,6 +800,32 @@ async function getActiveTasksSafe(userId) {
   }
 }
 
+function shouldReadLiveActiveTasks(input = {}) {
+  return Boolean(input?.userId && (!input?.dryRun || input?.includeLiveTasks));
+}
+
+async function resolveCaptureActiveTasks(input = {}) {
+  const requestTasks = Array.isArray(input.activeTasks) ? input.activeTasks : [];
+  if (requestTasks.length > 0) {
+    return {
+      activeTasks: requestTasks,
+      source: "request",
+    };
+  }
+
+  if (!shouldReadLiveActiveTasks(input)) {
+    return {
+      activeTasks: [],
+      source: "none",
+    };
+  }
+
+  return {
+    activeTasks: await getActiveTasksSafe(input.userId),
+    source: "live",
+  };
+}
+
 function extractJsonObject(rawText = "") {
   const text = String(rawText || "").trim();
   if (!text) throw new Error("Model returned empty response");
@@ -1296,11 +1324,8 @@ async function capturesHandler(req, res) {
       }
     }
 
-    const activeTasks = validation.input.activeTasks.length > 0
-      ? validation.input.activeTasks
-      : validation.input.userId
-        ? await getActiveTasksSafe(validation.input.userId)
-        : [];
+    const activeTaskResolution = await resolveCaptureActiveTasks(validation.input);
+    const activeTasks = activeTaskResolution.activeTasks;
     const extractionCandidateTasks = Array.isArray(extraction?.candidateTasks)
       ? extraction.candidateTasks
       : [];
@@ -1397,6 +1422,8 @@ async function capturesHandler(req, res) {
       schemaVersion: 2,
       dryRun: Boolean(validation.input.dryRun),
       origin: validation.input.origin,
+      activeTasksSource: activeTaskResolution.source,
+      activeTasksCount: activeTasks.length,
       taskCards: finalTaskCards,
       executiveAssessment,
       aiDraft,
@@ -1416,4 +1443,6 @@ module.exports._test = {
   validateInput,
   applyCreateCardSubtaskPreselection,
   polishAngelLabTaskCards,
+  shouldReadLiveActiveTasks,
+  resolveCaptureActiveTasks,
 };

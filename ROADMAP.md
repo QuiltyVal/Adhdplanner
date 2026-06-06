@@ -105,6 +105,7 @@ The product should do three things well:
   - 2026-06-06: local shared server path already sets `lastUpdated` for `TASK_ADD_SUBTASK`; regression coverage was added for the API contract and route-to-command mapping. Separate live MCP verification remains required.
   - 2026-06-06: `/api/captures` now preserves MCP/API origin metadata for `source=mcp...` dry-run and stored capture paths, with contract coverage. Separate live Hetzner MCP capture/write smoke remains required.
   - 2026-06-06: `docs/mcp-live-smoke-checklist.md` now defines the real-client Hetzner MCP smoke path for read-only task list, disposable add-subtask write, web refresh proof, cleanup, and optional dry-run MCP capture origin check.
+  - 2026-06-06: `/api/captures` dry-run no longer reads live Firestore tasks by default; response metadata reports whether task context came from `none`, `request`, or explicit `live` read.
 
 ## Next Product Features
 

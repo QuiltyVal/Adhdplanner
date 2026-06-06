@@ -78,11 +78,13 @@ Only run this after the subtask write smoke passes.
 Action:
 
 - From the MCP client or an authorized API path, submit a dry-run capture with `source=mcp:live-smoke`.
+- By default, dry-run capture intake does not read live Firestore tasks. Pass an explicit task snapshot as `activeTasks`, or intentionally set `includeLiveTasks: true` if the test needs live task context.
 
 Expected:
 
 - Response includes `dryRun: true`.
 - Response includes `origin.channel: mcp`.
+- Response includes `activeTasksSource: "none"` for a pure no-live-read dry run, `activeTasksSource: "request"` when a task snapshot was supplied, or `activeTasksSource: "live"` only when `includeLiveTasks: true` was intentional.
 - No Firestore write is required for this dry-run.
 
 ## Evidence To Record
