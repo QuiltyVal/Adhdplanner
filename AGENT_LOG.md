@@ -1616,3 +1616,16 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This does not prove Hetzner cron timing by itself. It makes the next live nudge explainable from the stored outbox/delivery payload.
+
+## 2026-06-06 - Codex
+
+- Summary: Added a stable live Telegram smoke checklist.
+- Changed:
+  - `docs/telegram-live-smoke-checklist.md` — added the real-client checklist for `/help`, `/today`, `/calendar`, `/cemetery`, completed restore, Cemetery confirmation/cancel, and `Open planner` evidence.
+  - `README.md` — linked the Telegram and Angel live QA checklists.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded that the checklist is the canonical procedure; live smoke itself remains pending.
+- Verified:
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This is documentation only. It does not replace real Telegram-client evidence.

@@ -52,6 +52,11 @@ Read-only local export notes live in [docs/firestore-backup-export.md](docs/fire
 Quick help:
 - `npm run backup:planner -- --help`
 
+## Live QA Checklists
+
+- Telegram live smoke: [docs/telegram-live-smoke-checklist.md](docs/telegram-live-smoke-checklist.md)
+- Angel/live planner verification: [docs/live-angel-verification-checklist.md](docs/live-angel-verification-checklist.md)
+
 ## Execution Plan
 
 Active product execution now lives in [EXECUTION_PLAN.md](EXECUTION_PLAN.md).
