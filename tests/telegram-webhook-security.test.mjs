@@ -13,8 +13,16 @@ const {
   plannerTaskKeyboard,
 } = require("../api/_lib/telegram.js");
 
-const { buildTelegramHelpText, buildTelegramSecurityDecision, isAllowedChat } = telegramWebhook._test;
+const {
+  buildTelegramCalendarResponse,
+  buildTelegramHelpResponse,
+  buildTelegramHelpText,
+  buildTelegramSecurityDecision,
+  isAllowedChat,
+} = telegramWebhook._test;
 
+assert.equal(typeof buildTelegramCalendarResponse, "function");
+assert.equal(typeof buildTelegramHelpResponse, "function");
 assert.equal(typeof buildTelegramHelpText, "function");
 assert.equal(typeof buildTelegramSecurityDecision, "function");
 assert.equal(typeof isAllowedChat, "function");
@@ -98,6 +106,49 @@ function keyboardHasCallback(keyboard, callbackData) {
   assert.match(helpText, /\/help/);
   assert.match(helpText, /\/calendar/);
   assert.match(helpText, /\/cemetery/);
+}
+
+{
+  const helpResponse = buildTelegramHelpResponse();
+  assert.match(helpResponse.text, /\/today/);
+  assert.match(helpResponse.text, /\/completed/);
+  assert.match(helpResponse.text, /\/calendar/);
+  assert.match(helpResponse.text, /\/cemetery/);
+  assert.equal(keyboardHasPlannerLink(helpResponse.reply_markup), true);
+}
+
+{
+  const previousClientId = process.env.GOOGLE_CLIENT_ID;
+  const previousClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const previousRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+  const previousStateSecret = process.env.GOOGLE_OAUTH_STATE_SECRET;
+
+  process.env.GOOGLE_CLIENT_ID = "test-google-client";
+  process.env.GOOGLE_CLIENT_SECRET = "test-google-secret";
+  process.env.GOOGLE_REDIRECT_URI = "https://planner.valquilty.com/api/google-calendar-callback";
+  process.env.GOOGLE_OAUTH_STATE_SECRET = "test-state-secret";
+
+  try {
+    const calendarResponse = buildTelegramCalendarResponse({ userId: "user-1" });
+    const flatButtons = calendarResponse.reply_markup.inline_keyboard.flat();
+    const calendarButton = flatButtons.find((button) => button?.text === "📅 Connect Google Calendar");
+
+    assert.match(calendarResponse.text, /Google Calendar access/);
+    assert.equal(keyboardHasPlannerLink(calendarResponse.reply_markup), true);
+    assert.equal(Boolean(calendarButton), true);
+    assert.match(calendarButton.url, /^https:\/\/accounts\.google\.com\/o\/oauth2\/v2\/auth\?/);
+    assert.match(calendarButton.url, /client_id=test-google-client/);
+    assert.match(calendarButton.url, /scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar/);
+  } finally {
+    if (previousClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = previousClientId;
+    if (previousClientSecret === undefined) delete process.env.GOOGLE_CLIENT_SECRET;
+    else process.env.GOOGLE_CLIENT_SECRET = previousClientSecret;
+    if (previousRedirectUri === undefined) delete process.env.GOOGLE_REDIRECT_URI;
+    else process.env.GOOGLE_REDIRECT_URI = previousRedirectUri;
+    if (previousStateSecret === undefined) delete process.env.GOOGLE_OAUTH_STATE_SECRET;
+    else process.env.GOOGLE_OAUTH_STATE_SECRET = previousStateSecret;
+  }
 }
 
 {

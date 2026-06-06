@@ -1675,3 +1675,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This still does not replace real Telegram smoke evidence; it only prevents the deterministic fallback path from turning common English action phrases into new tasks when the model is unavailable.
+
+## 2026-06-06 - Codex
+
+- Summary: Added repo-side response coverage for the remaining read-only Telegram smoke commands.
+- Changed:
+  - `api/telegram-webhook.js` — extracted `/help` and `/calendar` response builders so the transport handlers and tests share the same text/keyboard payloads.
+  - `tests/telegram-webhook-security.test.mjs` — added coverage that `/help` includes the smoke-relevant commands with `Open planner`, and `/calendar` includes both the Google Calendar OAuth button and `Open planner`.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded the extra repo-side coverage while keeping real Telegram-client smoke open.
+- Verified:
+  - `node --check api/telegram-webhook.js && node --check tests/telegram-webhook-security.test.mjs && node tests/telegram-webhook-security.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This does not contact Telegram and does not prove OAuth completion. The next real-client smoke still needs `/help`, `/today`, `/calendar`, `/cemetery`, and Cemetery confirmation/cancel evidence.

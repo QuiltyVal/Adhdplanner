@@ -345,6 +345,21 @@ function buildTelegramHelpText({ connected = false } = {}) {
   ].join("\n");
 }
 
+function buildTelegramHelpResponse(options = {}) {
+  return {
+    text: buildTelegramHelpText(options),
+    reply_markup: plannerOpenKeyboard(),
+  };
+}
+
+function buildTelegramCalendarResponse({ userId } = {}) {
+  const url = buildGoogleCalendarConnectUrl(userId);
+  return {
+    text: "Open the button below and grant Google Calendar access. After that I can schedule tasks there from Telegram.",
+    reply_markup: calendarConnectKeyboard(url),
+  };
+}
+
 function buildPlannerActionAdapter(chatId, options = {}) {
   const suppressMessages = options.suppressMessages === true;
   return {
@@ -410,12 +425,11 @@ async function handleStart(chatId, options = {}) {
   if (shouldLinkChat) {
     await linkTelegramChatViaCommand(userId, chatId, "telegram_start");
   }
+  const response = buildTelegramHelpResponse({ connected: shouldLinkChat });
   await sendText(
     chatId,
-      buildTelegramHelpText({ connected: shouldLinkChat }),
-    {
-      reply_markup: plannerOpenKeyboard(),
-    },
+    response.text,
+    { reply_markup: response.reply_markup },
   );
   if (shouldLinkChat) {
     await sendText(
@@ -426,21 +440,14 @@ async function handleStart(chatId, options = {}) {
 }
 
 async function handleHelp(chatId) {
-  await sendText(chatId, buildTelegramHelpText(), {
-    reply_markup: plannerOpenKeyboard(),
-  });
+  const response = buildTelegramHelpResponse();
+  await sendText(chatId, response.text, { reply_markup: response.reply_markup });
 }
 
 async function handleCalendar(chatId) {
   const userId = getTargetUserId();
-  const url = buildGoogleCalendarConnectUrl(userId);
-  await sendText(
-    chatId,
-    "Open the button below and grant Google Calendar access. After that I can schedule tasks there from Telegram.",
-    {
-      reply_markup: calendarConnectKeyboard(url),
-    },
-  );
+  const response = buildTelegramCalendarResponse({ userId });
+  await sendText(chatId, response.text, { reply_markup: response.reply_markup });
 }
 
 async function resolveUnifiedInboundRoute(chatId, text, options = {}) {
@@ -1045,6 +1052,8 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports._test = {
+  buildTelegramCalendarResponse,
+  buildTelegramHelpResponse,
   buildTelegramHelpText,
   buildTelegramSecurityDecision,
   isAllowedChat,
