@@ -74,6 +74,7 @@ The product should do three things well:
 - [x] Add "return from completed to active" from Telegram.
 - Live Telegram smoke procedure:
   - 2026-06-06: checklist added in `docs/telegram-live-smoke-checklist.md` for `/help`, `/today`, `/calendar`, `/cemetery`, completed restore, Cemetery confirmation/cancel, and `Open planner` evidence.
+  - 2026-06-06: repo regression coverage added for read-only Telegram daily actions (`/today`, `/completed`, `/cemetery`) so they keep their expected keyboards and fail if they accidentally call the mutation command runner.
 - Add "kill / revive" from free text and buttons.
   - 2026-06-05: active-task `Cemetery` button and `/cemetery` restore list are implemented; live Telegram smoke is still needed before closing.
 - Improve Telegram nudges:

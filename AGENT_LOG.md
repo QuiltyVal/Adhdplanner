@@ -1629,3 +1629,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This is documentation only. It does not replace real Telegram-client evidence.
+
+## 2026-06-06 - Codex
+
+- Summary: Added repo-side regression coverage for read-only Telegram daily actions.
+- Changed:
+  - `tests/planner-telegram-readonly-actions.test.mjs` — added fake-adapter coverage for `/today`, `/completed`, and `/cemetery`; the test fails if these read-only paths call the mutation command runner.
+  - `package.json` — added the new Telegram read-only action test to `verify:server` and `test:contract`.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded this as repo-side protection, not a replacement for real Telegram live smoke.
+- Verified:
+  - `node --check tests/planner-telegram-readonly-actions.test.mjs && node tests/planner-telegram-readonly-actions.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - Real Telegram-client evidence is still pending for `/help`, `/today`, `/calendar`, `/cemetery`, and Cemetery confirmation/cancel.
