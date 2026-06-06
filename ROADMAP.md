@@ -98,6 +98,7 @@ The product should do three things well:
   - unpin
   - revive completed/dead tasks
   - 2026-06-06: repo fallback parser now routes Russian and Telegram-button-style English free-text actions for done, revive, Cemetery, Today pin/unpin, and critical on/off when OpenRouter is unavailable. Live Telegram smoke is still pending.
+  - 2026-06-06: repo fallback parser now also routes `I'm stuck` / `я застряла` variants to panic or task-specific panic instead of accidental new-task creation when OpenRouter is unavailable. Live Telegram smoke is still pending.
 
 ### P1: MCP Reliability
 

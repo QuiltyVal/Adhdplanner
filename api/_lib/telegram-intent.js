@@ -89,7 +89,14 @@ function inferPanicTaskReference(text = "") {
     .replace(/^(ну\s+)?/iu, "")
     .replace(/^(включи|вруби|запусти|дай|сделай|переключи)\s+/iu, "")
     .replace(/^(паника|паник|panic)\s*/iu, "")
+    .replace(/^(я\s+)?застрял[ао]?\s*/iu, "")
+    .replace(/^(i\s*'?m|i\s+am|im)\s+stuck\s*/iu, "")
+    .replace(/^stuck\s*/iu, "")
+    .replace(/^(on|with)\s+/iu, "")
+    .replace(/^(на|с|по)\s+/iu, "")
     .replace(/^(по|для)\s+(задач[еи]|делу)\s+/iu, "")
+    .replace(/^(задач[еи]|делу)\s+/iu, "")
+    .replace(/^(task|quest)\s+/iu, "")
     .replace(/^(режим|mode)\s+/iu, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -113,7 +120,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/(паник|паника|panic)/u.test(normalized)) {
+  if (/(паник|паника|panic|застрял|застряла|застряло|затык|i\s*'?m\s+stuck|i\s+am\s+stuck|im\s+stuck|stuck)/u.test(normalized)) {
     const panicTaskRef = inferPanicTaskReference(text);
     if (panicTaskRef) {
       return {

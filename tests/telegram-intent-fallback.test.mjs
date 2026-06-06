@@ -102,6 +102,24 @@ await assertIntent("make «Pay rent» critical", {
   task_ref: "Pay rent",
 });
 
+await assertIntent("я застряла", {
+  intent: PLANNER_ACTIONS.PANIC,
+});
+
+await assertIntent("I'm stuck", {
+  intent: PLANNER_ACTIONS.PANIC,
+});
+
+await assertIntent("я застряла на «Pay rent»", {
+  intent: PLANNER_ACTIONS.PANIC_TASK,
+  task_ref: "Pay rent",
+});
+
+await assertIntent("I'm stuck on «Pay rent»", {
+  intent: PLANNER_ACTIONS.PANIC_TASK,
+  task_ref: "Pay rent",
+});
+
 await assertIntent("приготовить ужин", {
   intent: PLANNER_ACTIONS.ADD_TASK,
   task_text: "приготовить ужин",

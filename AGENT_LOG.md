@@ -1880,3 +1880,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This is repo-side callback routing proof only. The remaining live smoke still needs a real Telegram screenshot for `Cemetery -> Cancel`.
+
+## 2026-06-06 - Codex
+
+- Summary: Routed Telegram fallback stuck text to panic.
+- Changed:
+  - `api/_lib/telegram-intent.js` — fallback parser treats `I'm stuck` / `я застряла` variants as panic or task-specific panic, preserving quoted task references.
+  - `tests/telegram-intent-fallback.test.mjs` — added OpenRouter-failure coverage for generic stuck text and task-specific stuck text.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded the repo-side fallback guard.
+- Verified:
+  - `node --check api/_lib/telegram-intent.js && node --check tests/telegram-intent-fallback.test.mjs && node tests/telegram-intent-fallback.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This guards the deterministic fallback parser, not the full real Telegram-client path. Live Telegram smoke remains required for `/cemetery`, `Cemetery -> Cancel`, and representative free-text actions after deploy.
