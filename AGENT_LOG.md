@@ -1763,3 +1763,13 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - No live Firestore export was run and no live data was read. The first real backup still needs an intentional read-only run with credentials.
+
+## 2026-06-06 - Codex
+
+- Summary: Clarified the Telegram live-smoke checklist status after user confusion about whether Telegram Cemetery was still broken.
+- Changed:
+  - `docs/telegram-live-smoke-checklist.md` — added a current-status section that explicitly says Telegram is not considered broken, lists confirmed real-client evidence (`Open planner` nudges, `/completed` restore, `/today`, `/calendar` CTA), and narrows the remaining queue to `/cemetery` list plus active-task `Cemetery -> Cancel`.
+- Verified:
+  - Documentation-only update; no code checks required.
+- Risks / follow-up:
+  - This does not add new Telegram evidence. The remaining confirmation/cancel path still depends on the user's real Telegram client.

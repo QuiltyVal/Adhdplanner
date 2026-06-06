@@ -17,6 +17,27 @@ This checks whether Telegram can still act as the daily interface:
 
 Do not use fake Telegram API calls as the final proof. The pass criteria require screenshots or copied evidence from a real Telegram client.
 
+## Current Status
+
+As of 2026-06-06, Telegram is not considered broken.
+
+Already confirmed from real Telegram screenshots:
+
+- scheduled nudge messages show `Open planner`;
+- `/completed` lists completed tasks and `Return to active` restored the selected test task;
+- `/today` renders the daily digest and active task buttons including `Cemetery` and `Open planner`;
+- `/calendar` renders the Google Calendar connect CTA in the real Telegram client.
+
+Still remaining:
+
+- `/cemetery` list evidence;
+- active task `Cemetery` first tap shows confirmation, then `Cancel` leaves the task active.
+
+Not covered by this smoke:
+
+- completing Google Calendar OAuth;
+- moving a real task all the way into Cemetery with `Yes, Cemetery`.
+
 ## Preconditions
 
 - Confirm `planner.valquilty.com` returns HTTP 200.
