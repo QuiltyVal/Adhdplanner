@@ -56,6 +56,7 @@ Quick help:
 ## Live QA Checklists
 
 - Telegram live smoke: [docs/telegram-live-smoke-checklist.md](docs/telegram-live-smoke-checklist.md)
+- MCP live smoke: [docs/mcp-live-smoke-checklist.md](docs/mcp-live-smoke-checklist.md)
 - Angel/live planner verification: [docs/live-angel-verification-checklist.md](docs/live-angel-verification-checklist.md)
 
 ## Execution Plan

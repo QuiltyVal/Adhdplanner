@@ -1790,3 +1790,15 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This does not contact the live Hetzner MCP server and does not write Firestore data. A real MCP capture/write smoke is still required before marking the MCP-originated capture item fully done.
+
+## 2026-06-06 - Codex
+
+- Summary: Added a canonical live MCP smoke checklist.
+- Changed:
+  - `docs/mcp-live-smoke-checklist.md` — added the real-client Hetzner MCP verification procedure: preconditions, read-only task list check, one disposable add-subtask mutation, web refresh proof, cleanup, optional MCP capture dry-run, evidence requirements, and pass criteria.
+  - `README.md` — linked the MCP checklist under Live QA Checklists.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded that the procedure exists while the actual live MCP smoke remains pending.
+- Verified:
+  - Documentation-only update; no code checks required.
+- Risks / follow-up:
+  - This Codex session did not expose a callable ADHD Planner MCP tool; no live MCP task was read or mutated. Final proof still requires a real connected MCP client.
