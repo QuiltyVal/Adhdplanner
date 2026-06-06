@@ -1864,3 +1864,19 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - OAuth completion still needs real user-client testing. This only hardens the server state boundary before Google token exchange.
+
+## 2026-06-06 - Codex
+
+- Summary: Added repo-side guard for Telegram Cemetery cancel callbacks.
+- Changed:
+  - `api/telegram-webhook.js` — exposed `resolveUnifiedCallbackRoute` for regression tests.
+  - `tests/telegram-callback-cancel.test.mjs` — verifies `cancel:<taskId>` resolves to no planner command/no mutation, while `confirm_kill:<taskId>` still resolves to `KILL_TASK`.
+  - `package.json` — added the callback-cancel regression to `test:contract` and `verify:server`.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded the repo-side Cancel guard while keeping real Telegram evidence pending.
+- Verified:
+  - `node --check api/telegram-webhook.js && node --check tests/telegram-callback-cancel.test.mjs && node tests/telegram-callback-cancel.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This is repo-side callback routing proof only. The remaining live smoke still needs a real Telegram screenshot for `Cemetery -> Cancel`.

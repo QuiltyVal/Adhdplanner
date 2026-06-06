@@ -1066,4 +1066,5 @@ module.exports._test = {
   buildTelegramKillConfirmationResponse,
   buildTelegramSecurityDecision,
   isAllowedChat,
+  resolveUnifiedCallbackRoute,
 };
