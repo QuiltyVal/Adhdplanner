@@ -52,10 +52,17 @@ function inferTaskReference(text = "") {
   return String(text || "")
     .replace(/^(переведи|отправь|перенеси|закинь|заверши|выполни|выполнить|открепи|сними|снять|верни|сделай|закрепи|пометь|запланируй|добавь|добавить|удали|удалить|убей|похорони)\s+/i, "")
     .replace(/^(задач[ауи]?|дело|таск)\s+/i, "")
-    .replace(/(?:^|\s)(на|в)\s+сегодня(?=\s|$)/giu, " ")
+    .replace(/(?:^|\s)(на|в|с)\s+сегодня(?=\s|$)/giu, " ")
     .replace(/(?:^|\s)(критичн|критичност|выполненн|в\s+рай|в\s+ад(?:у)?|на\s+кладбище|в\s+кладбище|в\s+мусор|в\s+помойку|в\s+небытие|сейчас|сегодня\s+в\s+раю)(?=\s|$)/giu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function pickReferencedTask({ text = "", normalized = "", quoted = [], normalizeGeneric = false } = {}) {
+  const quotedRef = quoted[0] || "";
+  if (quotedRef) return quotedRef;
+  const inferred = inferTaskReference(normalized || text);
+  return normalizeGeneric ? normalizeGenericTaskRef(inferred) : inferred;
 }
 
 function normalizeGenericTaskRef(taskRef = "") {
@@ -92,7 +99,7 @@ function inferQuickIntent(text = "") {
   if (!normalized) return null;
   const quoted = extractQuotedSegments(text);
 
-  if (/\b(показ|что.*сегодня|что.*сейчас|главн|горит|главное|сегодняшн)\b/.test(normalized)) {
+  if (/(показ|что.*сегодня|что.*сейчас|главн|горит|главное|сегодняшн)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.SHOW_TODAY,
       task_text: "",
@@ -101,7 +108,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/\b(паник|паника|panic)\b/.test(normalized)) {
+  if (/(паник|паника|panic)/u.test(normalized)) {
     const panicTaskRef = inferPanicTaskReference(text);
     if (panicTaskRef) {
       return {
@@ -119,39 +126,39 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/\b(ад|аду|кладбищ|мусор|помойк|небыт|похорон|убей|умертв|снеси|выкинь|сдохни|умри)\b|удали из актив/.test(normalized)) {
-    const taskRef = normalizeGenericTaskRef(inferTaskReference(normalized));
+  if (/(в\s+ад|в\s+аду|кладбищ|мусор|помойк|небыт|похорон|убей|умертв|снеси|выкинь|сдохни|умри|удали из актив)/u.test(normalized)) {
+    const taskRef = pickReferencedTask({ text, normalized, quoted, normalizeGeneric: true });
     return {
       intent: PLANNER_ACTIONS.KILL_TASK,
-      task_ref: taskRef || (quoted[0] || null),
+      task_ref: taskRef || null,
       subtask_text: null,
       task_text: "",
     };
   }
 
-  if (/\b(выполн|готов|заверш|в рай)\b/.test(normalized)) {
-    const taskRef = inferTaskReference(normalized);
+  if (/(выполн|готов(?:а|о|ы|ой|ым|ыми)?(?:\s|$)|заверш|в\s+рай)/u.test(normalized)) {
+    const taskRef = pickReferencedTask({ text, normalized, quoted });
     return {
       intent: PLANNER_ACTIONS.COMPLETE_TASK,
-      task_ref: taskRef || (quoted[0] || null),
+      task_ref: taskRef || null,
       subtask_text: null,
       task_text: "",
     };
   }
 
-  if (/\b(верн|возврат|воскрес|восстанов|спаси)\b/.test(normalized)) {
+  if (/(верн|возврат|воскрес|восстанов|спаси)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.REOPEN_TASK,
-      task_ref: inferTaskReference(normalized) || quoted[0] || null,
+      task_ref: pickReferencedTask({ text, normalized, quoted }) || null,
       subtask_text: null,
       task_text: "",
     };
   }
 
-  if (/\b(сегодня|сегодняшн).*(закреп|прикреп)/.test(normalized)) {
+  if (/((сегодня|сегодняшн).*(закреп|прикреп)|(закреп|прикреп).*(сегодня|сегодняшн))/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.SET_TODAY,
-      task_ref: inferTaskReference(normalized) || quoted[0] || null,
+      task_ref: pickReferencedTask({ text, normalized, quoted }) || null,
       subtask_text: null,
       task_text: "",
     };
@@ -160,7 +167,7 @@ function inferQuickIntent(text = "") {
   if (/(сними|откреп|убер|удали|снять).*(сегодня|сегодняшн)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.UNSET_TODAY,
-      task_ref: inferTaskReference(normalized) || quoted[0] || null,
+      task_ref: pickReferencedTask({ text, normalized, quoted }) || null,
       subtask_text: null,
       task_text: "",
     };
@@ -169,22 +176,22 @@ function inferQuickIntent(text = "") {
   if (/(сними|снять|убери|убрать|без|не).*(критич|критичност|жизненн|важн|срочн)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.UNSET_VITAL,
-      task_ref: inferTaskReference(normalized) || quoted[0] || null,
+      task_ref: pickReferencedTask({ text, normalized, quoted }) || null,
       subtask_text: null,
       task_text: "",
     };
   }
 
-  if (/\b(критич|жизненн|срочно)\b/.test(normalized)) {
+  if (/(критич|жизненн|срочно)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.SET_VITAL,
-      task_ref: inferTaskReference(normalized) || quoted[0] || null,
+      task_ref: pickReferencedTask({ text, normalized, quoted }) || null,
       subtask_text: null,
       task_text: "",
     };
   }
 
-  const addSubtaskQuoted = /\b(добавь|добавить).*(подзадач|шаг)/.test(normalized);
+  const addSubtaskQuoted = /^(добавь|добавить).*(подзадач|шаг)/u.test(normalized);
   if (addSubtaskQuoted && quoted.length >= 2) {
     return {
       intent: PLANNER_ACTIONS.ADD_SUBTASK,
@@ -194,7 +201,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  const deleteSubtaskQuoted = /\b(удал|удали|снес|убери?)\b.*(подзадач|шаг)/.test(normalized);
+  const deleteSubtaskQuoted = /^(удал|удали|снес|убери?).*(подзадач|шаг)/u.test(normalized);
   if (deleteSubtaskQuoted && quoted.length >= 2) {
     return {
       intent: PLANNER_ACTIONS.DELETE_SUBTASK,
@@ -204,7 +211,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/\b(посоветуй|что.*откреп|какую.*откреп|сними.*сегодня|предложи).*\b/.test(normalized)) {
+  if (/(посоветуй|что.*откреп|какую.*откреп|сними.*сегодня|предложи)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.SUGGEST_UNPIN,
       task_text: "",
@@ -213,7 +220,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/\b(заплан|календ|распис|создай.*событи)/.test(normalized)) {
+  if (/(заплан|календ|распис|создай.*событи)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.SCHEDULE_TASK,
       task_text: "",
@@ -222,7 +229,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/^(добавь|добавить|поставь|напомни|напиши|нужно|надо|хочу|сделай|запиши|позже)\b/.test(normalized)) {
+  if (/^(добавь|добавить|поставь|напомни|напиши|нужно|надо|хочу|сделай|запиши|позже)(\s|$)/u.test(normalized)) {
     return {
       intent: PLANNER_ACTIONS.ADD_TASK,
       task_text: String(text || "").trim(),
@@ -244,7 +251,7 @@ function inferFallbackIntent(text = "") {
     };
   }
 
-  if (/\b(привет|как|что|когда|почему|как-то|помог|помоги|что-то)\b/.test(normalized) && normalized.length < 20) {
+  if (/^(привет|как|что|когда|почему|как-то|помог|помоги|что-то)(\s|$)/u.test(normalized) && normalized.length < 20) {
     return {
       intent: PLANNER_ACTIONS.CHAT,
       reply_text: "Сформулируй это как задачу или просто выбери /today или /panic.",
@@ -252,7 +259,7 @@ function inferFallbackIntent(text = "") {
     };
   }
 
-  const quick = inferQuickIntent(normalized);
+  const quick = inferQuickIntent(text);
   if (quick) {
     return quick;
   }

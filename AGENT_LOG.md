@@ -1644,3 +1644,19 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - Real Telegram-client evidence is still pending for `/help`, `/today`, `/calendar`, `/cemetery`, and Cemetery confirmation/cancel.
+
+## 2026-06-06 - Codex
+
+- Summary: Fixed Telegram fallback intent routing for core Russian free-text actions when OpenRouter is unavailable.
+- Changed:
+  - `api/_lib/telegram-intent.js` — stopped routing core Cyrillic action phrases through JavaScript ASCII word-boundary checks, preserved quoted task references before normalized fallback extraction, and handled both `закрепи ... на сегодня` and `сегодня закрепи ...` forms.
+  - `tests/telegram-intent-fallback.test.mjs` — added OpenRouter-failure coverage for done, revive, Cemetery, Today pin/unpin, critical off, and the `готовить` false-positive guard.
+  - `package.json` — added the fallback intent regression test to `verify:server` and `test:contract`.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded that repo-side fallback routing is guarded while live Telegram smoke remains pending.
+- Verified:
+  - `node --check api/_lib/telegram-intent.js && node --check tests/telegram-intent-fallback.test.mjs && node tests/telegram-intent-fallback.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This guards the deterministic fallback parser, not the full real Telegram-client path. Live messages are still needed for `/help`, `/today`, `/calendar`, `/cemetery`, Cemetery confirmation/cancel, and representative free-text actions after deploy.

@@ -87,6 +87,7 @@ The product should do three things well:
   - pin for today
   - unpin
   - revive completed/dead tasks
+  - 2026-06-06: repo fallback parser now routes Cyrillic free-text actions for done, revive, Cemetery, Today pin/unpin, and critical on/off when OpenRouter is unavailable. Live Telegram smoke is still pending.
 
 ### P1: MCP Reliability
 
