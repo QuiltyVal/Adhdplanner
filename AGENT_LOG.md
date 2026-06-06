@@ -1895,3 +1895,14 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This guards the deterministic fallback parser, not the full real Telegram-client path. Live Telegram smoke remains required for `/cemetery`, `Cemetery -> Cancel`, and representative free-text actions after deploy.
+
+## 2026-06-06 - Codex
+
+- Summary: Recorded live Telegram Cemetery smoke evidence.
+- Changed:
+  - `docs/telegram-live-smoke-checklist.md` — moved `/cemetery` and active-task `Cemetery -> Cancel` from remaining queue to confirmed real-client evidence.
+  - `ROADMAP.md` and `SESSION_HANDOFF.md` — recorded the user-confirmed Cemetery bot path and kept destructive `Yes, Cemetery` outside the safe smoke scope.
+- Verified:
+  - User reported: "Cemetery через бота работает как надо, я проверила".
+- Risks / follow-up:
+  - This records user-provided live evidence only. Calendar OAuth completion and live MCP write smoke remain separate.

@@ -80,12 +80,14 @@ The product should do three things well:
   - 2026-06-06: repo regression coverage added for read-only Telegram daily actions (`/today`, `/completed`, `/cemetery`) so they keep their expected keyboards and fail if they accidentally call the mutation command runner.
   - 2026-06-06: repo regression coverage now also checks `/help` and `/calendar` response payloads, including `Open planner` and Google Calendar connect buttons.
   - 2026-06-06: user-provided real Telegram screenshots confirmed `/today` renders the daily digest with active task buttons including `Cemetery` and `Open planner`, and `/calendar` renders the Google Calendar connect CTA. OAuth completion was not tested.
+  - 2026-06-06: user-provided live Telegram check confirmed `/cemetery` and active-task `Cemetery -> Cancel` work correctly in the real bot client. Destructive `Yes, Cemetery` on a real task remains intentionally outside this safe smoke.
   - 2026-06-06: empty `/completed` and empty `/cemetery` Telegram replies now also include `Open planner`, with repo-side read-only coverage.
   - 2026-06-06: Google Calendar OAuth state now has repo-side TTL/user-id validation coverage, so stale Telegram connect links are rejected before token exchange.
 - Add "kill / revive" from free text and buttons.
-  - 2026-06-05: active-task `Cemetery` button and `/cemetery` restore list are implemented; live Telegram smoke is still needed before closing.
+  - 2026-06-05: active-task `Cemetery` button and `/cemetery` restore list are implemented.
   - 2026-06-06: repo regression coverage now checks the first-tap Cemetery confirmation payload (`Yes, Cemetery`, `Make smaller`, `Cancel`, `Open planner`) so the task keyboard does not expose direct `confirm_kill`.
   - 2026-06-06: repo regression coverage now also checks Telegram `cancel:<taskId>` resolves to no planner command, while `confirm_kill:<taskId>` still resolves to Cemetery mutation.
+  - 2026-06-06: user-provided live Telegram check confirmed the Cemetery bot path behaves correctly, including safe cancel behavior.
   - 2026-06-06: web active-card `To Cemetery` now asks for confirmation before moving a task out of Active, matching the Telegram destructive-action boundary.
 - Improve Telegram nudges:
   - investigate why a nudge landed at 09:44 instead of 09:00

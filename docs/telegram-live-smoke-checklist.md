@@ -27,11 +27,7 @@ Already confirmed from real Telegram screenshots:
 - `/completed` lists completed tasks and `Return to active` restored the selected test task;
 - `/today` renders the daily digest and active task buttons including `Cemetery` and `Open planner`;
 - `/calendar` renders the Google Calendar connect CTA in the real Telegram client.
-
-Still remaining:
-
-- `/cemetery` list evidence;
-- active task `Cemetery` first tap shows confirmation, then `Cancel` leaves the task active.
+- `/cemetery` and active-task `Cemetery -> Cancel` work correctly in the real Telegram client.
 
 Not covered by this smoke:
 
