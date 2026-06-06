@@ -1567,3 +1567,20 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - No live export was run during this heartbeat. First real backup should be run intentionally with `FIREBASE_CREDENTIALS` and the target `PLANNER_DEFAULT_USER_ID`, then the generated JSON should remain uncommitted.
+
+## 2026-06-06 - Codex
+
+- Summary: Improved planner event audit payloads for destructive/status-changing single-task operations.
+- Changed:
+  - `api/_lib/planner-command-event-specs.js` — single-task mutation events now include `payload.previousStatus`, `payload.nextStatus`, and `payload.scoreDelta` when relevant.
+  - `api/_lib/planner-command-service.js` — passes the previous task state and score delta into the event builder.
+  - `tests/planner-command-event-specs.test.mjs` — added regression coverage for Cemetery and reopen event payloads.
+  - `package.json` — added the new event-spec regression test to `verify:server` and `test:contract`.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded the operation-logging improvement.
+- Verified:
+  - `node --check api/_lib/planner-command-event-specs.js && node --check api/_lib/planner-command-service.js && node --check tests/planner-command-event-specs.test.mjs`
+  - `node tests/planner-command-event-specs.test.mjs`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This changes event metadata only, not task mutation behavior. Existing historical events will not get the new payload retroactively.

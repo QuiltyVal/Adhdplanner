@@ -1485,9 +1485,11 @@ async function mutateSingleTaskCommand({ userId, command = {}, actor = {}, now =
       eventType,
       commandType,
       task,
+      previousTask: existingTask,
       actor,
       source,
       extra,
+      scoreDelta,
       now,
     });
     transaction.set(userRef.collection("plannerEvents").doc(eventId), event);

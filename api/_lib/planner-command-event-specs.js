@@ -37,9 +37,11 @@ function buildSingleTaskMutationCommandEvent({
   eventType,
   commandType,
   task,
+  previousTask = null,
   actor,
   source,
   extra = {},
+  scoreDelta = 0,
   now,
 } = {}) {
   const actorType = String(actor?.type || "user");
@@ -103,6 +105,20 @@ function buildSingleTaskMutationCommandEvent({
                                                       ? `Moved “${escapedTask}” to ${escapeHtml(extra.heatZone || "zone")}.`
                                                       : `Updated “${escapedTask}”.`;
 
+  const statusChanged =
+    previousTask &&
+    String(previousTask.status || "") !== String(task?.status || "");
+  const payload = {
+    ...(statusChanged
+      ? {
+          previousStatus: String(previousTask.status || ""),
+          nextStatus: String(task?.status || ""),
+        }
+      : {}),
+    ...(Number(scoreDelta || 0) !== 0 ? { scoreDelta: Number(scoreDelta || 0) } : {}),
+    ...(extra && typeof extra === "object" && Object.keys(extra).length > 0 ? { extra } : {}),
+  };
+
   return {
     id: eventId,
     type: eventName,
@@ -117,6 +133,7 @@ function buildSingleTaskMutationCommandEvent({
     taskText,
     command_type: commandType,
     message,
+    ...(Object.keys(payload).length > 0 ? { payload } : {}),
     visible_in_feed: true,
     visible_in_report: false,
     createdAt: now,

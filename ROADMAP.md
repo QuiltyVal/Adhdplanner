@@ -64,7 +64,8 @@ The product should do three things well:
 - Verify that subtasks added externally show correctly in web UI.
 - [x] Add a simple Firestore backup / export strategy.
   - 2026-06-06: read-only local JSON export script added; first live export run is still pending.
-- Add operation logging for destructive task changes.
+- [x] Add operation logging for destructive task changes.
+  - 2026-06-06: destructive/status-transition events include structured status transition payloads; bulk/delete/snapshot paths already write planner events.
 
 ### P1: Telegram as Main Daily Interface
 
