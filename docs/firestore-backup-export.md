@@ -12,6 +12,12 @@ The export script is read-only. It reads `Users/{uid}` and selected subcollectio
 
 ## Commands
 
+Preview the backup scope without Firebase credentials, without reading Firestore, and without writing a file:
+
+```bash
+npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22 --dry-run
+```
+
 ```bash
 npm run backup:planner
 ```
@@ -23,6 +29,8 @@ npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22
 ```bash
 npm run backup:planner -- --collections tasks,taskSnapshots,plannerEvents,reportItems --maxDocs 500
 ```
+
+Collection names are intentionally restricted to simple Firestore collection ids (`letters`, `numbers`, `_`, `-`). This prevents an accidental nested path from being exported when the command is typed by hand.
 
 ## Default Scope
 

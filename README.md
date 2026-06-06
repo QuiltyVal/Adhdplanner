@@ -51,6 +51,7 @@ Read-only local export notes live in [docs/firestore-backup-export.md](docs/fire
 
 Quick help:
 - `npm run backup:planner -- --help`
+- `npm run backup:planner -- --userId <uid> --dry-run`
 
 ## Live QA Checklists
 

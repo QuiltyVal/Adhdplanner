@@ -1746,3 +1746,20 @@ Entry template:
   - Documentation-only update; no code checks required.
 - Risks / follow-up:
   - Remaining Telegram smoke queue: `/cemetery` list and active-task `Cemetery -> Cancel` confirmation path. OAuth completion remains outside this smoke pass.
+
+## 2026-06-06 - Codex
+
+- Summary: Strengthened the Firestore backup/export safety path before the first live export.
+- Changed:
+  - `scripts/export-firestore-planner.js` — added `--dry-run`, argument parsing helpers, simple user-id/collection-name validation, reusable plan/output helpers, and `require.main` guarding so the script can be tested without running the CLI.
+  - `tests/firestore-backup-export.test.mjs` — added regression coverage for collection validation, user-id validation, Firestore timestamp/reference normalization, backup plan building, and CLI dry-run output without Firebase credentials.
+  - `package.json` — added the backup export test to `test:contract` and `verify:server`.
+  - `docs/firestore-backup-export.md`, `README.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the dry-run guard and kept the first live export explicitly pending.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js && node --check tests/firestore-backup-export.test.mjs && node tests/firestore-backup-export.test.mjs`
+  - `npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22 --collections tasks,plannerEvents --maxDocs 2 --dry-run`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - No live Firestore export was run and no live data was read. The first real backup still needs an intentional read-only run with credentials.
