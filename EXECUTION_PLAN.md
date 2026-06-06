@@ -255,6 +255,7 @@ Goal: turn decisions into actual follow-through, not just metadata.
 Notes:
 - As of 2026-05-31, outbox, delivery runtime, scheduled nudge payloads, death notifications, delivery watchdog, and delivery health snapshots exist. This is infrastructure, not a finished daily angel pressure loop.
 - Any next Telegram/email pressure work should be wired through Planner Engine and outbox; do not add a new ad hoc sender that decides independently.
+- As of 2026-06-06, scheduled Telegram nudge payloads include Berlin timing diagnostics (`scheduledForLocal`, `triggeredLocal`, `retryWindow`) so delivery/debug surfaces can distinguish slot retries from scheduler drift.
 
 Done when:
 - the system can pick, explain, pressure, and narrow one important thing instead of dumping a todo pile

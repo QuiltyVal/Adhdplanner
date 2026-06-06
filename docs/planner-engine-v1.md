@@ -107,6 +107,7 @@ Scheduled notification timing:
 - Slot jobs call `/api/telegram-nudge?slot=morning|evening` for user-facing nudges.
 - Maintenance jobs call `/api/telegram-nudge?action=maintenance` and must not enqueue scheduled nudges by ambient time.
 - Morning slot is 09:00 Europe/Berlin; evening slot is 18:00 Europe/Berlin.
+- Scheduled nudge outbox payloads carry timing diagnostics: `scheduledForLocal`, `triggeredLocal`, and `retryWindow`. A message delivered at e.g. 09:44 can be checked as a morning retry inside the 09:00 Berlin slot instead of being treated as an unclassified scheduler failure.
 - Outbox semantic dedupe still prevents duplicate sends if a slot job is retried.
 - Scheduled Telegram nudge dedupe includes a non-reversible hash of the destination chat id. A successful send to an old linked chat must not block the same date/slot after the user reconnects the current Telegram chat with `/start`.
 - Hetzner retries each slot several times during the target hour, while `/root/adhd-mcp/runTelegramNudge.sh` uses a `flock` lock so overlapping cron/manual runs cannot race.

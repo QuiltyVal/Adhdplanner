@@ -76,6 +76,7 @@ The product should do three things well:
   - 2026-06-05: active-task `Cemetery` button and `/cemetery` restore list are implemented; live Telegram smoke is still needed before closing.
 - Improve Telegram nudges:
   - investigate why a nudge landed at 09:44 instead of 09:00
+    - 2026-06-06: scheduled nudge outbox payloads now include `scheduledForLocal`, `triggeredLocal`, and `retryWindow` so future delayed-looking nudges can be distinguished from intentional within-hour retries.
   - verify cron and timezone behavior
   - tune message timing and tone
 - Add better free-text support for:

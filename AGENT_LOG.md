@@ -1599,3 +1599,20 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - Hetzner MCP is a separately deployed process at `/root/adhd-mcp`; these repo tests do not prove the live MCP client path until a real MCP add-subtask smoke is run.
+
+## 2026-06-06 - Codex
+
+- Summary: Added timing diagnostics for scheduled Telegram nudges.
+- Changed:
+  - `api/_lib/planner-nudge-schedule.js` — now exposes Berlin minute data and `buildScheduledNudgeTiming`.
+  - `api/_lib/planner-scheduled-nudge-outbox.js` — scheduled nudge payloads now include `dateKey`, `slot`, `timing`, `scheduledForLocal`, `triggeredLocal`, and `retryWindow`.
+  - `tests/planner-nudge-schedule.test.mjs` — added Berlin DST/CET and 09:44 retry-window coverage.
+  - `package.json` — added the nudge schedule test to `verify:server` and `test:contract`.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/planner-engine-v1.md` — recorded the diagnostic boundary.
+- Verified:
+  - `node --check api/_lib/planner-nudge-schedule.js && node --check api/_lib/planner-scheduled-nudge-outbox.js && node --check tests/planner-nudge-schedule.test.mjs && node tests/planner-nudge-schedule.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This does not prove Hetzner cron timing by itself. It makes the next live nudge explainable from the stored outbox/delivery payload.
