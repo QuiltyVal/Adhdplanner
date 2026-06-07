@@ -2,7 +2,7 @@
 
 Use this checklist before treating the live Hetzner MCP path as verified.
 
-This is a real-client smoke, not a repo unit test. The current Codex session may not have a callable ADHD Planner MCP tool, so final proof must come from the MCP client that is actually connected to `https://mcp.valquilty.com/mcp`.
+This is a real-client smoke, not a repo unit test. Older already-open Codex sessions may not refresh their callable ADHD Planner MCP tools, so final proof should come from a fresh MCP client that is actually connected to `https://mcp.valquilty.com/mcp`.
 
 ## Current Status
 
@@ -16,14 +16,24 @@ Already covered repo-side:
 - `/api/captures` preserves `origin.channel: "mcp"` for `source=mcp...` capture intake;
 - `npm run check:mcp` verifies the public MCP auth boundary without credentials: live endpoint returns Bearer `401`, advertises scope `mcp:tools`, and serves OAuth protected-resource metadata for `ADHD Planner MCP`.
 
+Live client evidence:
+
+- 2026-06-07: a fresh post-OAuth Codex thread exposed callable `mcp__adhd_planner` tools and completed the controlled disposable task smoke:
+  - baseline `get_tasks`: `count=61`, `score=511`, no exact QA task present;
+  - `add_task`: created `QA MCP smoke — delete after test`, id `d56aa293-4768-4c4b-bb30-d186bf9bdfe0`;
+  - `add_subtask`: added `QA MCP subtask write — delete after test`, id `50fd06a6-d1e9-4656-b876-e5da1330c729`;
+  - verification `get_tasks`: `count=62`, exact QA task and subtask present;
+  - `delete_task`: removed only the QA task;
+  - final `get_tasks`: `count=61`, `score=511`, exact QA task absent.
+- No non-QA task was touched, and cleanup completed.
+
 Still remaining:
 
-- prove the live Hetzner MCP server can add a subtask to the canonical `Users/{uid}/tasks` collection;
 - prove the web app sees that MCP write after refresh/bootstrap;
 - prove the task does not disappear or bounce because of stale local/web state;
 - optionally prove MCP-origin capture intake with `source=mcp...` reaches the expected origin metadata.
 
-Codex can keep strengthening repo-side contracts without touching live data. Final proof still requires a real connected MCP client because the Hetzner MCP server is deployed separately from this repository.
+Codex can keep strengthening repo-side contracts without touching live data. The authenticated task read/write/cleanup path is now proven through the real MCP client; web visual refresh proof remains separate.
 
 ## Preconditions
 

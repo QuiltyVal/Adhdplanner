@@ -2237,3 +2237,21 @@ Entry template:
 - Risks / follow-up:
   - Older already-open Codex threads, including this one, may still not refresh their callable tool namespace even after OAuth. Use a new post-OAuth thread for actual MCP tool calls.
   - No MCP mutation tool was called in this smoke; Firestore was read through `get_tasks` only.
+
+## 2026-06-07 - Codex
+
+- Summary: Completed authenticated ADHD Planner MCP disposable task write smoke.
+- Changed:
+  - `docs/mcp-live-smoke-checklist.md` — recorded the real post-OAuth Codex MCP read/write/cleanup evidence and kept web refresh proof separate.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded that authenticated MCP task read/write/cleanup is no longer pending.
+- Verified:
+  - Fresh post-OAuth Codex thread `019ea3b7-188e-7870-bd9c-22aeaa1f6492` used callable `mcp__adhd_planner` tools.
+  - `get_tasks` baseline returned `count=61`, `score=511`, and no exact QA task.
+  - `add_task` created `QA MCP smoke — delete after test`, id `d56aa293-4768-4c4b-bb30-d186bf9bdfe0`.
+  - `add_subtask` added `QA MCP subtask write — delete after test`, id `50fd06a6-d1e9-4656-b876-e5da1330c729`.
+  - Follow-up `get_tasks` returned `count=62` and saw the exact QA task/subtask.
+  - `delete_task` removed only the QA task, then final `get_tasks` returned `count=61`, `score=511`, with the QA task absent.
+  - No non-QA task was touched.
+- Risks / follow-up:
+  - The disposable task was cleaned up immediately after MCP verification, so a separate web refresh/QA-packet proof of visual web consistency is still pending.
+  - Optional MCP-origin capture smoke remains pending.

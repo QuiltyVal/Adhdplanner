@@ -107,6 +107,7 @@ Notes:
 - As of 2026-06-07, `npm run check:codex-mcp` checks whether Codex Desktop has the Planner MCP URL registered in `~/.codex/config.toml` without printing headers/tokens; `docs/codex-mcp-setup.md` documents the setup/restart boundary.
 - As of 2026-06-07, `npm run check:mcp-readiness` combines endpoint and Codex config checks into one read-only readiness report. It still does not authenticate or call planner MCP tools.
 - As of 2026-06-07, `npm run setup:codex-mcp` is a dry-run-by-default helper for adding the Planner MCP URL to Codex config; applying it still requires explicit `--apply`.
+- As of 2026-06-07, authenticated Codex MCP task read/write/cleanup smoke passed in a fresh post-OAuth thread: a disposable QA task was created, one exact QA subtask was added and verified by `get_tasks`, and the QA task was deleted with final count returning to baseline. Web refresh/QA-packet proof remains separate.
 - As of 2026-06-06, the Firestore backup export CLI has a no-Firebase `--dry-run` plan and input validation, covered by regression tests. First live export remains an intentional manual/read-only step.
 - As of 2026-06-07, backup verification emits `sizeBytes` and `fileSha256` for both `--verify-file` and successful real exports, so live backup evidence can be logged by checksum.
 - As of 2026-06-07, the real-user backup dry-run for `U2geUdbvWyVRNLWnSZBnftOMSU22` passed and confirmed the default collection scope without reading Firestore or writing a file; first live export is still pending.

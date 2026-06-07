@@ -64,6 +64,7 @@ The product should do three things well:
 - Verify that subtasks added externally show correctly in web UI.
   - 2026-06-06: repo-side planner action/command regression coverage now guards `add_subtask` validation, command mapping, and event payload shape. Live Hetzner MCP smoke is still pending because that server is deployed separately.
   - 2026-06-07: repo-side fake-transaction coverage now verifies `TASK_ADD_SUBTASK` through `runPlannerCommand`: canonical task write, `lastUpdated`, created-subtask payload, event trace, title index, Telegram context, and duplicate noop behavior. Live Hetzner MCP smoke is still pending.
+  - 2026-06-07: authenticated Codex MCP live smoke passed for a disposable QA task: `get_tasks` read canonical data, `add_task` created `QA MCP smoke — delete after test`, `add_subtask` attached `QA MCP subtask write — delete after test`, follow-up `get_tasks` saw the exact subtask, and `delete_task` cleaned it up. Separate web refresh/QA-packet proof remains pending.
 - [x] Add a simple Firestore backup / export strategy.
   - 2026-06-06: read-only local JSON export script added; first live export run is still pending.
   - 2026-06-06: backup script now has a no-Firestore `--dry-run` plan plus collection/user-id validation and regression coverage, so the first live export can be previewed before reading data.
@@ -127,6 +128,7 @@ The product should do three things well:
   - 2026-06-07: `npm run check:codex-mcp` and `docs/codex-mcp-setup.md` now cover the Codex Desktop client-side setup check, so a missing Planner MCP tool can be diagnosed without printing secrets.
   - 2026-06-07: `npm run check:mcp-readiness` now combines endpoint health and Codex config registration into one read-only report for Codex MCP readiness.
   - 2026-06-07: `npm run setup:codex-mcp` now previews the exact Codex config entry; `--apply` appends only the Planner MCP URL entry, without tokens or headers.
+  - 2026-06-07: Codex CLI OAuth is now completed and a fresh post-OAuth Codex thread executed the live disposable MCP task smoke end to end: read tasks, create QA task, add QA subtask, verify, delete QA task, and confirm the final task count returned to baseline.
   - 2026-06-06: `/api/captures` now preserves MCP/API origin metadata for `source=mcp...` dry-run and stored capture paths, with contract coverage. Separate live Hetzner MCP capture/write smoke remains required.
   - 2026-06-06: `docs/mcp-live-smoke-checklist.md` now defines the real-client Hetzner MCP smoke path for read-only task list, disposable add-subtask write, web refresh proof, cleanup, and optional dry-run MCP capture origin check.
   - 2026-06-06: `/api/captures` dry-run no longer reads live Firestore tasks by default; response metadata reports whether task context came from `none`, `request`, or explicit `live` read.
