@@ -29,6 +29,10 @@ Already confirmed from real Telegram screenshots:
 - `/calendar` renders the Google Calendar connect CTA in the real Telegram client.
 - `/cemetery` and active-task `Cemetery -> Cancel` work correctly in the real Telegram client.
 
+Already covered repo-side:
+
+- Google Calendar callback handling is covered for success redirect, missing refresh token, bad/expired state redirect, missing code/state, and non-GET methods without calling live Google or Firestore.
+
 Not covered by this smoke:
 
 - completing Google Calendar OAuth;

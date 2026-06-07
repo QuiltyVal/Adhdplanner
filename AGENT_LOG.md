@@ -2070,3 +2070,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - First live Firestore export is still pending. This preflight only confirms whether credentials are locally available and shaped correctly; it does not authenticate to Firebase or read planner data.
+
+## 2026-06-07 - Codex
+
+- Summary: Added Google Calendar callback regression coverage.
+- Changed:
+  - `tests/google-calendar-callback.test.mjs` — added stubbed callback-route coverage for non-GET methods, provider error redirect, missing code/state, successful refresh-token storage redirect, missing refresh token redirect, and bad/expired state redirect.
+  - `package.json` — added the callback test to `test:contract` and `verify:server`.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded that callback handling is repo-covered while real OAuth completion remains unverified.
+- Verified:
+  - `node --check tests/google-calendar-callback.test.mjs && node tests/google-calendar-callback.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This does not complete Google OAuth in the real Telegram client and does not call live Google or Firestore.
