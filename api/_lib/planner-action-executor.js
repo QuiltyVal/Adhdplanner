@@ -707,7 +707,10 @@ async function executePlannerAction({
   }
 
   if (route.type === PLANNER_ACTIONS.CHAT) {
-    await adapter.sendText(route.replyText || "Write it as a task, or send /today or /panic.");
+    await adapter.sendText(
+      route.replyText || "Write it as a task, or send /today or /panic.",
+      adapter.plannerOpenKeyboard ? { reply_markup: adapter.plannerOpenKeyboard() } : {},
+    );
     return;
   }
 

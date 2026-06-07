@@ -2129,3 +2129,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This changes Telegram error-response UI only; it does not add a new task mutation path.
+
+## 2026-06-07 - Codex
+
+- Summary: Added `Open planner` to Telegram chat fallback replies.
+- Changed:
+  - `api/_lib/planner-action-executor.js` — chat/fallback replies now include the standard planner return keyboard.
+  - `tests/planner-telegram-readonly-actions.test.mjs` — added coverage that chat guidance replies stay read-only and include `Open planner`.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded the fallback return path.
+- Verified:
+  - `node --check api/_lib/planner-action-executor.js && node --check tests/planner-telegram-readonly-actions.test.mjs && node tests/planner-telegram-readonly-actions.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This changes Telegram response UI only; it does not add a new task mutation path.
