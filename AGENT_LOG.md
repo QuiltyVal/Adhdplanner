@@ -2099,3 +2099,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This is repo-side response coverage only. It does not send `/start` in the real Telegram client.
+
+## 2026-06-07 - Codex
+
+- Summary: Added `Open planner` to unknown Telegram command responses.
+- Changed:
+  - `api/_lib/planner-action-executor.js` — unknown slash-command replies now include the standard planner return keyboard.
+  - `tests/planner-telegram-readonly-actions.test.mjs` — added coverage that unknown commands stay read-only, show command discovery, and include `Open planner`.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded the read-only command-discovery behavior.
+- Verified:
+  - `node --check api/_lib/planner-action-executor.js && node --check tests/planner-telegram-readonly-actions.test.mjs && node tests/planner-telegram-readonly-actions.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This changes Telegram response UI only; it does not add a new mutation path.

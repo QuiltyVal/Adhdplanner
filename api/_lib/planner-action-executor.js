@@ -701,6 +701,7 @@ async function executePlannerAction({
         "/panic",
         "/add text",
       ].join("\n"),
+      adapter.plannerOpenKeyboard ? { reply_markup: adapter.plannerOpenKeyboard() } : {},
     );
     return;
   }

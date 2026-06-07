@@ -32,6 +32,7 @@ Already confirmed from real Telegram screenshots:
 Already covered repo-side:
 
 - `/start` connected response keeps the command list and `Open planner` return button.
+- Unknown slash-command responses keep command discovery and `Open planner`, without routing to a planner mutation.
 - Google Calendar callback handling is covered for success redirect, missing refresh token, bad/expired state redirect, missing code/state, and non-GET methods without calling live Google or Firestore.
 
 Not covered by this smoke:

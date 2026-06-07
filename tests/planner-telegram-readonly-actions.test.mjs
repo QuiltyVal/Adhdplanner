@@ -203,4 +203,22 @@ function keyboardHasCallback(keyboard, callbackData) {
   assert.equal(contextWrites[0].options.action, "today");
 }
 
+{
+  nonActiveTasks = [];
+  const messages = [];
+
+  await executePlannerAction({
+    userId: "user-1",
+    chatId: "chat-1",
+    plannerData: { tasks: [] },
+    route: { type: "unknown_command", rawText: "/wat" },
+    adapter: buildAdapter(messages),
+  });
+
+  assert.equal(messages.length, 1);
+  assert.match(messages[0].text, /I did not understand that command/);
+  assert.match(messages[0].text, /\/calendar/);
+  assert.equal(keyboardHasPlannerLink(messages[0].extra.reply_markup), true);
+}
+
 console.log("planner telegram read-only action tests passed");
