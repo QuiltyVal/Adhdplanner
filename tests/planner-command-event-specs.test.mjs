@@ -103,4 +103,51 @@ const { PLANNER_EVENT_TYPES } = require("../api/_lib/planner-event-types.js");
   assert.equal("previousStatus" in event.payload, false);
 }
 
+{
+  const event = buildSingleTaskMutationCommandEvent({
+    eventId: "event-4",
+    eventName: "subtask_toggled",
+    eventType: PLANNER_EVENT_TYPES.TASK_SUBTASK_TOGGLED,
+    commandType: PLANNER_COMMAND_TYPES.TASK_SUBTASK_TOGGLED,
+    previousTask: {
+      id: "task-4",
+      text: "Keep event trace clean",
+      status: "active",
+      subtasks: [
+        {
+          id: "task-4-sub-1",
+          text: "Check constants",
+          completed: false,
+        },
+      ],
+    },
+    task: {
+      id: "task-4",
+      text: "Keep event trace clean",
+      status: "active",
+      subtasks: [
+        {
+          id: "task-4-sub-1",
+          text: "Check constants",
+          completed: true,
+        },
+      ],
+    },
+    actor: { type: "agent", ref: "mcp" },
+    source: "mcp_toggle_subtask",
+    extra: {
+      subtaskId: "task-4-sub-1",
+      subtaskText: "Check constants",
+      completed: true,
+    },
+    now: 1780700000003,
+  });
+
+  assert.equal(event.event_type, PLANNER_EVENT_TYPES.TASK_SUBTASK_TOGGLED);
+  assert.equal(event.command_type, PLANNER_COMMAND_TYPES.TASK_SUBTASK_TOGGLED);
+  assert.equal(event.message, "Updated a step in “Keep event trace clean”.");
+  assert.equal(event.payload.extra.subtaskId, "task-4-sub-1");
+  assert.equal(event.payload.extra.completed, true);
+}
+
 console.log("planner command event specs tests passed");

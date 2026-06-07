@@ -79,7 +79,7 @@ function buildSingleTaskMutationCommandEvent({
                             ? `Added a step to “${escapedTask}”.`
                             : eventType === PLANNER_EVENT_TYPES.TASK_SUBTASK_EDITED
                               ? `Edited a step in “${escapedTask}”.`
-                              : eventType === PLANNER_COMMAND_TYPES.TASK_SUBTASK_TOGGLED
+                              : eventType === PLANNER_EVENT_TYPES.TASK_SUBTASK_TOGGLED
                                 ? `Updated a step in “${escapedTask}”.`
                                 : eventType === PLANNER_EVENT_TYPES.TASK_SUBTASK_DELETED
                                   ? `Deleted a step from “${escapedTask}”.`

@@ -1170,7 +1170,7 @@ async function mutateSingleTaskCommand({ userId, command = {}, actor = {}, now =
               heatCurrent: nextHeat,
               lastUpdated: now,
             }, now);
-            eventType = PLANNER_COMMAND_TYPES.TASK_SUBTASK_TOGGLED;
+            eventType = PLANNER_EVENT_TYPES.TASK_SUBTASK_TOGGLED;
             eventName = "subtask_toggled";
             actionName = "toggle_subtask";
             extra = {

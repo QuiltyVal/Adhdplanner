@@ -1906,3 +1906,19 @@ Entry template:
   - User reported: "Cemetery через бота работает как надо, я проверила".
 - Risks / follow-up:
   - This records user-provided live evidence only. Calendar OAuth completion and live MCP write smoke remain separate.
+
+## 2026-06-07 - Codex
+
+- Summary: Kept subtask toggle traces on canonical event constants.
+- Changed:
+  - `api/_lib/planner-command-service.js` — subtask toggle mutations now set `eventType` from `PLANNER_EVENT_TYPES.TASK_SUBTASK_TOGGLED`.
+  - `api/_lib/planner-command-event-specs.js` — subtask toggle event messages now check the planner event type constant instead of the command type constant.
+  - `tests/planner-command-event-specs.test.mjs` — added regression coverage for subtask toggle event type, command type, message, and payload.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded the observability cleanup.
+- Verified:
+  - `node --check api/_lib/planner-command-service.js && node --check api/_lib/planner-command-event-specs.js && node --check tests/planner-command-event-specs.test.mjs && node tests/planner-command-event-specs.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This is repo-side event-trace cleanup. Live Hetzner MCP subtask-write verification still needs a real MCP client.
