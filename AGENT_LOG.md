@@ -2176,6 +2176,37 @@ Entry template:
 
 ## 2026-06-07 - Codex
 
+- Summary: Rechecked ADHD Planner MCP after OAuth completed in Codex CLI.
+- Changed:
+  - No code or config changes.
+- Verified:
+  - `codex mcp list` shows `adhd_planner` enabled with `Auth: OAuth`.
+  - `npm run check:mcp-readiness` still returns `ok: true` and `readyForCodexToolUse: true`.
+  - `npm run check:codex-mcp` still finds `adhd_planner` in `/Users/valquilty/.codex/config.toml`.
+  - `tool_search` for `ADHD Planner MCP adhd_planner tasks list planner task read-only` did not expose any ADHD Planner MCP namespace.
+  - A narrower `tool_search` for likely task-list tool names also returned only non-planner tools.
+- Risks / follow-up:
+  - Exact blocker: OAuth/config readiness is now confirmed, but this Codex thread's callable tool registry still does not include ADHD Planner tools, so the read-only MCP task-list smoke cannot be invoked from this turn.
+  - No Firestore read/write tool call was possible; no live planner data was mutated.
+
+## 2026-06-07 - Codex
+
+- Summary: Checked ADHD Planner MCP readiness from this machine and current Codex session.
+- Changed:
+  - No code or config changes.
+- Verified:
+  - `npm run check:mcp-readiness` returns `ok: true`, `readyForCodexToolUse: true`, healthy Bearer-protected endpoint metadata, and a matching `adhd_planner` Codex config entry for `https://mcp.valquilty.com/mcp`.
+  - `npm run check:mcp` returns expected unauthenticated `401` with `authScheme: "Bearer"`, `requiredScope: "mcp:tools"`, and resource metadata for `ADHD Planner MCP`.
+  - `npm run check:codex-mcp` finds `adhd_planner` in `/Users/valquilty/.codex/config.toml`.
+  - `curl -I -L --max-time 20 https://planner.valquilty.com/demo` returns HTTP 200 from Vercel.
+  - `npm run test:contract`
+  - `npm run verify:server`
+- Risks / follow-up:
+  - The current Codex thread did not expose callable ADHD Planner MCP tools after `tool_search`; only readiness/config could be verified here.
+  - The real authenticated MCP read/write smoke remains pending in a restarted/reloaded MCP-capable client, using a disposable QA task only.
+
+## 2026-06-07 - Codex
+
 - Summary: Added direct Telegram `done` callback routing coverage.
 - Changed:
   - `tests/telegram-callback-cancel.test.mjs` — added coverage that direct task-card `done:<taskId>` routes to `COMPLETE_TASK`, uses callback idempotency, returns task-card feedback, and records `callback_done` context.
@@ -2187,3 +2218,22 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This is repo-side callback routing coverage only; it does not tap `Done` in the real Telegram client or mutate live user data.
+
+## 2026-06-07 - Codex
+
+- Summary: Completed Codex OAuth login for ADHD Planner MCP and verified read-only MCP access in a new post-OAuth thread.
+- Changed:
+  - `/Users/valquilty/.codex/config.toml` already contained `adhd_planner`; no config change was needed in this step.
+  - Live Hetzner MCP auth password was reset because the owner did not remember the old password. Only `/root/adhd-mcp/auth-secrets.json` fields `passwordSalt` and `passwordHash` were updated.
+  - Server backup created: `/root/adhd-mcp/auth-secrets.backup-20260607200853.json`.
+  - PM2 process `adhd-mcp` restarted after the auth-secret update.
+  - Local temporary plaintext password file and curl login temp files were removed after OAuth completed.
+- Verified:
+  - `codex mcp login adhd_planner` completed successfully.
+  - `codex mcp list` now shows `adhd_planner` with `Auth: OAuth`.
+  - `npm run check:mcp-readiness` returns `ok: true` and `readyForCodexToolUse: true`.
+  - A brand-new post-OAuth Codex thread saw callable `mcp__adhd_planner` tools.
+  - Read-only MCP smoke in that new thread called `mcp__adhd_planner.get_tasks` and returned `ok: true`, `documentExists: true`, `count: 61`, `score: 511`.
+- Risks / follow-up:
+  - Older already-open Codex threads, including this one, may still not refresh their callable tool namespace even after OAuth. Use a new post-OAuth thread for actual MCP tool calls.
+  - No MCP mutation tool was called in this smoke; Firestore was read through `get_tasks` only.
