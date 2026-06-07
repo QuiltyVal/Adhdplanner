@@ -56,6 +56,22 @@ If the endpoint is healthy but Codex config is missing, the report will show `mi
 
 ## Add Planner MCP To Codex
 
+Dry-run the config change first:
+
+```bash
+npm run setup:codex-mcp
+```
+
+This prints the exact MCP server entry that would be appended. It does not write files unless `--apply` is passed.
+
+To apply the config entry:
+
+```bash
+npm run setup:codex-mcp -- --apply
+```
+
+Manual equivalent:
+
 Add this server entry to `~/.codex/config.toml`:
 
 ```toml
@@ -76,3 +92,5 @@ After editing config:
 ## Boundary
 
 `npm run check:codex-mcp` only reads MCP server names and URLs from Codex config. It does not print headers, tokens, or secrets.
+
+`npm run setup:codex-mcp` is dry-run by default. With `--apply`, it appends only the MCP server URL entry. It does not write tokens or headers.

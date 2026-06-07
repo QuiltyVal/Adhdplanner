@@ -2011,3 +2011,19 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This still does not authenticate or call MCP tools. It only separates endpoint health from Codex client registration.
+
+## 2026-06-07 - Codex
+
+- Summary: Added a dry-run Codex MCP setup helper.
+- Changed:
+  - `scripts/ensure-codex-mcp-config.js` — added `npm run setup:codex-mcp`, dry-run by default, with explicit `--apply` required before appending `[mcp_servers.adhd_planner]` to Codex config.
+  - `tests/codex-mcp-config-ensure.test.mjs` — covered dry-run, apply, idempotent no-op, same-name URL conflict, option validation, and CLI dry-run.
+  - `package.json`, `README.md`, `docs/codex-mcp-setup.md`, `docs/mcp-live-smoke-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the setup helper and boundary.
+- Verified:
+  - `node --check scripts/ensure-codex-mcp-config.js && node --check tests/codex-mcp-config-ensure.test.mjs && node tests/codex-mcp-config-ensure.test.mjs`
+  - `npm run setup:codex-mcp` ran in dry-run mode only and reported `wouldChange: true`, `changed: false`, and no same-name URL conflict.
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - I did not run `--apply`; Codex config is still unchanged until explicitly applied, then Codex must restart/reload before Planner MCP tools can appear.
