@@ -84,6 +84,7 @@ The product should do three things well:
 - Live Telegram smoke procedure:
   - 2026-06-06: checklist added in `docs/telegram-live-smoke-checklist.md` for `/help`, `/today`, `/calendar`, `/cemetery`, completed restore, Cemetery confirmation/cancel, and `Open planner` evidence.
   - 2026-06-06: repo regression coverage added for read-only Telegram daily actions (`/today`, `/completed`, `/cemetery`) so they keep their expected keyboards and fail if they accidentally call the mutation command runner.
+  - 2026-06-07: repo regression coverage now checks the `/start` connected response still includes command discovery and `Open planner`.
   - 2026-06-06: repo regression coverage now also checks `/help` and `/calendar` response payloads, including `Open planner` and Google Calendar connect buttons.
   - 2026-06-06: user-provided real Telegram screenshots confirmed `/today` renders the daily digest with active task buttons including `Cemetery` and `Open planner`, and `/calendar` renders the Google Calendar connect CTA. OAuth completion was not tested.
   - 2026-06-06: user-provided live Telegram check confirmed `/cemetery` and active-task `Cemetery -> Cancel` work correctly in the real bot client. Destructive `Yes, Cemetery` on a real task remains intentionally outside this safe smoke.

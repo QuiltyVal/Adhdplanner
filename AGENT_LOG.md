@@ -2085,3 +2085,17 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This does not complete Google OAuth in the real Telegram client and does not call live Google or Firestore.
+
+## 2026-06-07 - Codex
+
+- Summary: Added `/start` response regression coverage.
+- Changed:
+  - `tests/telegram-webhook-security.test.mjs` — added coverage that the connected `/start` response keeps the command list and `Open planner` return button.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded that `/start` is repo-covered while live Telegram `/start` evidence is still separate.
+- Verified:
+  - `node --check tests/telegram-webhook-security.test.mjs && node tests/telegram-webhook-security.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This is repo-side response coverage only. It does not send `/start` in the real Telegram client.

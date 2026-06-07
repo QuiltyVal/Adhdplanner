@@ -126,6 +126,15 @@ function keyboardHasCallback(keyboard, callbackData) {
 }
 
 {
+  const startResponse = buildTelegramHelpResponse({ connected: true });
+  assert.match(startResponse.text, /This chat is now connected to Apus Planner nudges/);
+  assert.match(startResponse.text, /\/today/);
+  assert.match(startResponse.text, /\/calendar/);
+  assert.match(startResponse.text, /\/cemetery/);
+  assert.equal(keyboardHasPlannerLink(startResponse.reply_markup), true);
+}
+
+{
   const previousClientId = process.env.GOOGLE_CLIENT_ID;
   const previousClientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const previousRedirectUri = process.env.GOOGLE_REDIRECT_URI;
