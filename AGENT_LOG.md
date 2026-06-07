@@ -1952,3 +1952,14 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This does not contact the live Hetzner MCP server and does not mutate Firestore. Real MCP subtask-write verification still needs a connected MCP client.
+
+## 2026-06-07 - Codex
+
+- Summary: Updated the MCP live-smoke checklist with current repo-side coverage.
+- Changed:
+  - `docs/mcp-live-smoke-checklist.md` — recorded the new fake-transaction `runPlannerCommand(TASK_ADD_SUBTASK)` coverage and clarified that final proof still requires the separately deployed Hetzner MCP client/server path.
+  - `AGENT_LOG.md` — recorded this status cleanup.
+- Verified:
+  - Documentation-only update; no code checks required.
+- Risks / follow-up:
+  - Live Hetzner MCP read/write smoke is still pending and requires a real connected MCP client.

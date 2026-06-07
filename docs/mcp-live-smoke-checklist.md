@@ -12,6 +12,7 @@ Already covered repo-side:
 - route-to-command mapping emits `TASK_ADD_SUBTASK`;
 - subtask-add events expose `payload.extra.createdSubtask`;
 - local command service updates the task through the canonical command path;
+- fake-transaction coverage now exercises `runPlannerCommand(TASK_ADD_SUBTASK)` end to end for canonical task mutation, `lastUpdated`, event trace, title index, Telegram context, and duplicate noop behavior;
 - `/api/captures` preserves `origin.channel: "mcp"` for `source=mcp...` capture intake.
 
 Still remaining:
@@ -20,6 +21,8 @@ Still remaining:
 - prove the web app sees that MCP write after refresh/bootstrap;
 - prove the task does not disappear or bounce because of stale local/web state;
 - optionally prove MCP-origin capture intake with `source=mcp...` reaches the expected origin metadata.
+
+Codex can keep strengthening repo-side contracts without touching live data. Final proof still requires a real connected MCP client because the Hetzner MCP server is deployed separately from this repository.
 
 ## Preconditions
 
