@@ -145,6 +145,40 @@ function getHelpText() {
   ].join("\n");
 }
 
+function buildBackupSafetyMetadata(mode) {
+  switch (mode) {
+    case "dry-run":
+      return {
+        mode,
+        firestoreRead: false,
+        firestoreWrite: false,
+        localFileRead: false,
+        localFileWrite: false,
+        verifiedReadback: false,
+      };
+    case "verify-file":
+      return {
+        mode,
+        firestoreRead: false,
+        firestoreWrite: false,
+        localFileRead: true,
+        localFileWrite: false,
+        verifiedReadback: true,
+      };
+    case "export":
+      return {
+        mode,
+        firestoreRead: true,
+        firestoreWrite: false,
+        localFileRead: true,
+        localFileWrite: true,
+        verifiedReadback: true,
+      };
+    default:
+      throw new Error(`Unsupported backup safety mode: ${mode}`);
+  }
+}
+
 function normalizeFirestoreValue(value) {
   if (value === null || value === undefined) return value;
 
@@ -281,6 +315,7 @@ async function main() {
     console.log(JSON.stringify({
       ok: true,
       verified: true,
+      safety: buildBackupSafetyMetadata("verify-file"),
       ...verification,
     }, null, 2));
     return;
@@ -292,6 +327,7 @@ async function main() {
     console.log(JSON.stringify({
       ok: true,
       dryRun: true,
+      safety: buildBackupSafetyMetadata("dry-run"),
       outputPath: plan.outputPath,
       userId: plan.userId,
       exportedAt,
@@ -332,6 +368,7 @@ async function main() {
   console.log(JSON.stringify({
     ok: true,
     verified: true,
+    safety: buildBackupSafetyMetadata("export"),
     outputPath: plan.outputPath,
     userId: plan.userId,
     exportedAt,
@@ -354,6 +391,7 @@ module.exports = {
   DEFAULT_COLLECTIONS,
   buildBackupPlan,
   buildOutputPath,
+  buildBackupSafetyMetadata,
   getHelpText,
   normalizeFirestoreValue,
   parseBackupOptions,

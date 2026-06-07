@@ -11,6 +11,7 @@ const require = createRequire(import.meta.url);
 const {
   BACKUP_SCHEMA,
   DEFAULT_COLLECTIONS,
+  buildBackupSafetyMetadata,
   buildBackupPlan,
   normalizeFirestoreValue,
   parseBackupOptions,
@@ -31,6 +32,32 @@ assert.throws(() => parseCollections("tasks,../secrets"), /Invalid collection na
 assert.throws(() => parseCollections(","), /At least one collection/);
 
 assert.equal(sanitizePathSegment("user/id with spaces"), "user_id_with_spaces");
+
+assert.deepEqual(buildBackupSafetyMetadata("dry-run"), {
+  mode: "dry-run",
+  firestoreRead: false,
+  firestoreWrite: false,
+  localFileRead: false,
+  localFileWrite: false,
+  verifiedReadback: false,
+});
+assert.deepEqual(buildBackupSafetyMetadata("verify-file"), {
+  mode: "verify-file",
+  firestoreRead: false,
+  firestoreWrite: false,
+  localFileRead: true,
+  localFileWrite: false,
+  verifiedReadback: true,
+});
+assert.deepEqual(buildBackupSafetyMetadata("export"), {
+  mode: "export",
+  firestoreRead: true,
+  firestoreWrite: false,
+  localFileRead: true,
+  localFileWrite: true,
+  verifiedReadback: true,
+});
+assert.throws(() => buildBackupSafetyMetadata("delete"), /Unsupported backup safety mode/);
 
 {
   const options = parseBackupOptions([
@@ -201,6 +228,7 @@ assert.throws(
   const dryRun = JSON.parse(output);
   assert.equal(dryRun.ok, true);
   assert.equal(dryRun.dryRun, true);
+  assert.deepEqual(dryRun.safety, buildBackupSafetyMetadata("dry-run"));
   assert.equal(dryRun.userId, "user-1");
   assert.equal(dryRun.rootPath, "Users/user-1");
   assert.equal(dryRun.collections.tasks, "planned");
@@ -241,6 +269,7 @@ assert.throws(
   const verification = JSON.parse(output);
   assert.equal(verification.ok, true);
   assert.equal(verification.verified, true);
+  assert.deepEqual(verification.safety, buildBackupSafetyMetadata("verify-file"));
   assert.equal(verification.userId, "user-1");
   assert.equal(verification.collections.tasks, 0);
   assert.equal(verification.sizeBytes, fs.statSync(backupPath).size);

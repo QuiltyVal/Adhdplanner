@@ -2038,3 +2038,19 @@ Entry template:
   - `npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22 --dry-run` returned `ok: true`, `dryRun: true`, root path `Users/U2geUdbvWyVRNLWnSZBnftOMSU22`, and the planned default collections: `tasks`, `taskSnapshots`, `captures`, `commitments`, `plannerEvents`, `reportItems`, `outbox`, `engineRuns`, `outboxRuns`, `plannerCommands`, `telegramLogs`, and `angelDecisions`.
 - Risks / follow-up:
   - This did not read Firestore and did not create a backup file. First live export with credentials is still pending before any risky live data mutation.
+
+## 2026-06-07 - Codex
+
+- Summary: Added explicit safety metadata to backup CLI output.
+- Changed:
+  - `scripts/export-firestore-planner.js` — dry-run, verify-file, and real export responses now include a `safety` object showing Firestore read/write and local file read/write behavior.
+  - `tests/firestore-backup-export.test.mjs` — added coverage for safety metadata and CLI output.
+  - `docs/firestore-backup-export.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the safety flags.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js && node --check tests/firestore-backup-export.test.mjs && node tests/firestore-backup-export.test.mjs`
+  - `npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22 --dry-run` returned `safety.firestoreRead: false`, `safety.firestoreWrite: false`, and `safety.localFileWrite: false`.
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This changes CLI JSON output only. No Firestore access was performed in this edit.
