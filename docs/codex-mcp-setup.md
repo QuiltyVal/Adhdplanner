@@ -35,6 +35,25 @@ Expected after setup:
 
 If it returns `ok: false`, Codex does not currently have the Planner MCP server in `~/.codex/config.toml`.
 
+## Combined Readiness Check
+
+From this repo:
+
+```bash
+npm run check:mcp-readiness
+```
+
+This combines endpoint health plus Codex config registration into one report.
+
+Expected when Codex is ready to expose Planner MCP tools after restart/reload:
+
+- `ok: true`
+- `endpoint.ok: true`
+- `codexConfig.ok: true`
+- `readyForCodexToolUse: true`
+
+If the endpoint is healthy but Codex config is missing, the report will show `missing: ["codex_config"]`.
+
 ## Add Planner MCP To Codex
 
 Add this server entry to `~/.codex/config.toml`:

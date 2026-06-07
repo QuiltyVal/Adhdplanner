@@ -1995,3 +1995,19 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This does not edit Codex config and does not authenticate to MCP. The current Codex session still needs the server registered/reloaded before Planner MCP tools can appear.
+
+## 2026-06-07 - Codex
+
+- Summary: Added a combined MCP readiness check.
+- Changed:
+  - `scripts/check-mcp-readiness.js` — combines the live MCP endpoint probe and Codex config check into one read-only readiness report.
+  - `tests/mcp-readiness-check.test.mjs` — covers healthy readiness, missing Codex config, missing endpoint, and CLI option mapping without live network calls.
+  - `package.json`, `README.md`, `docs/codex-mcp-setup.md`, `docs/mcp-live-smoke-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — added `npm run check:mcp-readiness`.
+- Verified:
+  - `node --check scripts/check-mcp-readiness.js && node --check tests/mcp-readiness-check.test.mjs && node tests/mcp-readiness-check.test.mjs`
+  - `npm run check:mcp-readiness` currently reports `endpoint.ok: true`, `codexConfig.ok: false`, and `missing: ["codex_config"]`.
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This still does not authenticate or call MCP tools. It only separates endpoint health from Codex client registration.

@@ -59,8 +59,11 @@ Read-only MCP auth-boundary probe:
 
 - `npm run check:mcp`
 - `npm run check:codex-mcp`
+- `npm run check:mcp-readiness`
 
 `check:mcp` verifies that `https://mcp.valquilty.com/mcp` is reachable, protected by Bearer auth, and publishes OAuth protected-resource metadata. `check:codex-mcp` verifies that the Codex Desktop config has that server URL registered. Neither command calls MCP tools or mutates planner data.
+
+`check:mcp-readiness` combines both checks and reports whether Codex is ready to expose Planner MCP tools after restart/reload.
 
 Codex setup notes: [docs/codex-mcp-setup.md](docs/codex-mcp-setup.md)
 
