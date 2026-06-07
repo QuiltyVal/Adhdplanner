@@ -1977,3 +1977,21 @@ Entry template:
   - `npm run check:mcp` returned `ok: true` for `https://mcp.valquilty.com/mcp` with HTTP `401`, Bearer auth, `mcp:tools`, and protected-resource metadata.
 - Risks / follow-up:
   - This does not authenticate to MCP, list tasks, or write subtasks. Real MCP read/write smoke still needs a connected MCP client.
+
+## 2026-06-07 - Codex
+
+- Summary: Added Codex Desktop MCP config diagnostics.
+- Changed:
+  - `scripts/check-codex-mcp-config.js` — added a secret-safe config check that reads MCP server names/URLs from `~/.codex/config.toml` and reports whether `https://mcp.valquilty.com/mcp` is registered.
+  - `tests/codex-mcp-config-check.test.mjs` — added parser/report coverage, including nested `http_headers` sections so headers are not treated as separate MCP servers.
+  - `docs/codex-mcp-setup.md` — documented the Codex Desktop setup/restart path without tokens.
+  - `package.json`, `README.md`, `docs/mcp-live-smoke-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — linked the client-side MCP setup check.
+- Verified:
+  - `node --check scripts/check-codex-mcp-config.js && node --check tests/codex-mcp-config-check.test.mjs && node tests/codex-mcp-config-check.test.mjs`
+  - `npm run check:codex-mcp` currently returns `ok: false`, confirming `https://mcp.valquilty.com/mcp` is not registered in this Codex Desktop config yet.
+  - `npm run check:mcp` still returns `ok: true` for the live MCP endpoint/auth metadata.
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This does not edit Codex config and does not authenticate to MCP. The current Codex session still needs the server registered/reloaded before Planner MCP tools can appear.

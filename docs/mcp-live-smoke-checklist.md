@@ -29,6 +29,7 @@ Codex can keep strengthening repo-side contracts without touching live data. Fin
 
 - Confirm `https://planner.valquilty.com` returns HTTP 200.
 - Run `npm run check:mcp` and confirm `ok: true` before debugging any MCP client issue. This only proves reachability/auth metadata, not tool execution.
+- If the MCP client is Codex Desktop, run `npm run check:codex-mcp` and confirm the Planner MCP server URL is present in `~/.codex/config.toml`; setup notes live in [codex-mcp-setup.md](codex-mcp-setup.md).
 - Confirm the MCP client is connected to the real planner server: `https://mcp.valquilty.com/mcp`.
 - Prefer running `npm run backup:planner -- --userId <uid> --dry-run` first to confirm backup scope.
 - If credentials are available and the test is risky, run the real read-only backup before mutating anything.
