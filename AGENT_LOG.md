@@ -2114,3 +2114,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This changes Telegram response UI only; it does not add a new mutation path.
+
+## 2026-06-07 - Codex
+
+- Summary: Added `Open planner` to Telegram command error hints.
+- Changed:
+  - `api/telegram-webhook.js` — command error responses now use a small `buildTelegramErrorResponse()` helper with the standard planner return keyboard.
+  - `tests/telegram-webhook-security.test.mjs` — added coverage that an `/add` usage hint includes `Open planner`.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded the command-error return path.
+- Verified:
+  - `node --check api/telegram-webhook.js && node --check tests/telegram-webhook-security.test.mjs && node tests/telegram-webhook-security.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This changes Telegram error-response UI only; it does not add a new task mutation path.

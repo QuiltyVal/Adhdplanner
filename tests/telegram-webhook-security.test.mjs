@@ -20,6 +20,7 @@ const {
 
 const {
   buildTelegramCalendarResponse,
+  buildTelegramErrorResponse,
   buildTelegramHelpResponse,
   buildTelegramHelpText,
   buildTelegramKillConfirmationResponse,
@@ -28,6 +29,7 @@ const {
 } = telegramWebhook._test;
 
 assert.equal(typeof buildTelegramCalendarResponse, "function");
+assert.equal(typeof buildTelegramErrorResponse, "function");
 assert.equal(typeof buildTelegramHelpResponse, "function");
 assert.equal(typeof buildTelegramHelpText, "function");
 assert.equal(typeof buildTelegramKillConfirmationResponse, "function");
@@ -132,6 +134,12 @@ function keyboardHasCallback(keyboard, callbackData) {
   assert.match(startResponse.text, /\/calendar/);
   assert.match(startResponse.text, /\/cemetery/);
   assert.equal(keyboardHasPlannerLink(startResponse.reply_markup), true);
+}
+
+{
+  const errorResponse = buildTelegramErrorResponse("Write it like this: /add buy cat food");
+  assert.match(errorResponse.text, /\/add buy cat food/);
+  assert.equal(keyboardHasPlannerLink(errorResponse.reply_markup), true);
 }
 
 {

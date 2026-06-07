@@ -368,6 +368,13 @@ function buildTelegramCalendarResponse({ userId } = {}) {
   };
 }
 
+function buildTelegramErrorResponse(errorText = "") {
+  return {
+    text: String(errorText || ""),
+    reply_markup: plannerOpenKeyboard(),
+  };
+}
+
 function buildPlannerActionAdapter(chatId, options = {}) {
   const suppressMessages = options.suppressMessages === true;
   return {
@@ -658,7 +665,8 @@ async function handlePlainCapture(chatId, text, options = {}) {
   const { route, plannerData, prefaceText, errorText } = await resolveUnifiedInboundRoute(chatId, cleaned, options);
 
   if (errorText) {
-    await sendText(chatId, errorText);
+    const response = buildTelegramErrorResponse(errorText);
+    await sendText(chatId, response.text, { reply_markup: response.reply_markup });
     return;
   }
 
@@ -1060,6 +1068,7 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports._test = {
+  buildTelegramErrorResponse,
   buildTelegramCalendarResponse,
   buildTelegramHelpResponse,
   buildTelegramHelpText,

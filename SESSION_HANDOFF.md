@@ -90,6 +90,7 @@ Companion file:
 - As of 2026-06-06, Telegram has a read-only `/help` command that shows the smoke-relevant commands and `🌐 Open planner` without re-linking the chat or sending the `/start` diagnostic ping.
 - As of 2026-06-07, repo coverage checks the `/start` connected response keeps command discovery and the `🌐 Open planner` return button.
 - As of 2026-06-07, unknown slash-command responses also include `🌐 Open planner` and are covered in the read-only Telegram action tests.
+- As of 2026-06-07, Telegram command error hints such as `/add` without text use the standard error response with `🌐 Open planner`.
 - As of 2026-06-06, `docs/telegram-live-smoke-checklist.md` is the canonical live Telegram client checklist for `/help`, `/today`, `/calendar`, `/cemetery`, completed restore, Cemetery confirmation/cancel, and `Open planner` evidence. It documents read-only commands separately from controlled mutation tests.
 - As of 2026-06-06, `tests/planner-telegram-readonly-actions.test.mjs` covers repo-side Telegram read-only daily actions: `/today`, `/completed`, and `/cemetery` render expected keyboards with `Open planner`, and the test fails if those paths call the mutation command runner.
 - As of 2026-06-06, empty `/completed` and empty `/cemetery` Telegram responses also include the `Open planner` keyboard. This keeps a read-only smoke pass useful even when there are no completed/dead tasks to list.
