@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import os from "node:os";
@@ -170,6 +171,12 @@ assert.throws(
   const verification = await verifyBackupFile(backupPath, { expectedUserId: "user-1" });
   assert.equal(verification.outputPath, backupPath);
   assert.equal(verification.totalDocs, 1);
+  assert.equal(verification.sizeBytes, fs.statSync(backupPath).size);
+  assert.equal(
+    verification.fileSha256,
+    createHash("sha256").update(fs.readFileSync(backupPath)).digest("hex"),
+  );
+  assert.match(verification.fileSha256, /^[a-f0-9]{64}$/);
 }
 
 {
@@ -236,6 +243,8 @@ assert.throws(
   assert.equal(verification.verified, true);
   assert.equal(verification.userId, "user-1");
   assert.equal(verification.collections.tasks, 0);
+  assert.equal(verification.sizeBytes, fs.statSync(backupPath).size);
+  assert.match(verification.fileSha256, /^[a-f0-9]{64}$/);
 }
 
 console.log("firestore backup export tests passed");

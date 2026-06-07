@@ -1922,3 +1922,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This is repo-side event-trace cleanup. Live Hetzner MCP subtask-write verification still needs a real MCP client.
+
+## 2026-06-07 - Codex
+
+- Summary: Added checksum evidence to planner backup verification.
+- Changed:
+  - `scripts/export-firestore-planner.js` — `--verify-file` and successful real exports now include `sizeBytes` and `fileSha256` in JSON output.
+  - `tests/firestore-backup-export.test.mjs` — added checksum/size assertions for direct verification and CLI verification output.
+  - `docs/firestore-backup-export.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the checksum evidence to record before risky QA.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js && node --check tests/firestore-backup-export.test.mjs && node tests/firestore-backup-export.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - No live Firestore export was run. This only improves local verification evidence for future read-only backups.

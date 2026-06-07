@@ -38,7 +38,9 @@ npm run backup:planner -- --verify-file backups/firestore-planner-user.json --ex
 
 Collection names are intentionally restricted to simple Firestore collection ids (`letters`, `numbers`, `_`, `-`). This prevents an accidental nested path from being exported when the command is typed by hand.
 
-Successful real exports now validate the generated payload before writing, read the saved file back, and print `verified: true` with per-collection document counts. This does not prove semantic correctness of every task, but it catches broken JSON, wrong user ids, schema drift, and invalid document paths before a backup is trusted.
+Successful real exports now validate the generated payload before writing, read the saved file back, and print `verified: true` with per-collection document counts, `sizeBytes`, and `fileSha256`. This does not prove semantic correctness of every task, but it catches broken JSON, wrong user ids, schema drift, invalid document paths, and gives you a checksum to record before a backup is trusted.
+
+When taking the first live backup, record the printed `outputPath`, `totalDocs`, and `fileSha256` in the session log before doing risky QA.
 
 ## Default Scope
 

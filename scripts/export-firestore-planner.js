@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+const { createHash } = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { getDb } = require("../api/_lib/firebase-admin");
@@ -248,7 +249,9 @@ function validateBackupPayload(payload, { expectedUserId = "" } = {}) {
 
 async function verifyBackupFile(filePath, { expectedUserId = "", cwd = process.cwd() } = {}) {
   const outputPath = path.resolve(cwd, filePath);
-  const raw = await fs.readFile(outputPath, "utf8");
+  const fileBytes = await fs.readFile(outputPath);
+  const raw = fileBytes.toString("utf8");
+  const fileSha256 = createHash("sha256").update(fileBytes).digest("hex");
   let payload;
   try {
     payload = JSON.parse(raw);
@@ -258,6 +261,8 @@ async function verifyBackupFile(filePath, { expectedUserId = "", cwd = process.c
 
   return {
     outputPath,
+    sizeBytes: fileBytes.length,
+    fileSha256,
     ...validateBackupPayload(payload, { expectedUserId }),
   };
 }
@@ -330,6 +335,8 @@ async function main() {
     outputPath: plan.outputPath,
     userId: plan.userId,
     exportedAt,
+    sizeBytes: verification.sizeBytes,
+    fileSha256: verification.fileSha256,
     collections: verification.collections,
     totalDocs: verification.totalDocs,
   }, null, 2));
