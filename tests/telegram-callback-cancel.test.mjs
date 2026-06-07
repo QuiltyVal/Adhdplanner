@@ -61,6 +61,21 @@ try {
     assert.equal(result.feedback, "Confirmed. Task moved to Cemetery.");
     assert.equal(result.suppressMessages, false);
   }
+
+  {
+    const result = await telegramWebhook._test.resolveUnifiedCallbackRoute({
+      id: "callback-done-1",
+      data: "confirm_done:task-1",
+      message: { message_id: 125 },
+    });
+
+    assert.equal(result.errorText, "");
+    assert.equal(result.callbackRoute.type, PLANNER_ACTIONS.COMPLETE_TASK);
+    assert.match(result.callbackRoute.idempotencyKey, /^telegram_callback:callback-done-1$/);
+    assert.equal(result.plannerData.telegramContext.lastAction, "callback_confirm_done");
+    assert.equal(result.feedback, "Confirmed. Task moved to completed.");
+    assert.equal(result.suppressMessages, false);
+  }
 } finally {
   if (previousDefaultUserId === undefined) {
     delete process.env.PLANNER_DEFAULT_USER_ID;
@@ -69,4 +84,4 @@ try {
   }
 }
 
-console.log("telegram callback cancel tests passed");
+console.log("telegram callback confirmation tests passed");

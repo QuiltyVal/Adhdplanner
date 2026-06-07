@@ -90,6 +90,7 @@ The product should do three things well:
   - 2026-06-07: command error hints such as `/add` without text now include `Open planner` and are covered repo-side.
   - 2026-06-07: chat/fallback guidance replies now include `Open planner` and are covered as read-only responses.
   - 2026-06-07: AI-routed Done confirmations are covered so they require `confirm_done` and still expose Rescue, Cancel, and `Open planner`.
+  - 2026-06-07: `confirm_done` callbacks are covered so the second tap routes to the normal completed-task mutation with confirmation feedback and callback context.
   - 2026-06-06: user-provided real Telegram screenshots confirmed `/today` renders the daily digest with active task buttons including `Cemetery` and `Open planner`, and `/calendar` renders the Google Calendar connect CTA. OAuth completion was not tested.
   - 2026-06-06: user-provided live Telegram check confirmed `/cemetery` and active-task `Cemetery -> Cancel` work correctly in the real bot client. Destructive `Yes, Cemetery` on a real task remains intentionally outside this safe smoke.
   - 2026-06-06: empty `/completed` and empty `/cemetery` Telegram replies now also include `Open planner`, with repo-side read-only coverage.

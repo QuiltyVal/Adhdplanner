@@ -2159,3 +2159,14 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This does not change production behavior except exposing an existing helper through `_test`; it only strengthens the repo-side safety contract.
+
+## 2026-06-07 - Codex
+
+- Summary: Added Telegram `confirm_done` callback routing coverage.
+- Changed:
+  - `tests/telegram-callback-cancel.test.mjs` — added coverage that `confirm_done:<taskId>` routes to `COMPLETE_TASK`, uses callback idempotency, returns confirmation feedback, and records `callback_confirm_done` context.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded the second-tap Done callback boundary.
+- Verified:
+  - `node --check tests/telegram-callback-cancel.test.mjs && node tests/telegram-callback-cancel.test.mjs`
+- Risks / follow-up:
+  - This is repo-side callback routing coverage only; it does not tap `Done` in the real Telegram client or mutate live user data.

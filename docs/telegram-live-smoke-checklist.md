@@ -36,6 +36,7 @@ Already covered repo-side:
 - Command error hints, such as `/add` without text, include `Open planner` instead of leaving the user in a dead end.
 - Chat/fallback guidance responses include `Open planner` instead of leaving the user in a dead end.
 - AI-routed Done confirmations use `confirm_done`, not direct `done`, and include Rescue, Cancel, and `Open planner`.
+- `confirm_done:<taskId>` callbacks resolve to the normal completed-task mutation with confirmation feedback and callback context.
 - Google Calendar callback handling is covered for success redirect, missing refresh token, bad/expired state redirect, missing code/state, and non-GET methods without calling live Google or Firestore.
 
 Not covered by this smoke:
