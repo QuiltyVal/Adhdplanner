@@ -1937,3 +1937,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - No live Firestore export was run. This only improves local verification evidence for future read-only backups.
+
+## 2026-06-07 - Codex
+
+- Summary: Added command-service coverage for MCP-style subtask writes.
+- Changed:
+  - `tests/planner-command-service-subtask.test.mjs` — added fake-Firestore transaction coverage for `runPlannerCommand(TASK_ADD_SUBTASK)`, including canonical task mutation, `lastUpdated`, created subtask payload, planner event trace, title index, Telegram context, and duplicate noop behavior.
+  - `package.json` — added the command-service subtask test to `test:contract` and `verify:server`.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded that the repo-side transactional path is covered while live Hetzner MCP smoke remains pending.
+- Verified:
+  - `node --check tests/planner-command-service-subtask.test.mjs && node tests/planner-command-service-subtask.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This does not contact the live Hetzner MCP server and does not mutate Firestore. Real MCP subtask-write verification still needs a connected MCP client.

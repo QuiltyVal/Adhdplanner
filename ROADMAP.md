@@ -63,6 +63,7 @@ The product should do three things well:
 - Verify that tasks added from Telegram and MCP appear in web UI without disappearing.
 - Verify that subtasks added externally show correctly in web UI.
   - 2026-06-06: repo-side planner action/command regression coverage now guards `add_subtask` validation, command mapping, and event payload shape. Live Hetzner MCP smoke is still pending because that server is deployed separately.
+  - 2026-06-07: repo-side fake-transaction coverage now verifies `TASK_ADD_SUBTASK` through `runPlannerCommand`: canonical task write, `lastUpdated`, created-subtask payload, event trace, title index, Telegram context, and duplicate noop behavior. Live Hetzner MCP smoke is still pending.
 - [x] Add a simple Firestore backup / export strategy.
   - 2026-06-06: read-only local JSON export script added; first live export run is still pending.
   - 2026-06-06: backup script now has a no-Firestore `--dry-run` plan plus collection/user-id validation and regression coverage, so the first live export can be previewed before reading data.
@@ -110,6 +111,7 @@ The product should do three things well:
 - Ensure MCP updates also maintain `lastUpdated`.
 - Ensure web merge logic and MCP writes do not conflict.
   - 2026-06-06: local shared server path already sets `lastUpdated` for `TASK_ADD_SUBTASK`; regression coverage was added for the API contract and route-to-command mapping. Separate live MCP verification remains required.
+  - 2026-06-07: transactional command-service coverage now exercises the MCP-style add-subtask write without Firestore credentials, including duplicate protection and event trace.
   - 2026-06-06: `/api/captures` now preserves MCP/API origin metadata for `source=mcp...` dry-run and stored capture paths, with contract coverage. Separate live Hetzner MCP capture/write smoke remains required.
   - 2026-06-06: `docs/mcp-live-smoke-checklist.md` now defines the real-client Hetzner MCP smoke path for read-only task list, disposable add-subtask write, web refresh proof, cleanup, and optional dry-run MCP capture origin check.
   - 2026-06-06: `/api/captures` dry-run no longer reads live Firestore tasks by default; response metadata reports whether task context came from `none`, `request`, or explicit `live` read.

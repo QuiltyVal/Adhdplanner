@@ -101,6 +101,7 @@ Notes:
 - Event/report/outbox/health observability exists. Capture-processing and per-task mutation traces still need to become one coherent user/debug story.
 - As of 2026-06-06, single-task status mutation events include structured `previousStatus`, `nextStatus`, and `scoreDelta` payloads where relevant, improving auditability for complete, Cemetery, and reopen flows.
 - As of 2026-06-06, `add_subtask` has repo-side contract and command-builder regression coverage, including event payload coverage for `extra.createdSubtask`; live Hetzner MCP smoke remains a separate verification step.
+- As of 2026-06-07, `runPlannerCommand(TASK_ADD_SUBTASK)` has fake-transaction coverage for canonical task mutation, `lastUpdated`, planner event trace, title index, Telegram context, and duplicate noop behavior. This still does not replace the live Hetzner MCP client smoke.
 - As of 2026-06-07, subtask toggle events use the canonical `PLANNER_EVENT_TYPES.TASK_SUBTASK_TOGGLED` constant in command-service and event-message paths, with regression coverage for the emitted trace.
 - As of 2026-06-06, the Firestore backup export CLI has a no-Firebase `--dry-run` plan and input validation, covered by regression tests. First live export remains an intentional manual/read-only step.
 - As of 2026-06-07, backup verification emits `sizeBytes` and `fileSha256` for both `--verify-file` and successful real exports, so live backup evidence can be logged by checksum.
