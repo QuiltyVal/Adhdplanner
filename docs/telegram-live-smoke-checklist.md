@@ -35,6 +35,7 @@ Already covered repo-side:
 - Unknown slash-command responses keep command discovery and `Open planner`, without routing to a planner mutation.
 - Command error hints, such as `/add` without text, include `Open planner` instead of leaving the user in a dead end.
 - Chat/fallback guidance responses include `Open planner` instead of leaving the user in a dead end.
+- AI-routed Done confirmations use `confirm_done`, not direct `done`, and include Rescue, Cancel, and `Open planner`.
 - Google Calendar callback handling is covered for success redirect, missing refresh token, bad/expired state redirect, missing code/state, and non-GET methods without calling live Google or Firestore.
 
 Not covered by this smoke:

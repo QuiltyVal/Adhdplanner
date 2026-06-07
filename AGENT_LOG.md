@@ -2144,3 +2144,18 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This changes Telegram response UI only; it does not add a new task mutation path.
+
+## 2026-06-07 - Codex
+
+- Summary: Added AI Done confirmation keyboard coverage.
+- Changed:
+  - `api/telegram-webhook.js` — exported `buildAiActionConfirmationKeyboard` through `_test` for regression coverage.
+  - `tests/telegram-webhook-security.test.mjs` — added coverage that AI-routed Done confirmations use `confirm_done`, do not expose direct `done`, and include Rescue, Cancel, and `Open planner`.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded the AI Done confirmation boundary.
+- Verified:
+  - `node --check api/telegram-webhook.js && node --check tests/telegram-webhook-security.test.mjs && node tests/telegram-webhook-security.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This does not change production behavior except exposing an existing helper through `_test`; it only strengthens the repo-side safety contract.

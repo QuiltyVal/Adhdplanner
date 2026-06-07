@@ -17,8 +17,10 @@ const {
   getGoogleOAuthStateTtlMs,
   verifyState,
 } = require("../api/_lib/google-calendar.js");
+const { PLANNER_ACTIONS } = require("../api/_lib/planner-action-types.js");
 
 const {
+  buildAiActionConfirmationKeyboard,
   buildTelegramCalendarResponse,
   buildTelegramErrorResponse,
   buildTelegramHelpResponse,
@@ -28,6 +30,7 @@ const {
   isAllowedChat,
 } = telegramWebhook._test;
 
+assert.equal(typeof buildAiActionConfirmationKeyboard, "function");
 assert.equal(typeof buildTelegramCalendarResponse, "function");
 assert.equal(typeof buildTelegramErrorResponse, "function");
 assert.equal(typeof buildTelegramHelpResponse, "function");
@@ -205,6 +208,15 @@ function keyboardHasCallback(keyboard, callbackData) {
   assert.equal(keyboardHasCallback(taskKeyboard, "confirm_kill:task-1"), false);
   assert.equal(keyboardHasPlannerLink(completedTaskKeyboard("task-1")), true);
   assert.equal(keyboardHasPlannerLink(calendarConnectKeyboard("https://calendar.example/connect")), true);
+}
+
+{
+  const doneConfirmationKeyboard = buildAiActionConfirmationKeyboard(PLANNER_ACTIONS.COMPLETE_TASK, "task-1");
+  assert.equal(keyboardHasCallback(doneConfirmationKeyboard, "confirm_done:task-1"), true);
+  assert.equal(keyboardHasCallback(doneConfirmationKeyboard, "done:task-1"), false);
+  assert.equal(keyboardHasCallback(doneConfirmationKeyboard, "panic:task-1"), true);
+  assert.equal(keyboardHasCallback(doneConfirmationKeyboard, "cancel:task-1"), true);
+  assert.equal(keyboardHasPlannerLink(doneConfirmationKeyboard), true);
 }
 
 {
