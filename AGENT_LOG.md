@@ -2255,3 +2255,16 @@ Entry template:
 - Risks / follow-up:
   - The disposable task was cleaned up immediately after MCP verification, so a separate web refresh/QA-packet proof of visual web consistency is still pending.
   - Optional MCP-origin capture smoke remains pending.
+
+## 2026-06-07 - Codex
+
+- Summary: Added repo/API coverage for non-dry-run MCP-origin captures.
+- Changed:
+  - `api/captures.js` — factored the production handler through `createCapturesHandler`, allowing tests to inject `appendCapture`, `processCapture`, and `getPlannerData` without touching Firestore.
+  - `tests/captures-origin-contract.test.mjs` — added a non-dry-run `source=mcp:claude-notes` capture test proving the handler passes MCP origin metadata to append-only capture storage, processes the stored capture, and reads live task context only for response context.
+  - `docs/mcp-live-smoke-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded the repo/API MCP-origin capture boundary.
+- Verified:
+  - `node --check api/captures.js`
+  - `node --check tests/captures-origin-contract.test.mjs && node tests/captures-origin-contract.test.mjs`
+- Risks / follow-up:
+  - This does not add a new live Hetzner MCP capture tool yet. It proves the Planner API path that such a tool should call.

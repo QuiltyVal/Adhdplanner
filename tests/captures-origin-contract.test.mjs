@@ -11,9 +11,11 @@ assert.equal(typeof capturesHandler._test?.normalizeCaptureSource, "function");
 assert.equal(typeof capturesHandler._test?.validateInput, "function");
 assert.equal(typeof capturesHandler._test?.shouldReadLiveActiveTasks, "function");
 assert.equal(typeof capturesHandler._test?.resolveCaptureActiveTasks, "function");
+assert.equal(typeof capturesHandler._test?.createCapturesHandler, "function");
 
 const {
   buildCaptureOrigin,
+  createCapturesHandler,
   normalizeCaptureSource,
   resolveCaptureActiveTasks,
   shouldReadLiveActiveTasks,
@@ -128,6 +130,102 @@ function createMockResponse() {
     assert.equal(res.payload.activeTasksSource, "none");
     assert.equal(res.payload.activeTasksCount, 0);
     assert.match(res.payload.captureId, /^dryrun-/);
+  } finally {
+    if (previousDefaultUserId == null) {
+      delete process.env.PLANNER_DEFAULT_USER_ID;
+    } else {
+      process.env.PLANNER_DEFAULT_USER_ID = previousDefaultUserId;
+    }
+  }
+}
+
+{
+  const previousDefaultUserId = process.env.PLANNER_DEFAULT_USER_ID;
+  const appendCalls = [];
+  const processCalls = [];
+  const getPlannerDataCalls = [];
+
+  try {
+    process.env.PLANNER_DEFAULT_USER_ID = "user-1";
+
+    const handler = createCapturesHandler({
+      async appendCapture(input) {
+        appendCalls.push(input);
+        return {
+          captureId: "capture-mcp-1",
+          capture: {
+            id: "capture-mcp-1",
+            rawText: input.text,
+            source: input.source,
+            meta: input.origin,
+            status: "new",
+          },
+        };
+      },
+      async processCapture(userId, capture) {
+        processCalls.push({ userId, capture });
+        return {
+          extraction: {
+            candidateTasks: [],
+          },
+          replayed: false,
+          taskEnrichment: null,
+        };
+      },
+      async getPlannerData(userId) {
+        getPlannerDataCalls.push(userId);
+        return {
+          tasks: [
+            {
+              id: "task-1",
+              text: "Existing active task",
+              status: "active",
+              subtasks: [],
+            },
+          ],
+        };
+      },
+    });
+
+    const req = {
+      method: "POST",
+      body: {
+        text: "MCP note: remember this project context",
+        source: "mcp:claude-notes",
+        idempotencyKey: "mcp-note-1",
+      },
+    };
+    const res = createMockResponse();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.payload.ok, true);
+    assert.equal(res.payload.dryRun, false);
+    assert.equal(res.payload.captureId, "capture-mcp-1");
+    assert.equal(res.payload.origin.channel, "mcp");
+    assert.equal(res.payload.origin.via, "captures_api");
+    assert.equal(res.payload.origin.source, "mcp:claude-notes");
+    assert.equal(res.payload.activeTasksSource, "live");
+    assert.equal(res.payload.activeTasksCount, 1);
+
+    assert.equal(appendCalls.length, 1);
+    assert.deepEqual(appendCalls[0], {
+      userId: "user-1",
+      text: "MCP note: remember this project context",
+      source: "mcp:claude-notes",
+      idempotencyKey: "mcp-note-1",
+      selfTest: null,
+      origin: {
+        channel: "mcp",
+        via: "captures_api",
+        source: "mcp:claude-notes",
+      },
+    });
+    assert.equal(processCalls.length, 1);
+    assert.equal(processCalls[0].userId, "user-1");
+    assert.equal(processCalls[0].capture.id, "capture-mcp-1");
+    assert.deepEqual(getPlannerDataCalls, ["user-1"]);
   } finally {
     if (previousDefaultUserId == null) {
       delete process.env.PLANNER_DEFAULT_USER_ID;

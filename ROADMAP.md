@@ -124,7 +124,7 @@ The product should do three things well:
 - Ensure web merge logic and MCP writes do not conflict.
   - 2026-06-06: local shared server path already sets `lastUpdated` for `TASK_ADD_SUBTASK`; regression coverage was added for the API contract and route-to-command mapping. Separate live MCP verification remains required.
   - 2026-06-07: transactional command-service coverage now exercises the MCP-style add-subtask write without Firestore credentials, including duplicate protection and event trace.
-  - 2026-06-07: `npm run check:mcp` now verifies the live public MCP auth boundary without credentials: reachable endpoint, Bearer `401`, `mcp:tools` scope, and OAuth protected-resource metadata. Authenticated live task read/write smoke is still pending.
+  - 2026-06-07: `npm run check:mcp` now verifies the live public MCP auth boundary without credentials: reachable endpoint, Bearer `401`, `mcp:tools` scope, and OAuth protected-resource metadata. Authenticated task read/write smoke is covered separately below.
   - 2026-06-07: `npm run check:codex-mcp` and `docs/codex-mcp-setup.md` now cover the Codex Desktop client-side setup check, so a missing Planner MCP tool can be diagnosed without printing secrets.
   - 2026-06-07: `npm run check:mcp-readiness` now combines endpoint health and Codex config registration into one read-only report for Codex MCP readiness.
   - 2026-06-07: `npm run setup:codex-mcp` now previews the exact Codex config entry; `--apply` appends only the Planner MCP URL entry, without tokens or headers.
@@ -132,6 +132,7 @@ The product should do three things well:
   - 2026-06-06: `/api/captures` now preserves MCP/API origin metadata for `source=mcp...` dry-run and stored capture paths, with contract coverage. Separate live Hetzner MCP capture/write smoke remains required.
   - 2026-06-06: `docs/mcp-live-smoke-checklist.md` now defines the real-client Hetzner MCP smoke path for read-only task list, disposable add-subtask write, web refresh proof, cleanup, and optional dry-run MCP capture origin check.
   - 2026-06-06: `/api/captures` dry-run no longer reads live Firestore tasks by default; response metadata reports whether task context came from `none`, `request`, or explicit `live` read.
+  - 2026-06-07: `/api/captures` now has injectable contract coverage for non-dry-run MCP-origin notes: `source=mcp:...` is passed to append-only capture storage with MCP origin metadata, processing runs on that capture, and live task context is read only for Angel Lab response context. Live Hetzner MCP capture tool wiring remains pending.
 
 ## Next Product Features
 

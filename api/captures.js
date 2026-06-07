@@ -791,9 +791,10 @@ function buildSimpleBrainDumpTaskCards({ dumpText = "", extractionCandidateTasks
   }));
 }
 
-async function getActiveTasksSafe(userId) {
+async function getActiveTasksSafe(userId, deps = {}) {
+  const readPlannerData = deps.getPlannerData || getPlannerData;
   try {
-    const plannerData = await getPlannerData(userId);
+    const plannerData = await readPlannerData(userId);
     return Array.isArray(plannerData?.tasks) ? plannerData.tasks : [];
   } catch (_error) {
     return [];
@@ -804,7 +805,7 @@ function shouldReadLiveActiveTasks(input = {}) {
   return Boolean(input?.userId && (!input?.dryRun || input?.includeLiveTasks));
 }
 
-async function resolveCaptureActiveTasks(input = {}) {
+async function resolveCaptureActiveTasks(input = {}, deps = {}) {
   const requestTasks = Array.isArray(input.activeTasks) ? input.activeTasks : [];
   if (requestTasks.length > 0) {
     return {
@@ -821,7 +822,7 @@ async function resolveCaptureActiveTasks(input = {}) {
   }
 
   return {
-    activeTasks: await getActiveTasksSafe(input.userId),
+    activeTasks: await getActiveTasksSafe(input.userId, deps),
     source: "live",
   };
 }
@@ -1279,166 +1280,174 @@ async function enrichCardsWithAiSubtasks({ taskCards = [], dumpText = "", active
   return enriched;
 }
 
-async function capturesHandler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    res.status(405).json({ ok: false, error: "Method Not Allowed" });
-    return;
-  }
+function createCapturesHandler(deps = {}) {
+  const appendCaptureImpl = deps.appendCapture || appendCapture;
+  const processCaptureImpl = deps.processCapture || processCapture;
 
-  const body = readJsonBody(req);
-  const validation = validateInput(body);
-  if (!validation.ok) {
-    res.status(validation.statusCode).json({ ok: false, error: validation.message });
-    return;
-  }
-
-  try {
-    let captureId = `dryrun-${Date.now()}`;
-    let capture = null;
-    let extraction = null;
-    let extractionReplayed = false;
-    let taskEnrichment = null;
-
-    if (!validation.input.dryRun) {
-      const stored = await appendCapture({
-        userId: validation.input.userId,
-        text: validation.input.text,
-        source: validation.input.source,
-        idempotencyKey: validation.input.idempotencyKey,
-        selfTest: validation.input.selfTest,
-        origin: validation.input.origin,
-      });
-      captureId = stored.captureId;
-      capture = stored.capture;
-
-      try {
-        const processed = await processCapture(validation.input.userId, capture);
-        extraction = processed?.extraction || null;
-        extractionReplayed = Boolean(processed?.replayed);
-        taskEnrichment = processed?.taskEnrichment || null;
-      } catch (_error) {
-        extraction = null;
-        extractionReplayed = false;
-        taskEnrichment = null;
-      }
+  return async function capturesHandler(req, res) {
+    if (req.method !== "POST") {
+      res.setHeader("Allow", "POST");
+      res.status(405).json({ ok: false, error: "Method Not Allowed" });
+      return;
     }
 
-    const activeTaskResolution = await resolveCaptureActiveTasks(validation.input);
-    const activeTasks = activeTaskResolution.activeTasks;
-    const extractionCandidateTasks = Array.isArray(extraction?.candidateTasks)
-      ? extraction.candidateTasks
-      : [];
-
-    const useSimpleBrainDumpMode = ANGEL_LAB_MODE !== "smart";
-    let aiDraft = {
-      source: "not_attempted",
-      model: "",
-      error: "",
-      warning: "",
-    };
-    let openAiTaskCards = [];
+    const body = readJsonBody(req);
+    const validation = validateInput(body);
+    if (!validation.ok) {
+      res.status(validation.statusCode).json({ ok: false, error: validation.message });
+      return;
+    }
 
     try {
-      const openAiDraft = await buildOpenAiBrainDumpTaskCards({
-        dumpText: validation.input.text,
-        activeTasks,
-      });
-      if (openAiDraft.skipped) {
-        aiDraft = {
-          source: OPENAI_DRAFTS_ENABLED ? "simple_fallback" : "disabled",
-          model: "",
-          error: "",
-          warning: OPENAI_DRAFTS_ENABLED
-            ? "No Angel Lab AI provider is configured; used safe parser fallback."
-            : "OpenAI drafts are disabled; used safe parser fallback.",
-        };
-      } else if (openAiDraft.taskCards.length > 0) {
-        openAiTaskCards = openAiDraft.taskCards;
-        aiDraft = {
-          source: openAiDraft.provider || "openai",
-          model: openAiDraft.model || OPENAI_ANGEL_LAB_MODEL,
-          detectedLanguage: openAiDraft.detectedLanguage || "auto",
-          error: "",
-          warning: "",
-        };
-      } else {
-        aiDraft = {
-          source: "simple_fallback",
-          model: openAiDraft.model || OPENAI_ANGEL_LAB_MODEL,
-          error: "",
-          warning: "OpenAI returned no usable draft cards; used safe parser fallback.",
-        };
-      }
-    } catch (error) {
-      aiDraft = {
-        source: "simple_fallback",
-        model: OPENAI_ANGEL_LAB_MODEL,
-        error: error?.message || "OpenAI draft failed",
-        warning: "OpenAI draft failed; used safe parser fallback.",
-      };
-      openAiTaskCards = [];
-    }
+      let captureId = `dryrun-${Date.now()}`;
+      let capture = null;
+      let extraction = null;
+      let extractionReplayed = false;
+      let taskEnrichment = null;
 
-    const initialTaskCards = openAiTaskCards.length > 0
-      ? openAiTaskCards
-      : useSimpleBrainDumpMode
-        ? buildSimpleBrainDumpTaskCards({
-          dumpText: validation.input.text,
-          extractionCandidateTasks,
-        })
-        : buildTaskCards({
+      if (!validation.input.dryRun) {
+        const stored = await appendCaptureImpl({
+          userId: validation.input.userId,
+          text: validation.input.text,
+          source: validation.input.source,
+          idempotencyKey: validation.input.idempotencyKey,
+          selfTest: validation.input.selfTest,
+          origin: validation.input.origin,
+        });
+        captureId = stored.captureId;
+        capture = stored.capture;
+
+        try {
+          const processed = await processCaptureImpl(validation.input.userId, capture);
+          extraction = processed?.extraction || null;
+          extractionReplayed = Boolean(processed?.replayed);
+          taskEnrichment = processed?.taskEnrichment || null;
+        } catch (_error) {
+          extraction = null;
+          extractionReplayed = false;
+          taskEnrichment = null;
+        }
+      }
+
+      const activeTaskResolution = await resolveCaptureActiveTasks(validation.input, deps);
+      const activeTasks = activeTaskResolution.activeTasks;
+      const extractionCandidateTasks = Array.isArray(extraction?.candidateTasks)
+        ? extraction.candidateTasks
+        : [];
+
+      const useSimpleBrainDumpMode = ANGEL_LAB_MODE !== "smart";
+      let aiDraft = {
+        source: "not_attempted",
+        model: "",
+        error: "",
+        warning: "",
+      };
+      let openAiTaskCards = [];
+
+      try {
+        const openAiDraft = await buildOpenAiBrainDumpTaskCards({
           dumpText: validation.input.text,
           activeTasks,
-          extractionCandidateTasks,
+        });
+        if (openAiDraft.skipped) {
+          aiDraft = {
+            source: OPENAI_DRAFTS_ENABLED ? "simple_fallback" : "disabled",
+            model: "",
+            error: "",
+            warning: OPENAI_DRAFTS_ENABLED
+              ? "No Angel Lab AI provider is configured; used safe parser fallback."
+              : "OpenAI drafts are disabled; used safe parser fallback.",
+          };
+        } else if (openAiDraft.taskCards.length > 0) {
+          openAiTaskCards = openAiDraft.taskCards;
+          aiDraft = {
+            source: openAiDraft.provider || "openai",
+            model: openAiDraft.model || OPENAI_ANGEL_LAB_MODEL,
+            detectedLanguage: openAiDraft.detectedLanguage || "auto",
+            error: "",
+            warning: "",
+          };
+        } else {
+          aiDraft = {
+            source: "simple_fallback",
+            model: openAiDraft.model || OPENAI_ANGEL_LAB_MODEL,
+            error: "",
+            warning: "OpenAI returned no usable draft cards; used safe parser fallback.",
+          };
+        }
+      } catch (error) {
+        aiDraft = {
+          source: "simple_fallback",
+          model: OPENAI_ANGEL_LAB_MODEL,
+          error: error?.message || "OpenAI draft failed",
+          warning: "OpenAI draft failed; used safe parser fallback.",
+        };
+        openAiTaskCards = [];
+      }
+
+      const initialTaskCards = openAiTaskCards.length > 0
+        ? openAiTaskCards
+        : useSimpleBrainDumpMode
+          ? buildSimpleBrainDumpTaskCards({
+            dumpText: validation.input.text,
+            extractionCandidateTasks,
+          })
+          : buildTaskCards({
+            dumpText: validation.input.text,
+            activeTasks,
+            extractionCandidateTasks,
+          });
+
+      const usedAiDraft = openAiTaskCards.length > 0;
+      const taskCardsWithAiFallback = useSimpleBrainDumpMode && !usedAiDraft
+        ? initialTaskCards
+        : await enrichCardsWithAiSubtasks({
+          taskCards: initialTaskCards,
+          dumpText: validation.input.text,
+          activeTasks,
         });
 
-    const usedAiDraft = openAiTaskCards.length > 0;
-    const taskCardsWithAiFallback = useSimpleBrainDumpMode && !usedAiDraft
-      ? initialTaskCards
-      : await enrichCardsWithAiSubtasks({
-        taskCards: initialTaskCards,
+      const polishedTaskCards = polishAngelLabTaskCards(taskCardsWithAiFallback, validation.input.text);
+
+      const preselectedTaskCards = applyCreateCardSubtaskPreselection(polishedTaskCards);
+
+      const finalTaskCards = preselectedTaskCards.map((card, index) => ({
+        ...card,
+        id: card.id || `${captureId}-card-${index + 1}`,
+      }));
+      const executiveAssessment = buildExecutiveStateAssessment({
         dumpText: validation.input.text,
         activeTasks,
+        taskCards: finalTaskCards,
       });
 
-    const polishedTaskCards = polishAngelLabTaskCards(taskCardsWithAiFallback, validation.input.text);
-
-    const preselectedTaskCards = applyCreateCardSubtaskPreselection(polishedTaskCards);
-
-    const finalTaskCards = preselectedTaskCards.map((card, index) => ({
-      ...card,
-      id: card.id || `${captureId}-card-${index + 1}`,
-    }));
-    const executiveAssessment = buildExecutiveStateAssessment({
-      dumpText: validation.input.text,
-      activeTasks,
-      taskCards: finalTaskCards,
-    });
-
-    res.status(200).json({
-      ok: true,
-      captureId,
-      schemaVersion: 2,
-      dryRun: Boolean(validation.input.dryRun),
-      origin: validation.input.origin,
-      activeTasksSource: activeTaskResolution.source,
-      activeTasksCount: activeTasks.length,
-      taskCards: finalTaskCards,
-      executiveAssessment,
-      aiDraft,
-      extraction: extraction || null,
-      extractionReplayed,
-      taskEnrichment,
-    });
-  } catch (_error) {
-    res.status(500).json({ ok: false, error: "Failed to store capture" });
-  }
+      res.status(200).json({
+        ok: true,
+        captureId,
+        schemaVersion: 2,
+        dryRun: Boolean(validation.input.dryRun),
+        origin: validation.input.origin,
+        activeTasksSource: activeTaskResolution.source,
+        activeTasksCount: activeTasks.length,
+        taskCards: finalTaskCards,
+        executiveAssessment,
+        aiDraft,
+        extraction: extraction || null,
+        extractionReplayed,
+        taskEnrichment,
+      });
+    } catch (_error) {
+      res.status(500).json({ ok: false, error: "Failed to store capture" });
+    }
+  };
 }
+
+const capturesHandler = createCapturesHandler();
 
 module.exports = capturesHandler;
 module.exports._test = {
   buildCaptureOrigin,
+  createCapturesHandler,
   normalizeCaptureSource,
   validateInput,
   applyCreateCardSubtaskPreselection,

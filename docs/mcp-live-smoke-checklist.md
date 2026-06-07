@@ -14,6 +14,7 @@ Already covered repo-side:
 - local command service updates the task through the canonical command path;
 - fake-transaction coverage now exercises `runPlannerCommand(TASK_ADD_SUBTASK)` end to end for canonical task mutation, `lastUpdated`, event trace, title index, Telegram context, and duplicate noop behavior;
 - `/api/captures` preserves `origin.channel: "mcp"` for `source=mcp...` capture intake;
+- repo/API contract coverage proves non-dry-run `source=mcp...` capture requests call append-only capture storage with MCP origin metadata and process the stored capture;
 - `npm run check:mcp` verifies the public MCP auth boundary without credentials: live endpoint returns Bearer `401`, advertises scope `mcp:tools`, and serves OAuth protected-resource metadata for `ADHD Planner MCP`.
 
 Live client evidence:
@@ -31,7 +32,7 @@ Still remaining:
 
 - prove the web app sees that MCP write after refresh/bootstrap;
 - prove the task does not disappear or bounce because of stale local/web state;
-- optionally prove MCP-origin capture intake with `source=mcp...` reaches the expected origin metadata.
+- optionally add and smoke a live Hetzner MCP capture tool with `source=mcp...`.
 
 Codex can keep strengthening repo-side contracts without touching live data. The authenticated task read/write/cleanup path is now proven through the real MCP client; web visual refresh proof remains separate.
 

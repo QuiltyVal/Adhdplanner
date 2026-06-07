@@ -127,6 +127,7 @@ Goal: let the user dump chaos into the system without first organizing it.
 - [x] Support append-only capture creation from Telegram free text.
 - [x] Support append-only capture creation from web input.
 - [~] Support append-only capture creation from MCP-originated notes/facts.
+  - 2026-06-07: repo/API contract coverage now proves non-dry-run `source=mcp:...` capture requests call append-only capture storage with MCP origin metadata and process that capture through the existing capture-processing path instead of a direct MCP task mutation tool. A live Hetzner MCP tool that submits captures is still pending.
 - [x] Track capture lifecycle:
   - `new`
   - `processed`
