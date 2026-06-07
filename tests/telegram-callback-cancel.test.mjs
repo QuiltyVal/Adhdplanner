@@ -64,9 +64,24 @@ try {
 
   {
     const result = await telegramWebhook._test.resolveUnifiedCallbackRoute({
+      id: "callback-done-direct-1",
+      data: "done:task-1",
+      message: { message_id: 125 },
+    });
+
+    assert.equal(result.errorText, "");
+    assert.equal(result.callbackRoute.type, PLANNER_ACTIONS.COMPLETE_TASK);
+    assert.match(result.callbackRoute.idempotencyKey, /^telegram_callback:callback-done-direct-1$/);
+    assert.equal(result.plannerData.telegramContext.lastAction, "callback_done");
+    assert.equal(result.feedback, "Task moved to completed.");
+    assert.equal(result.suppressMessages, false);
+  }
+
+  {
+    const result = await telegramWebhook._test.resolveUnifiedCallbackRoute({
       id: "callback-done-1",
       data: "confirm_done:task-1",
-      message: { message_id: 125 },
+      message: { message_id: 126 },
     });
 
     assert.equal(result.errorText, "");

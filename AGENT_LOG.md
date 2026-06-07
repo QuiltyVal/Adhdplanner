@@ -2168,5 +2168,22 @@ Entry template:
   - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded the second-tap Done callback boundary.
 - Verified:
   - `node --check tests/telegram-callback-cancel.test.mjs && node tests/telegram-callback-cancel.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - This is repo-side callback routing coverage only; it does not tap `Done` in the real Telegram client or mutate live user data.
+
+## 2026-06-07 - Codex
+
+- Summary: Added direct Telegram `done` callback routing coverage.
+- Changed:
+  - `tests/telegram-callback-cancel.test.mjs` — added coverage that direct task-card `done:<taskId>` routes to `COMPLETE_TASK`, uses callback idempotency, returns task-card feedback, and records `callback_done` context.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded the direct Done task-button boundary separately from AI `confirm_done`.
+- Verified:
+  - `node --check tests/telegram-callback-cancel.test.mjs && node tests/telegram-callback-cancel.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This is repo-side callback routing coverage only; it does not tap `Done` in the real Telegram client or mutate live user data.
