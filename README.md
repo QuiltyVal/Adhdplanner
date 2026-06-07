@@ -53,6 +53,14 @@ Quick help:
 - `npm run backup:planner -- --help`
 - `npm run backup:planner -- --userId <uid> --dry-run`
 
+## MCP Endpoint Probe
+
+Read-only MCP auth-boundary probe:
+
+- `npm run check:mcp`
+
+This checks that `https://mcp.valquilty.com/mcp` is reachable, protected by Bearer auth, and publishes OAuth protected-resource metadata. It does not call MCP tools or mutate planner data.
+
 ## Live QA Checklists
 
 - Telegram live smoke: [docs/telegram-live-smoke-checklist.md](docs/telegram-live-smoke-checklist.md)

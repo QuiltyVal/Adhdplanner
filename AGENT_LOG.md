@@ -1963,3 +1963,17 @@ Entry template:
   - Documentation-only update; no code checks required.
 - Risks / follow-up:
   - Live Hetzner MCP read/write smoke is still pending and requires a real connected MCP client.
+
+## 2026-06-07 - Codex
+
+- Summary: Added a read-only MCP endpoint probe.
+- Changed:
+  - `scripts/check-mcp-endpoint.js` — added a no-token probe for the live MCP public boundary: endpoint reachability, Bearer `401`, advertised `mcp:tools` scope, and OAuth protected-resource metadata.
+  - `tests/mcp-endpoint-probe.test.mjs` — added regression coverage for auth-header parsing, scope validation, metadata validation, and unhealthy scope detection without network calls.
+  - `package.json` — added `npm run check:mcp` and included the probe test in `test:contract` / `verify:server`.
+  - `README.md`, `docs/mcp-live-smoke-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded that public MCP auth-boundary health can now be checked from this repo.
+- Verified:
+  - `node --check scripts/check-mcp-endpoint.js && node --check tests/mcp-endpoint-probe.test.mjs && node tests/mcp-endpoint-probe.test.mjs`
+  - `npm run check:mcp` returned `ok: true` for `https://mcp.valquilty.com/mcp` with HTTP `401`, Bearer auth, `mcp:tools`, and protected-resource metadata.
+- Risks / follow-up:
+  - This does not authenticate to MCP, list tasks, or write subtasks. Real MCP read/write smoke still needs a connected MCP client.

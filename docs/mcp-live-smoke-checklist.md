@@ -13,7 +13,8 @@ Already covered repo-side:
 - subtask-add events expose `payload.extra.createdSubtask`;
 - local command service updates the task through the canonical command path;
 - fake-transaction coverage now exercises `runPlannerCommand(TASK_ADD_SUBTASK)` end to end for canonical task mutation, `lastUpdated`, event trace, title index, Telegram context, and duplicate noop behavior;
-- `/api/captures` preserves `origin.channel: "mcp"` for `source=mcp...` capture intake.
+- `/api/captures` preserves `origin.channel: "mcp"` for `source=mcp...` capture intake;
+- `npm run check:mcp` verifies the public MCP auth boundary without credentials: live endpoint returns Bearer `401`, advertises scope `mcp:tools`, and serves OAuth protected-resource metadata for `ADHD Planner MCP`.
 
 Still remaining:
 
@@ -27,6 +28,7 @@ Codex can keep strengthening repo-side contracts without touching live data. Fin
 ## Preconditions
 
 - Confirm `https://planner.valquilty.com` returns HTTP 200.
+- Run `npm run check:mcp` and confirm `ok: true` before debugging any MCP client issue. This only proves reachability/auth metadata, not tool execution.
 - Confirm the MCP client is connected to the real planner server: `https://mcp.valquilty.com/mcp`.
 - Prefer running `npm run backup:planner -- --userId <uid> --dry-run` first to confirm backup scope.
 - If credentials are available and the test is risky, run the real read-only backup before mutating anything.

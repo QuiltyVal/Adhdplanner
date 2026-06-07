@@ -1,6 +1,6 @@
 # ADHD Planner Execution Plan
 
-Last updated: 2026-06-03
+Last updated: 2026-06-07
 
 This is the working execution plan for the next product layer.
 
@@ -103,6 +103,7 @@ Notes:
 - As of 2026-06-06, `add_subtask` has repo-side contract and command-builder regression coverage, including event payload coverage for `extra.createdSubtask`; live Hetzner MCP smoke remains a separate verification step.
 - As of 2026-06-07, `runPlannerCommand(TASK_ADD_SUBTASK)` has fake-transaction coverage for canonical task mutation, `lastUpdated`, planner event trace, title index, Telegram context, and duplicate noop behavior. This still does not replace the live Hetzner MCP client smoke.
 - As of 2026-06-07, subtask toggle events use the canonical `PLANNER_EVENT_TYPES.TASK_SUBTASK_TOGGLED` constant in command-service and event-message paths, with regression coverage for the emitted trace.
+- As of 2026-06-07, `npm run check:mcp` performs a read-only probe of the live public MCP auth boundary: endpoint reachability, Bearer `401`, advertised `mcp:tools` scope, and OAuth protected-resource metadata. This still does not prove authenticated MCP tool execution.
 - As of 2026-06-06, the Firestore backup export CLI has a no-Firebase `--dry-run` plan and input validation, covered by regression tests. First live export remains an intentional manual/read-only step.
 - As of 2026-06-07, backup verification emits `sizeBytes` and `fileSha256` for both `--verify-file` and successful real exports, so live backup evidence can be logged by checksum.
 
