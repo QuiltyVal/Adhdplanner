@@ -69,6 +69,7 @@ The product should do three things well:
   - 2026-06-06: backup script now has a no-Firestore `--dry-run` plan plus collection/user-id validation and regression coverage, so the first live export can be previewed before reading data.
   - 2026-06-06: backup script now validates generated backup payloads and supports local `--verify-file` checks for schema, user id, collection shape, and document paths before trusting an export.
   - 2026-06-07: backup verification output now includes `sizeBytes` and `fileSha256`, so first live backup evidence can be pinned to a stable checksum without reading Firestore again.
+  - 2026-06-07: first real-user dry-run scope check passed for `U2geUdbvWyVRNLWnSZBnftOMSU22`; no Firestore read/write was performed and `backups/` is gitignored. First live export remains pending.
 - [x] Add operation logging for destructive task changes.
   - 2026-06-06: destructive/status-transition events include structured status transition payloads; bulk/delete/snapshot paths already write planner events.
   - 2026-06-07: subtask toggle events now use the canonical planner event type constant with regression coverage, keeping subtask activity traces consistent for MCP/Telegram/web-origin mutations.

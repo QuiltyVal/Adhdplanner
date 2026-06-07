@@ -109,6 +109,7 @@ Notes:
 - As of 2026-06-07, `npm run setup:codex-mcp` is a dry-run-by-default helper for adding the Planner MCP URL to Codex config; applying it still requires explicit `--apply`.
 - As of 2026-06-06, the Firestore backup export CLI has a no-Firebase `--dry-run` plan and input validation, covered by regression tests. First live export remains an intentional manual/read-only step.
 - As of 2026-06-07, backup verification emits `sizeBytes` and `fileSha256` for both `--verify-file` and successful real exports, so live backup evidence can be logged by checksum.
+- As of 2026-06-07, the real-user backup dry-run for `U2geUdbvWyVRNLWnSZBnftOMSU22` passed and confirmed the default collection scope without reading Firestore or writing a file; first live export is still pending.
 
 Done when:
 - a new agent can implement on top of this plan without guessing where state is allowed to live

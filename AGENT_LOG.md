@@ -2027,3 +2027,14 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - I did not run `--apply`; Codex config is still unchanged until explicitly applied, then Codex must restart/reload before Planner MCP tools can appear.
+
+## 2026-06-07 - Codex
+
+- Summary: Confirmed backup dry-run scope for the live planner user id.
+- Changed:
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded the real-user backup dry-run evidence while keeping first live Firestore export pending.
+- Verified:
+  - `.gitignore` contains `backups/`.
+  - `npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22 --dry-run` returned `ok: true`, `dryRun: true`, root path `Users/U2geUdbvWyVRNLWnSZBnftOMSU22`, and the planned default collections: `tasks`, `taskSnapshots`, `captures`, `commitments`, `plannerEvents`, `reportItems`, `outbox`, `engineRuns`, `outboxRuns`, `plannerCommands`, `telegramLogs`, and `angelDecisions`.
+- Risks / follow-up:
+  - This did not read Firestore and did not create a backup file. First live export with credentials is still pending before any risky live data mutation.
