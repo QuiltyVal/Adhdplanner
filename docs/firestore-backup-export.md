@@ -18,6 +18,12 @@ Preview the backup scope without Firebase credentials, without reading Firestore
 npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22 --dry-run
 ```
 
+Check that Firebase credentials are present and shaped correctly without reading Firestore and without writing a file:
+
+```bash
+npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22 --preflight
+```
+
 ```bash
 npm run backup:planner
 ```
@@ -43,8 +49,11 @@ Successful real exports now validate the generated payload before writing, read 
 Every command prints a `safety` object:
 
 - dry-run: `firestoreRead: false`, `firestoreWrite: false`, `localFileWrite: false`
+- preflight: `firestoreRead: false`, `firestoreWrite: false`, `localFileWrite: false`, `credentialEnvRead: true`
 - verify-file: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`
 - real export: `firestoreRead: true`, `firestoreWrite: false`, `localFileWrite: true`, `verifiedReadback: true`
+
+Preflight output reports only whether required credential fields are present. It does not print `project_id`, `client_email`, `private_key`, or the raw `FIREBASE_CREDENTIALS` value.
 
 The export command never writes to Firestore.
 

@@ -111,6 +111,7 @@ Notes:
 - As of 2026-06-07, backup verification emits `sizeBytes` and `fileSha256` for both `--verify-file` and successful real exports, so live backup evidence can be logged by checksum.
 - As of 2026-06-07, the real-user backup dry-run for `U2geUdbvWyVRNLWnSZBnftOMSU22` passed and confirmed the default collection scope without reading Firestore or writing a file; first live export is still pending.
 - As of 2026-06-07, backup CLI responses include `safety` metadata for dry-run, verify-file, and export modes, explicitly distinguishing Firestore reads from local file writes and confirming no Firestore writes.
+- As of 2026-06-07, backup CLI supports `--preflight` for credential-readiness checks without Firestore reads, Firestore writes, local file writes, or credential value output.
 
 Done when:
 - a new agent can implement on top of this plan without guessing where state is allowed to live

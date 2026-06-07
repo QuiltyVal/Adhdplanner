@@ -62,9 +62,18 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
     return { help: true };
   }
 
+  const dryRun = hasFlag("--dry-run", argv);
+  const preflight = hasFlag("--preflight", argv);
+  if (dryRun && preflight) {
+    throw new Error("Use either --dry-run or --preflight, not both.");
+  }
+
   const verifyFile = getArgValue("--verify-file", argv);
   if (hasFlag("--verify-file", argv) && !verifyFile) {
     throw new Error("Missing backup file. Pass --verify-file <path>.");
+  }
+  if (verifyFile && preflight) {
+    throw new Error("Use either --verify-file or --preflight, not both.");
   }
   if (verifyFile) {
     const expectedUserId = getArgValue("--expectUserId", argv);
@@ -96,7 +105,8 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
 
   return {
     help: false,
-    dryRun: hasFlag("--dry-run", argv),
+    dryRun,
+    preflight,
     userId: String(userId),
     collections: parseCollections(getArgValue("--collections", argv)),
     maxDocs,
@@ -139,6 +149,7 @@ function getHelpText() {
     "  --collections tasks,taskSnapshots,captures",
     "  --maxDocs 100",
     "  --dry-run",
+    "  --preflight",
     "  --verify-file backups/file.json [--expectUserId <uid>]",
     "",
     "This script is read-only. It does not write to Firestore.",
@@ -155,6 +166,16 @@ function buildBackupSafetyMetadata(mode) {
         localFileRead: false,
         localFileWrite: false,
         verifiedReadback: false,
+      };
+    case "preflight":
+      return {
+        mode,
+        firestoreRead: false,
+        firestoreWrite: false,
+        localFileRead: false,
+        localFileWrite: false,
+        verifiedReadback: false,
+        credentialEnvRead: true,
       };
     case "verify-file":
       return {
@@ -177,6 +198,75 @@ function buildBackupSafetyMetadata(mode) {
     default:
       throw new Error(`Unsupported backup safety mode: ${mode}`);
   }
+}
+
+function buildFirebaseCredentialsPreflight(env = process.env) {
+  const raw = env.FIREBASE_CREDENTIALS;
+  if (!raw) {
+    return {
+      ready: false,
+      present: false,
+      validJson: false,
+      projectIdPresent: false,
+      clientEmailPresent: false,
+      privateKeyPresent: false,
+      issues: ["FIREBASE_CREDENTIALS is not set."],
+    };
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return {
+      ready: false,
+      present: true,
+      validJson: false,
+      projectIdPresent: false,
+      clientEmailPresent: false,
+      privateKeyPresent: false,
+      issues: ["FIREBASE_CREDENTIALS is not valid JSON."],
+    };
+  }
+
+  const projectIdPresent = typeof parsed.project_id === "string" && parsed.project_id.trim().length > 0;
+  const clientEmailPresent = typeof parsed.client_email === "string" && parsed.client_email.trim().length > 0;
+  const privateKeyPresent = typeof parsed.private_key === "string" && parsed.private_key.trim().length > 0;
+  const issues = [];
+  if (!projectIdPresent) issues.push("FIREBASE_CREDENTIALS.project_id is missing.");
+  if (!clientEmailPresent) issues.push("FIREBASE_CREDENTIALS.client_email is missing.");
+  if (!privateKeyPresent) issues.push("FIREBASE_CREDENTIALS.private_key is missing.");
+
+  return {
+    ready: issues.length === 0,
+    present: true,
+    validJson: true,
+    projectIdPresent,
+    clientEmailPresent,
+    privateKeyPresent,
+    issues,
+  };
+}
+
+function buildBackupPreflightReport({ plan, env = process.env } = {}) {
+  if (!plan || typeof plan !== "object") {
+    throw new Error("Backup plan is required for preflight.");
+  }
+  const credentials = buildFirebaseCredentialsPreflight(env);
+  return {
+    ok: credentials.ready,
+    preflight: true,
+    safety: buildBackupSafetyMetadata("preflight"),
+    outputPath: plan.outputPath,
+    userId: plan.userId,
+    rootPath: plan.rootPath,
+    collections: Object.fromEntries(plan.collections.map((collectionName) => [collectionName, "planned"])),
+    maxDocs: plan.maxDocs || null,
+    credentials,
+    nextAction: credentials.ready
+      ? "Run the export command without --preflight to read Firestore and write a local backup file."
+      : "Set FIREBASE_CREDENTIALS to a Firebase service account JSON before running a live export.",
+  };
 }
 
 function normalizeFirestoreValue(value) {
@@ -323,6 +413,13 @@ async function main() {
 
   const exportedAt = new Date().toISOString();
   const plan = buildBackupPlan({ options, exportedAt });
+  if (options.preflight) {
+    const preflightReport = buildBackupPreflightReport({ plan });
+    console.log(JSON.stringify(preflightReport, null, 2));
+    if (!preflightReport.ok) process.exitCode = 1;
+    return;
+  }
+
   if (options.dryRun) {
     console.log(JSON.stringify({
       ok: true,
@@ -392,6 +489,8 @@ module.exports = {
   buildBackupPlan,
   buildOutputPath,
   buildBackupSafetyMetadata,
+  buildBackupPreflightReport,
+  buildFirebaseCredentialsPreflight,
   getHelpText,
   normalizeFirestoreValue,
   parseBackupOptions,

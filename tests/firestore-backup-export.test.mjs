@@ -11,8 +11,10 @@ const require = createRequire(import.meta.url);
 const {
   BACKUP_SCHEMA,
   DEFAULT_COLLECTIONS,
+  buildBackupPreflightReport,
   buildBackupSafetyMetadata,
   buildBackupPlan,
+  buildFirebaseCredentialsPreflight,
   normalizeFirestoreValue,
   parseBackupOptions,
   parseCollections,
@@ -40,6 +42,15 @@ assert.deepEqual(buildBackupSafetyMetadata("dry-run"), {
   localFileRead: false,
   localFileWrite: false,
   verifiedReadback: false,
+});
+assert.deepEqual(buildBackupSafetyMetadata("preflight"), {
+  mode: "preflight",
+  firestoreRead: false,
+  firestoreWrite: false,
+  localFileRead: false,
+  localFileWrite: false,
+  verifiedReadback: false,
+  credentialEnvRead: true,
 });
 assert.deepEqual(buildBackupSafetyMetadata("verify-file"), {
   mode: "verify-file",
@@ -75,6 +86,7 @@ assert.throws(() => buildBackupSafetyMetadata("delete"), /Unsupported backup saf
   ], {});
 
   assert.equal(options.dryRun, true);
+  assert.equal(options.preflight, false);
   assert.equal(options.userId, "user-1");
   assert.deepEqual(options.collections, ["tasks", "plannerEvents"]);
   assert.equal(options.maxDocs, 3);
@@ -86,6 +98,23 @@ assert.throws(() => buildBackupSafetyMetadata("delete"), /Unsupported backup saf
   });
   assert.equal(plan.rootPath, "Users/user-1");
   assert.equal(plan.outputPath, "/tmp/planner/backups/manual.json");
+}
+
+{
+  const options = parseBackupOptions([
+    "node",
+    "scripts/export-firestore-planner.js",
+    "--userId",
+    "user-1",
+    "--collections",
+    "tasks,plannerEvents",
+    "--preflight",
+  ], {});
+
+  assert.equal(options.dryRun, false);
+  assert.equal(options.preflight, true);
+  assert.equal(options.userId, "user-1");
+  assert.deepEqual(options.collections, ["tasks", "plannerEvents"]);
 }
 
 assert.throws(
@@ -119,6 +148,90 @@ assert.throws(
   () => parseBackupOptions(["node", "script", "--verify-file"], {}),
   /Missing backup file/,
 );
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--userId", "user-1", "--dry-run", "--preflight"], {}),
+  /either --dry-run or --preflight/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--verify-file", "backup.json", "--preflight"], {}),
+  /either --verify-file or --preflight/,
+);
+
+{
+  const missingCredentials = buildFirebaseCredentialsPreflight({});
+  assert.equal(missingCredentials.ready, false);
+  assert.equal(missingCredentials.present, false);
+  assert.deepEqual(missingCredentials.issues, ["FIREBASE_CREDENTIALS is not set."]);
+
+  const invalidCredentials = buildFirebaseCredentialsPreflight({ FIREBASE_CREDENTIALS: "private-key-fragment" });
+  assert.equal(invalidCredentials.ready, false);
+  assert.equal(invalidCredentials.present, true);
+  assert.equal(invalidCredentials.validJson, false);
+  assert.deepEqual(invalidCredentials.issues, ["FIREBASE_CREDENTIALS is not valid JSON."]);
+  assert.equal(JSON.stringify(invalidCredentials).includes("private-key-fragment"), false);
+
+  const incompleteCredentials = buildFirebaseCredentialsPreflight({
+    FIREBASE_CREDENTIALS: JSON.stringify({ project_id: "demo-project" }),
+  });
+  assert.equal(incompleteCredentials.ready, false);
+  assert.equal(incompleteCredentials.validJson, true);
+  assert.equal(incompleteCredentials.projectIdPresent, true);
+  assert.equal(incompleteCredentials.clientEmailPresent, false);
+  assert.equal(incompleteCredentials.privateKeyPresent, false);
+
+  const validCredentials = buildFirebaseCredentialsPreflight({
+    FIREBASE_CREDENTIALS: JSON.stringify({
+      project_id: "demo-project",
+      client_email: "firebase-admin@example.test",
+      private_key: "-----BEGIN PRIVATE KEY-----\\nfake\\n-----END PRIVATE KEY-----\\n",
+    }),
+  });
+  assert.deepEqual(validCredentials, {
+    ready: true,
+    present: true,
+    validJson: true,
+    projectIdPresent: true,
+    clientEmailPresent: true,
+    privateKeyPresent: true,
+    issues: [],
+  });
+}
+
+{
+  const plan = buildBackupPlan({
+    options: {
+      userId: "user-1",
+      collections: ["tasks", "plannerEvents"],
+      maxDocs: 3,
+      outputPath: null,
+    },
+    exportedAt: "2026-06-06T08:00:00.000Z",
+    cwd: "/tmp/planner",
+  });
+
+  const missingReport = buildBackupPreflightReport({ plan, env: {} });
+  assert.equal(missingReport.ok, false);
+  assert.equal(missingReport.preflight, true);
+  assert.deepEqual(missingReport.safety, buildBackupSafetyMetadata("preflight"));
+  assert.equal(missingReport.credentials.ready, false);
+  assert.equal(missingReport.collections.tasks, "planned");
+
+  const readyReport = buildBackupPreflightReport({
+    plan,
+    env: {
+      FIREBASE_CREDENTIALS: JSON.stringify({
+        project_id: "demo-project",
+        client_email: "firebase-admin@example.test",
+        private_key: "fake-private-key",
+      }),
+    },
+  });
+  assert.equal(readyReport.ok, true);
+  assert.equal(readyReport.credentials.ready, true);
+  assert.equal(JSON.stringify(readyReport).includes("fake-private-key"), false);
+  assert.equal(JSON.stringify(readyReport).includes("firebase-admin@example.test"), false);
+  assert.equal(JSON.stringify(readyReport).includes("demo-project"), false);
+}
 
 {
   const fakeTimestamp = {
@@ -235,6 +348,49 @@ assert.throws(
   assert.equal(dryRun.collections.plannerEvents, "planned");
   assert.equal(dryRun.maxDocs, 3);
   assert.match(dryRun.outputPath, /backups\/firestore-planner-user-1-/);
+}
+
+{
+  const output = execFileSync("node", [
+    "scripts/export-firestore-planner.js",
+    "--userId",
+    "user-1",
+    "--collections",
+    "tasks,plannerEvents",
+    "--maxDocs",
+    "3",
+    "--preflight",
+  ], {
+    cwd: repoRoot,
+    env: {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      FIREBASE_CREDENTIALS: JSON.stringify({
+        project_id: "demo-project",
+        client_email: "firebase-admin@example.test",
+        private_key: "fake-private-key",
+      }),
+    },
+    encoding: "utf8",
+  });
+
+  const preflight = JSON.parse(output);
+  assert.equal(preflight.ok, true);
+  assert.equal(preflight.preflight, true);
+  assert.deepEqual(preflight.safety, buildBackupSafetyMetadata("preflight"));
+  assert.equal(preflight.credentials.ready, true);
+  assert.equal(preflight.credentials.projectIdPresent, true);
+  assert.equal(preflight.credentials.clientEmailPresent, true);
+  assert.equal(preflight.credentials.privateKeyPresent, true);
+  assert.equal(preflight.userId, "user-1");
+  assert.equal(preflight.rootPath, "Users/user-1");
+  assert.equal(preflight.collections.tasks, "planned");
+  assert.equal(preflight.collections.plannerEvents, "planned");
+  assert.equal(preflight.maxDocs, 3);
+  assert.match(preflight.outputPath, /backups\/firestore-planner-user-1-/);
+  assert.equal(output.includes("fake-private-key"), false);
+  assert.equal(output.includes("firebase-admin@example.test"), false);
+  assert.equal(output.includes("demo-project"), false);
 }
 
 {

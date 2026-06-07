@@ -2054,3 +2054,19 @@ Entry template:
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
 - Risks / follow-up:
   - This changes CLI JSON output only. No Firestore access was performed in this edit.
+
+## 2026-06-07 - Codex
+
+- Summary: Added backup export preflight checks.
+- Changed:
+  - `scripts/export-firestore-planner.js` — added `--preflight` mode to validate `FIREBASE_CREDENTIALS` presence and required field shape without reading Firestore, writing Firestore, reading local files, or writing local backup files.
+  - `tests/firestore-backup-export.test.mjs` — added coverage for preflight safety metadata, option conflicts, credential shape checks, CLI output, and secret non-disclosure.
+  - `docs/firestore-backup-export.md`, `README.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the preflight command and its safety boundary.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js && node --check tests/firestore-backup-export.test.mjs && node tests/firestore-backup-export.test.mjs`
+  - `npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22 --preflight || true` returned `ok: false` because `FIREBASE_CREDENTIALS` is not set in this environment, with `safety.firestoreRead: false`, `safety.firestoreWrite: false`, and `safety.localFileWrite: false`.
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - First live Firestore export is still pending. This preflight only confirms whether credentials are locally available and shaped correctly; it does not authenticate to Firebase or read planner data.
