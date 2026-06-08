@@ -1,0 +1,23 @@
+module.exports = {
+  apps: [
+    {
+      name: "adhd-mcp",
+      script: "./src/index.js",
+      cwd: "/path/to/adhdplanner-repo/services/mcp-server",
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      env: {
+        NODE_ENV: "production",
+        PORT: "3000",
+        PUBLIC_BASE_URL: "https://mcp.example.com",
+        FIREBASE_SERVICE_ACCOUNT_PATH: "/path/to/serviceAccountKey.json",
+        FIRESTORE_COLLECTION: "Users",
+        FIRESTORE_DOCUMENT_ID: "replace-with-user-document-id",
+        FIRESTORE_TASKS_FIELD: "tasks",
+        AUTH_SECRETS_PATH: "/path/to/auth-secrets.json",
+        OAUTH_CLIENTS_PATH: "/path/to/oauth-clients.json"
+      }
+    }
+  ]
+};

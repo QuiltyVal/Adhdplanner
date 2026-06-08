@@ -35,6 +35,7 @@ This repo must stay portable between home and office machines.
 - Data: Firebase Auth + Firestore
 - Telegram bot: `api/telegram-webhook.js`
 - Telegram nudges: `api/telegram-nudge.js`
+- MCP server source mirror: `services/mcp-server`
 - Agent chat: `api/agent-chat.js`
 - Google Calendar server-side OAuth for Telegram: `api/google-calendar-*.js`
 - Planner server logic shared by API routes: `api/_lib/planner-store.js`
@@ -134,7 +135,7 @@ Do not assume deadline already changes heat. It does not.
 
 - Vercel Cron is not reliable to the exact minute on this setup. Do not assume `09:00` means exactly `09:00`.
 - Google Calendar browser-side connect still exists in web UI, but Telegram scheduling uses server-side OAuth.
-- The MCP server on Hetzner may contain small live patches not yet mirrored automatically elsewhere. Check `SESSION_HANDOFF.md`.
+- The MCP server on Hetzner should be changed from `services/mcp-server` first, then manually deployed until CI/deploy automation exists. Check `SESSION_HANDOFF.md` before touching it.
 
 ## Before making risky changes
 

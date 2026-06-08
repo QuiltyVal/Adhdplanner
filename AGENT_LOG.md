@@ -2347,3 +2347,24 @@ Entry template:
 - Risks / follow-up:
   - This is a live-only manual deployment because `/root/adhd-mcp` is not a git checkout. The MCP server source should eventually be moved into versioned repo code.
   - Normal password change does not revoke existing OAuth tokens; add token/session revocation later if needed for compromised-password recovery.
+
+## 2026-06-08 - Codex
+
+- Summary: Mirrored the live Hetzner MCP server source into the repo.
+- Changed:
+  - `services/mcp-server/src/index.js` — added the current live MCP source as versioned service code, including the `/change-password` route. The repo copy removes the hardcoded live Firestore user-id fallback and requires `FIRESTORE_DOCUMENT_ID` or `FIRESTORE_USER_ID`.
+  - `services/mcp-server/package.json`, `README.md`, `env.example`, and `ecosystem.config.cjs.example` — added service metadata, local syntax check, deployment boundary docs, and secret-free env/PM2 templates.
+  - `tests/mcp-server-source.test.mjs` — added source guard coverage for the password-change route, missing hardcoded live user id, and absence of obvious secret/generated files under `services/mcp-server`.
+  - `package.json` — added `npm run check:mcp-server-source` and included it in `verify:server` and `test:contract`.
+  - `AGENTS.md`, `README.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded `services/mcp-server` as the MCP source mirror and kept live deploy manual for now.
+- Verified:
+  - `npm run check:mcp-server-source`
+  - `node --check services/mcp-server/src/index.js`
+  - `node tests/mcp-server-source.test.mjs`
+  - `npm run verify:server`
+  - `npm run test:contract`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `rg` over `services/mcp-server` found no hardcoded live user id or private key material.
+- Risks / follow-up:
+  - Live Hetzner still runs from `/root/adhd-mcp`; this commit creates a source-controlled mirror but does not yet replace manual deploy with CI.
+  - The service source is still large and mostly unmodular. Next cleanup should split auth, Firestore task store, and tool definitions before adding more MCP features.

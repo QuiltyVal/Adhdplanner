@@ -1,0 +1,20 @@
+{
+  "name": "@adhd-planner/mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Firestore-backed MCP server for ADHD Planner",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "node --check src/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.2.1",
+    "firebase-admin": "^13.7.0",
+    "jose": "^6.2.2",
+    "nodemailer": "^8.0.4",
+    "zod": "^4.3.6"
+  }
+}

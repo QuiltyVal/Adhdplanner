@@ -1,0 +1,34 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "..");
+const serviceRoot = path.join(repoRoot, "services", "mcp-server");
+const sourcePath = path.join(serviceRoot, "src", "index.js");
+const source = fs.readFileSync(sourcePath, "utf8");
+
+assert.match(source, /app\.get\("\/change-password"/);
+assert.match(source, /app\.post\("\/change-password"/);
+assert.match(source, /FIRESTORE_DOCUMENT_ID \?\? process\.env\.FIRESTORE_USER_ID \?\? ""/);
+const knownLiveUserId = ["U2geUdbv", "WyVRNLWn", "SZBnftOMSU22"].join("");
+assert.equal(source.includes(knownLiveUserId), false);
+
+const forbiddenFiles = [
+  "auth-secrets.json",
+  "oauth-clients.json",
+  "serviceAccountKey.json",
+  ".mcp-oauth-password-latest",
+  "telegram-nudge.log",
+];
+
+for (const fileName of forbiddenFiles) {
+  assert.equal(
+    fs.existsSync(path.join(serviceRoot, fileName)),
+    false,
+    `${fileName} must not be committed under services/mcp-server`,
+  );
+}
+
+console.log("mcp server source tests passed");
