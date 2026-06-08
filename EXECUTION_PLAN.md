@@ -119,6 +119,7 @@ Notes:
 - As of 2026-06-07, backup CLI supports `--preflight` for credential-readiness checks without Firestore reads, Firestore writes, local file writes, or credential value output.
 - As of 2026-06-08, backup preflight supports service-account JSON files via `--credentials-file`, `FIREBASE_CREDENTIALS_FILE`, or `GOOGLE_APPLICATION_CREDENTIALS`. The report can say a file was requested/readable but still does not print the file path, credential values, or Firestore data.
 - As of 2026-06-08, the first live read-only Firestore backup export for `U2geUdbvWyVRNLWnSZBnftOMSU22` completed and verified locally. Evidence: `backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-08T12-26-06-380Z.json`, `totalDocs: 6775`, `sizeBytes: 9800417`, SHA-256 `d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`, `safety.firestoreRead: true`, `safety.firestoreWrite: false`, and `backups/` remains gitignored.
+- As of 2026-06-08, `npm run backup:planner -- --restore-plan <backup.json> --expectUserId <uid>` builds a non-mutating restore review artifact from a local backup file. It validates the backup, reports target root/collection document counts, and keeps `firestoreRead: false`, `firestoreWrite: false`, and `restorePlanOnly: true`.
 
 Done when:
 - a new agent can implement on top of this plan without guessing where state is allowed to live

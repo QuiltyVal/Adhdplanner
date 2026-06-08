@@ -70,13 +70,26 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   }
 
   const verifyFile = getArgValue("--verify-file", argv);
+  const restorePlanFile = getArgValue("--restore-plan", argv);
   if (hasFlag("--verify-file", argv) && !verifyFile) {
     throw new Error("Missing backup file. Pass --verify-file <path>.");
+  }
+  if (hasFlag("--restore-plan", argv) && !restorePlanFile) {
+    throw new Error("Missing backup file. Pass --restore-plan <path>.");
+  }
+  if (verifyFile && restorePlanFile) {
+    throw new Error("Use either --verify-file or --restore-plan, not both.");
   }
   if (verifyFile && preflight) {
     throw new Error("Use either --verify-file or --preflight, not both.");
   }
-  if (verifyFile) {
+  if (restorePlanFile && preflight) {
+    throw new Error("Use either --restore-plan or --preflight, not both.");
+  }
+  if ((verifyFile || restorePlanFile) && dryRun) {
+    throw new Error("--verify-file and --restore-plan are already non-mutating; do not combine them with --dry-run.");
+  }
+  if (verifyFile || restorePlanFile) {
     const expectedUserId = getArgValue("--expectUserId", argv);
     if (expectedUserId && String(expectedUserId).includes("/")) {
       throw new Error("Expected user id cannot contain '/'.");
@@ -86,6 +99,7 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
       help: false,
       dryRun: false,
       verifyFile,
+      restorePlanFile,
       expectedUserId: expectedUserId ? String(expectedUserId) : "",
     };
   }
@@ -158,6 +172,7 @@ function getHelpText() {
     "  --dry-run",
     "  --preflight",
     "  --verify-file backups/file.json [--expectUserId <uid>]",
+    "  --restore-plan backups/file.json [--expectUserId <uid>]",
     "",
     "This script is read-only. It does not write to Firestore.",
   ].join("\n");
@@ -193,6 +208,16 @@ function buildBackupSafetyMetadata(mode) {
         localFileRead: true,
         localFileWrite: false,
         verifiedReadback: true,
+      };
+    case "restore-plan":
+      return {
+        mode,
+        firestoreRead: false,
+        firestoreWrite: false,
+        localFileRead: true,
+        localFileWrite: false,
+        verifiedReadback: true,
+        restorePlanOnly: true,
       };
     case "export":
       return {
@@ -418,6 +443,9 @@ function validateBackupPayload(payload, { expectedUserId = "" } = {}) {
   if (payload.rootPath !== `Users/${payload.userId}`) {
     throw new Error(`Backup rootPath mismatch: expected Users/${payload.userId}.`);
   }
+  if (!payload.exportedAt || typeof payload.exportedAt !== "string") {
+    throw new Error("Backup file is missing exportedAt.");
+  }
   if (!payload.root || typeof payload.root !== "object" || Array.isArray(payload.root)) {
     throw new Error("Backup file is missing root user document data.");
   }
@@ -457,6 +485,7 @@ function validateBackupPayload(payload, { expectedUserId = "" } = {}) {
 
   return {
     schema: payload.schema,
+    exportedAt: payload.exportedAt,
     userId: payload.userId,
     rootPath: payload.rootPath,
     collections: collectionCounts,
@@ -464,7 +493,7 @@ function validateBackupPayload(payload, { expectedUserId = "" } = {}) {
   };
 }
 
-async function verifyBackupFile(filePath, { expectedUserId = "", cwd = process.cwd() } = {}) {
+async function readVerifiedBackupPayload(filePath, { expectedUserId = "", cwd = process.cwd() } = {}) {
   const outputPath = path.resolve(cwd, filePath);
   const fileBytes = await fs.readFile(outputPath);
   const raw = fileBytes.toString("utf8");
@@ -480,7 +509,53 @@ async function verifyBackupFile(filePath, { expectedUserId = "", cwd = process.c
     outputPath,
     sizeBytes: fileBytes.length,
     fileSha256,
-    ...validateBackupPayload(payload, { expectedUserId }),
+    payload,
+    summary: validateBackupPayload(payload, { expectedUserId }),
+  };
+}
+
+async function verifyBackupFile(filePath, { expectedUserId = "", cwd = process.cwd() } = {}) {
+  const { payload, summary, ...file } = await readVerifiedBackupPayload(filePath, { expectedUserId, cwd });
+  return {
+    ...file,
+    ...summary,
+  };
+}
+
+async function buildRestorePlan(filePath, { expectedUserId = "", cwd = process.cwd() } = {}) {
+  const { payload, summary, ...file } = await readVerifiedBackupPayload(filePath, { expectedUserId, cwd });
+  const collections = {};
+  for (const [collectionName, docs] of Object.entries(payload.collections)) {
+    collections[collectionName] = {
+      targetPath: `${payload.rootPath}/${collectionName}`,
+      documents: docs.length,
+      operation: "set_each_document_by_id",
+    };
+  }
+
+  return {
+    ...file,
+    schema: summary.schema,
+    exportedAt: summary.exportedAt,
+    userId: summary.userId,
+    rootPath: summary.rootPath,
+    totalDocs: summary.totalDocs,
+    targetRootPath: summary.rootPath,
+    plannedOperations: {
+      rootUserDocument: {
+        targetPath: summary.rootPath,
+        operation: "set_root_user_document",
+      },
+      collectionDocuments: {
+        total: summary.totalDocs,
+        collections,
+      },
+    },
+    warnings: [
+      "This command does not write Firestore.",
+      "No restore apply command exists yet; use this as a review artifact before a separate confirmed restore path.",
+      "This plan would set documents present in the backup; it does not plan deletion of documents absent from the backup.",
+    ],
   };
 }
 
@@ -500,6 +575,19 @@ async function main() {
       verified: true,
       safety: buildBackupSafetyMetadata("verify-file"),
       ...verification,
+    }, null, 2));
+    return;
+  }
+
+  if (options.restorePlanFile) {
+    const restorePlan = await buildRestorePlan(options.restorePlanFile, {
+      expectedUserId: options.expectedUserId,
+    });
+    console.log(JSON.stringify({
+      ok: true,
+      restorePlan: true,
+      safety: buildBackupSafetyMetadata("restore-plan"),
+      ...restorePlan,
     }, null, 2));
     return;
   }
@@ -589,7 +677,9 @@ module.exports = {
   buildBackupSafetyMetadata,
   buildBackupPreflightReport,
   buildFirebaseCredentialsPreflight,
+  buildRestorePlan,
   prepareFirebaseCredentials,
+  readVerifiedBackupPayload,
   resolveFirebaseCredentialsRaw,
   getHelpText,
   normalizeFirestoreValue,

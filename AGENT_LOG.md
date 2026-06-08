@@ -2409,3 +2409,22 @@ Entry template:
 - Risks / follow-up:
   - The backup file is local and intentionally not committed. If work moves to another machine, create a fresh backup there or copy this file intentionally through a secure path.
   - This creates a recovery artifact but does not yet add a restore UI or automated revision-history workflow.
+
+## 2026-06-08 - Codex
+
+- Summary: Added a non-mutating Firestore backup restore-plan drill.
+- Changed:
+  - `scripts/export-firestore-planner.js` — added `--restore-plan <backup.json> [--expectUserId <uid>]`. It reads and validates a local backup file, then prints the root user document target and per-collection document counts that a separate restore flow would need to write.
+  - `tests/firestore-backup-export.test.mjs` — added option parsing, safety metadata, direct helper, and CLI coverage for restore-plan.
+  - `docs/firestore-backup-export.md`, `README.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented restore-plan as a review artifact, not a live restore.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js`
+  - `node --check tests/firestore-backup-export.test.mjs`
+  - `node tests/firestore-backup-export.test.mjs`
+  - `npm run backup:planner -- --restore-plan backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-08T12-26-06-380Z.json --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22`
+- Live/data boundary:
+  - The real backup restore-plan reported `totalDocs: 6775`, `fileSha256: d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`, `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`, and `restorePlanOnly: true`.
+  - No Firestore data was read or written by the restore-plan command.
+- Risks / follow-up:
+  - There is still no restore apply command. That is intentional until a separate confirmed path can handle backups, stale-current-data checks, and explicit destructive confirmation.
+  - The current plan only describes setting documents present in the backup; it does not plan deletion of extra Firestore documents absent from the backup.
