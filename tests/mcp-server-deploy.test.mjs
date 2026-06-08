@@ -5,6 +5,8 @@ import {
   executeDeploy,
   getHelpText,
   parseDeployOptions,
+  postChecksPassed,
+  runPostChecksWithRetry,
   shellQuote,
 } from "../scripts/deploy-mcp-server.mjs";
 
@@ -101,10 +103,75 @@ const fixedDate = new Date("2026-06-08T12:13:05.000Z");
 }
 
 {
+  assert.equal(postChecksPassed({
+    healthz: { ok: true },
+    mcpAuthBoundary: { ok: true },
+  }), true);
+  assert.equal(postChecksPassed({
+    healthz: { ok: true },
+    mcpAuthBoundary: { ok: false },
+  }), false);
+}
+
+{
+  const urls = [];
+  let attempt = 0;
+  const checks = await runPostChecksWithRetry("https://mcp.example.test", {
+    attempts: 3,
+    delayMs: 0,
+    async waitFn() {},
+    async fetchImpl(url) {
+      urls.push(url);
+      const isHealth = url.endsWith("/healthz");
+      if (isHealth) attempt += 1;
+      if (attempt === 1) {
+        return {
+          ok: false,
+          status: 502,
+          async json() {
+            return null;
+          },
+          headers: {
+            get() {
+              return "";
+            },
+          },
+        };
+      }
+      return {
+        ok: isHealth,
+        status: isHealth ? 200 : 401,
+        async json() {
+          return isHealth ? { ok: true } : null;
+        },
+        headers: {
+          get(name) {
+            return name === "www-authenticate"
+              ? 'Bearer scope="mcp:tools"'
+              : "";
+          },
+        },
+      };
+    },
+  });
+
+  assert.equal(checks.healthz.ok, true);
+  assert.equal(checks.mcpAuthBoundary.ok, true);
+  assert.equal(checks.attempts, 2);
+  assert.deepEqual(urls, [
+    "https://mcp.example.test/healthz",
+    "https://mcp.example.test/mcp",
+    "https://mcp.example.test/healthz",
+    "https://mcp.example.test/mcp",
+  ]);
+}
+
+{
   const help = getHelpText();
   assert.match(help, /Dry-run by default/);
   assert.match(help, /--apply/);
   assert.match(help, /backup/);
+  assert.match(help, /retries/);
 }
 
 console.log("mcp server deploy tests passed");

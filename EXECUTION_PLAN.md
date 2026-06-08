@@ -136,6 +136,7 @@ Goal: let the user dump chaos into the system without first organizing it.
 - [~] Support append-only capture creation from MCP-originated notes/facts.
   - 2026-06-07: repo/API contract coverage now proves non-dry-run `source=mcp:...` capture requests call append-only capture storage with MCP origin metadata and process that capture through the existing capture-processing path instead of a direct MCP task mutation tool. A live Hetzner MCP tool that submits captures is still pending.
   - 2026-06-08: production dry-run `/api/captures` smoke for `source=mcp:live-smoke` passed with `origin.channel: "mcp"` and `activeTasksSource: "none"`, proving the deployed capture-origin path without Firestore writes or live task reads.
+  - 2026-06-08: live Hetzner MCP now has `capture_note`, routed through the captures API rather than direct Firestore writes. It defaults to dry-run/no live task read and requires `idempotency_key` before an intentional non-dry-run capture write. Authenticated tool-call smoke is still pending.
 - [x] Track capture lifecycle:
   - `new`
   - `processed`
@@ -200,6 +201,7 @@ Notes:
 - As of 2026-04-18, `processCapture` now performs safe hint upsert into existing active tasks for web capture flow (`urgency`, `resistance`, `isVital`, `deadlineAt`, `lifeArea`, `commitmentIds`) using `mutatePlanner` with stale-write protection and conservative text-match thresholds.
 - The broader Phase 2 item stays in progress because MCP-originated capture enrichment is still missing, and deadline/vital extraction is not yet fully inferred outside explicit intent fields.
 - As of 2026-06-06, `/api/captures` preserves MCP/API origin metadata when `source` is sent as `mcp`, `mcp:*`, or `api:*`, and dry-run contract coverage verifies `origin.channel: "mcp"` without Firestore writes. Live Hetzner MCP capture wiring is still pending.
+- As of 2026-06-08, live Hetzner MCP exposes a `capture_note` tool. It calls `/api/captures` with `source=mcp:*`, defaults to `dry_run: true`, and requires an idempotency key for `dry_run:false`. Deploy/auth-boundary smoke passed; authenticated tool-call smoke is still pending.
 
 ## Phase 4 - Angel pin layer
 

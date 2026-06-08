@@ -2428,3 +2428,29 @@ Entry template:
 - Risks / follow-up:
   - There is still no restore apply command. That is intentional until a separate confirmed path can handle backups, stale-current-data checks, and explicit destructive confirmation.
   - The current plan only describes setting documents present in the backup; it does not plan deletion of extra Firestore documents absent from the backup.
+
+## 2026-06-08 - Codex
+
+- Summary: Added and deployed the MCP `capture_note` tool.
+- Changed:
+  - `services/mcp-server/src/index.js` — added `capture_note`, which sends raw notes to `https://planner.valquilty.com/api/captures` with `source=mcp:*`. Safety defaults are `dry_run: true`, `include_live_tasks: false`, optional explicit `active_tasks`, and `idempotency_key` required for `dry_run:false`.
+  - `tests/mcp-server-source.test.mjs` — added source guards for `capture_note`, capture API URL, dry-run default behavior, idempotency guard, and active task snapshot reporting.
+  - `scripts/deploy-mcp-server.mjs` and `tests/mcp-server-deploy.test.mjs` — added retrying postchecks so short PM2/nginx warmup `502` responses do not create a false deploy failure.
+  - `services/mcp-server/README.md`, `docs/mcp-live-smoke-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the capture tool and remaining authenticated tool-call smoke.
+- Verified:
+  - `npm run check:mcp-server-source`
+  - `npm run deploy:mcp-server` dry-run showed no SSH/scp side effects and `livePlannerDataTouched: false`.
+  - `npm run verify:server`
+  - `npm run test:contract`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live deploy:
+  - Ran `npm run deploy:mcp-server -- --apply`.
+  - Remote backup created: `/root/adhd-mcp/index.js.backup-deploy-20260608T134739`.
+  - The deploy helper initially reported postcheck `502` because it checked immediately after PM2 restart; later checks showed the live service healthy.
+  - Verified live `/root/adhd-mcp/index.js` contains `PLANNER_CAPTURE_API_URL`, `capture_note`, and the `idempotency_key is required when dry_run=false` guard.
+  - `https://mcp.valquilty.com/healthz` returned HTTP 200.
+  - `https://mcp.valquilty.com/mcp` returned HTTP 401 with Bearer auth and `mcp:tools` advertised.
+  - `npm run check:mcp` and `npm run check:mcp-readiness` both returned `ok: true`.
+- Live/data boundary:
+  - No Firestore data was read or written by the deploy.
+  - No `capture_note` MCP tool call was run in this thread; authenticated tool-call smoke remains pending in a fresh MCP-capable client/thread.

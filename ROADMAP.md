@@ -141,6 +141,7 @@ The product should do three things well:
   - 2026-06-06: `/api/captures` dry-run no longer reads live Firestore tasks by default; response metadata reports whether task context came from `none`, `request`, or explicit `live` read.
   - 2026-06-07: `/api/captures` now has injectable contract coverage for non-dry-run MCP-origin notes: `source=mcp:...` is passed to append-only capture storage with MCP origin metadata, processing runs on that capture, and live task context is read only for Angel Lab response context. Live Hetzner MCP capture tool wiring remains pending.
   - 2026-06-08: production `/api/captures` dry-run smoke with `source=mcp:live-smoke` returned `origin.channel: "mcp"` and `activeTasksSource: "none"`, proving the deployed no-write/no-live-read capture-origin path. A dedicated live Hetzner MCP capture tool remains pending.
+  - 2026-06-08: live Hetzner MCP now includes `capture_note`, which calls the verified Planner captures API with `source=mcp:*`, `dry_run` defaulting to `true`, `include_live_tasks` defaulting to `false`, and `idempotency_key` required for `dry_run=false`. Deploy/auth-boundary smoke passed; authenticated tool-call smoke remains pending.
 
 ## Next Product Features
 

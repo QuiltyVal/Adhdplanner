@@ -10,6 +10,8 @@ const DEFAULTS = {
   remoteDir: "/root/adhd-mcp",
   processName: "adhd-mcp",
   publicBaseUrl: "https://mcp.valquilty.com",
+  postcheckAttempts: 8,
+  postcheckDelayMs: 1000,
 };
 
 function getArgValue(name, argv = process.argv) {
@@ -42,7 +44,7 @@ function getHelpText() {
     "  - Does not copy secrets or live data.",
     "  - Checks syntax locally and on the server before replacing index.js.",
     "  - Creates a remote index.js backup before replacing it.",
-    "  - Verifies /healthz and the /mcp Bearer auth boundary after apply.",
+    "  - Verifies /healthz and the /mcp Bearer auth boundary after apply, with short retries for PM2/nginx warmup.",
   ].join("\n");
 }
 
@@ -145,9 +147,21 @@ function runExecFile(command, args) {
 }
 
 async function runPostChecks(publicBaseUrl) {
-  const health = await fetch(`${publicBaseUrl}/healthz`);
+  return runPostChecksWithRetry(publicBaseUrl);
+}
+
+function postChecksPassed(checks) {
+  return Boolean(checks?.healthz?.ok && checks?.mcpAuthBoundary?.ok);
+}
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runPostChecksOnce(publicBaseUrl, { fetchImpl = fetch } = {}) {
+  const health = await fetchImpl(`${publicBaseUrl}/healthz`);
   const healthJson = await health.json().catch(() => null);
-  const auth = await fetch(`${publicBaseUrl}/mcp`);
+  const auth = await fetchImpl(`${publicBaseUrl}/mcp`);
   const authenticate = auth.headers.get("www-authenticate") || "";
 
   return {
@@ -165,6 +179,57 @@ async function runPostChecks(publicBaseUrl) {
   };
 }
 
+async function runPostChecksWithRetry(
+  publicBaseUrl,
+  {
+    attempts = DEFAULTS.postcheckAttempts,
+    delayMs = DEFAULTS.postcheckDelayMs,
+    fetchImpl = fetch,
+    waitFn = wait,
+  } = {},
+) {
+  let lastChecks = null;
+  const maxAttempts = Math.max(1, Number.parseInt(attempts, 10) || DEFAULTS.postcheckAttempts);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      lastChecks = await runPostChecksOnce(publicBaseUrl, { fetchImpl });
+    } catch (error) {
+      lastChecks = {
+        healthz: {
+          ok: false,
+          status: 0,
+          body: null,
+          error: error.message,
+        },
+        mcpAuthBoundary: {
+          ok: false,
+          status: 0,
+          bearer: false,
+          scopeAdvertised: false,
+          error: error.message,
+        },
+      };
+    }
+
+    if (postChecksPassed(lastChecks)) {
+      return {
+        ...lastChecks,
+        attempts: attempt,
+      };
+    }
+
+    if (attempt < maxAttempts) {
+      await waitFn(delayMs);
+    }
+  }
+
+  return {
+    ...lastChecks,
+    attempts: maxAttempts,
+  };
+}
+
 async function executeDeploy(plan, { run = runExecFile, postChecks = runPostChecks } = {}) {
   const localCheck = run("node", ["--check", plan.sourcePath]);
   const upload = run("scp", [plan.sourcePath, `${plan.host}:${plan.remoteCandidatePath}`]);
@@ -172,7 +237,7 @@ async function executeDeploy(plan, { run = runExecFile, postChecks = runPostChec
   const checks = await postChecks(plan.publicBaseUrl);
 
   return {
-    ok: Boolean(checks.healthz.ok && checks.mcpAuthBoundary.ok),
+    ok: postChecksPassed(checks),
     applied: true,
     backupName: remoteOutput || plan.backupName,
     localCheck,
@@ -233,5 +298,7 @@ export {
   executeDeploy,
   getHelpText,
   parseDeployOptions,
+  postChecksPassed,
+  runPostChecksWithRetry,
   shellQuote,
 };

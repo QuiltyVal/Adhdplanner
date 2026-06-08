@@ -12,6 +12,14 @@ const source = fs.readFileSync(sourcePath, "utf8");
 assert.match(source, /app\.get\("\/change-password"/);
 assert.match(source, /app\.post\("\/change-password"/);
 assert.match(source, /FIRESTORE_DOCUMENT_ID \?\? process\.env\.FIRESTORE_USER_ID \?\? ""/);
+assert.match(source, /PLANNER_CAPTURE_API_URL/);
+assert.match(source, /https:\/\/planner\.valquilty\.com\/api\/captures/);
+assert.match(source, /server\.registerTool\(\s*"capture_note"/);
+assert.match(source, /Dry-run is true by default/);
+assert.match(source, /dryRun: dry_run !== false/);
+assert.match(source, /idempotency_key is required when dry_run=false/);
+assert.match(source, /source,\s*dryRun,\s*includeLiveTasks/s);
+assert.match(source, /activeTasksCount: normalizedActiveTasks\.length/);
 const knownLiveUserId = ["U2geUdbv", "WyVRNLWn", "SZBnftOMSU22"].join("");
 assert.equal(source.includes(knownLiveUserId), false);
 

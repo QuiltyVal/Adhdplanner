@@ -30,12 +30,17 @@ const config = {
   documentId: process.env.FIRESTORE_DOCUMENT_ID ?? process.env.FIRESTORE_USER_ID ?? "",
   tasksField: process.env.FIRESTORE_TASKS_FIELD ?? "tasks",
   publicBaseUrl: new URL(process.env.PUBLIC_BASE_URL ?? "https://mcp.valquilty.com"),
+  plannerCaptureApiUrl: new URL(process.env.PLANNER_CAPTURE_API_URL ?? "https://planner.valquilty.com/api/captures"),
+  plannerCaptureApiTimeoutMs: Number.parseInt(process.env.PLANNER_CAPTURE_API_TIMEOUT_MS ?? "15000", 10),
   authSecretsPath: process.env.AUTH_SECRETS_PATH ?? "/root/adhd-mcp/auth-secrets.json",
   oauthClientsPath: process.env.OAUTH_CLIENTS_PATH ?? "/root/adhd-mcp/oauth-clients.json",
 };
 
 config.mcpUrl = new URL("/mcp", config.publicBaseUrl);
 config.resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(config.mcpUrl);
+if (!Number.isFinite(config.plannerCaptureApiTimeoutMs) || config.plannerCaptureApiTimeoutMs <= 0) {
+  config.plannerCaptureApiTimeoutMs = 15000;
+}
 
 let authSecrets = JSON.parse(readFileSync(config.authSecretsPath, "utf8"));
 const allowedEmail = String(authSecrets.allowedEmail ?? "").trim().toLowerCase();
@@ -264,6 +269,127 @@ function asErrorResult(message, extra = {}) {
   };
 }
 
+function normalizeCaptureToolSource(value) {
+  const suffix = String(value || "tool")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, "_")
+    .slice(0, 40) || "tool";
+  return `mcp:${suffix}`;
+}
+
+function normalizeCaptureTaskSnapshot(task) {
+  return {
+    id: String(task?.id || "").trim(),
+    text: String(task?.text || "").trim(),
+    status: String(task?.status || "active").trim() || "active",
+    subtasks: Array.isArray(task?.subtasks)
+      ? task.subtasks
+        .map(subtask => ({
+          id: String(subtask?.id || "").trim(),
+          text: String(subtask?.text || "").trim(),
+          completed: Boolean(subtask?.completed),
+        }))
+        .filter(subtask => subtask.text)
+        .slice(0, 50)
+      : [],
+    isToday: Boolean(task?.is_today ?? task?.isToday),
+    isVital: Boolean(task?.is_vital ?? task?.isVital),
+    urgency: String(task?.urgency || "").trim(),
+    resistance: String(task?.resistance || "").trim(),
+    deadlineAt: task?.deadline_at ?? task?.deadlineAt ?? task?.deadline ?? null,
+  };
+}
+
+async function postPlannerCapture({
+  text,
+  dryRun = true,
+  includeLiveTasks = false,
+  activeTasks = [],
+  idempotencyKey = "",
+  sourceLabel = "tool",
+  selfTest = null,
+}) {
+  if (typeof fetch !== "function") {
+    throw new Error("Global fetch is not available in this Node.js runtime.");
+  }
+
+  const cleanText = String(text || "").trim();
+  if (!cleanText) {
+    throw new Error("Capture text is required.");
+  }
+
+  const cleanIdempotencyKey = String(idempotencyKey || "").trim();
+  if (!dryRun && !cleanIdempotencyKey) {
+    throw new Error("idempotency_key is required when dry_run=false.");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), config.plannerCaptureApiTimeoutMs);
+  const source = normalizeCaptureToolSource(sourceLabel);
+  const body = {
+    text: cleanText,
+    source,
+    dryRun,
+    includeLiveTasks,
+  };
+
+  if (cleanIdempotencyKey) {
+    body.idempotencyKey = cleanIdempotencyKey;
+  }
+
+  const normalizedActiveTasks = Array.isArray(activeTasks)
+    ? activeTasks.map(normalizeCaptureTaskSnapshot).filter(task => task.id && task.text).slice(0, 300)
+    : [];
+  if (normalizedActiveTasks.length > 0) {
+    body.activeTasks = normalizedActiveTasks;
+  }
+
+  if (selfTest && typeof selfTest === "object") {
+    body.selfTest = selfTest;
+  }
+
+  try {
+    const response = await fetch(config.plannerCaptureApiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const responseText = await response.text();
+    let payload;
+    try {
+      payload = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      payload = { raw: responseText };
+    }
+
+    if (!response.ok) {
+      throw new Error(`Capture API returned HTTP ${response.status}: ${JSON.stringify(payload)}`);
+    }
+
+    return {
+      ok: true,
+      captureApi: {
+        status: response.status,
+        url: config.plannerCaptureApiUrl.href,
+      },
+      request: {
+        dryRun,
+        includeLiveTasks,
+        source,
+        idempotencyKeyPresent: Boolean(cleanIdempotencyKey),
+        activeTasksCount: normalizedActiveTasks.length,
+      },
+      response: payload,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function updateHeatForSubtaskChange(task, previousCompletedCount) {
   const subtaskCount = Array.isArray(task.subtasks) ? task.subtasks.length : 0;
   const completedAfter = Array.isArray(task.subtasks)
@@ -321,6 +447,56 @@ function createServer() {
         fallback_to_active: todayTasks.length === 0,
         tasks: todayTasks.length > 0 ? todayTasks : activeTasks,
       });
+    },
+  );
+
+  server.registerTool(
+    "capture_note",
+    {
+      description: "Send a raw note/brain dump to the planner capture pipeline through the public captures API. Dry-run is true by default and does not write Firestore.",
+      inputSchema: {
+        text: z.string().min(1).max(4000).describe("Raw note or brain dump text."),
+        dry_run: z.boolean().optional().describe("Defaults to true. Leave true for smoke tests; set false only for an intentional append-only capture write."),
+        include_live_tasks: z.boolean().optional().describe("For dry-runs, only set true when live task context is intentionally needed."),
+        idempotency_key: z.string().optional().describe("Required when dry_run=false to prevent duplicate capture writes."),
+        source_label: z.string().optional().describe("Optional MCP source suffix. Defaults to mcp:tool."),
+        active_tasks: z.array(z.object({
+          id: z.string().min(1),
+          text: z.string().min(1),
+          status: z.string().optional(),
+          subtasks: z.array(z.object({
+            id: z.string().optional(),
+            text: z.string().min(1),
+            completed: z.boolean().optional(),
+          })).optional(),
+          is_today: z.boolean().optional(),
+          is_vital: z.boolean().optional(),
+          urgency: z.string().optional(),
+          resistance: z.string().optional(),
+          deadline_at: z.string().optional(),
+        })).optional().describe("Optional task snapshot for dry-run context without reading live Firestore tasks."),
+        self_test: z.object({
+          overloadBefore: z.number().int().min(0).max(10),
+          overloadAfter: z.number().int().min(0).max(10),
+        }).optional().describe("Optional before/after overload self-test values."),
+      },
+    },
+    async ({ text, dry_run, include_live_tasks, idempotency_key, source_label, active_tasks, self_test }) => {
+      try {
+        const result = await postPlannerCapture({
+          text,
+          dryRun: dry_run !== false,
+          includeLiveTasks: include_live_tasks === true,
+          activeTasks: active_tasks,
+          idempotencyKey: idempotency_key,
+          sourceLabel: source_label,
+          selfTest: self_test,
+        });
+
+        return asTextResult(result);
+      } catch (error) {
+        return asErrorResult(error.message || "Capture API request failed.");
+      }
     },
   );
 

@@ -29,6 +29,18 @@ npm run check
 
 This only checks JavaScript syntax. Running the server locally requires valid Firebase and MCP OAuth secrets.
 
+## Planner Capture Tool
+
+The MCP server exposes `capture_note` for raw notes / brain dumps. It calls the existing Planner API path at `PLANNER_CAPTURE_API_URL`, defaulting to `https://planner.valquilty.com/api/captures`, with `source=mcp:*`.
+
+Safety defaults:
+
+- `dry_run` defaults to `true`.
+- dry-runs do not write Firestore.
+- `include_live_tasks` defaults to `false`.
+- `active_tasks` can supply explicit task context without forcing a live task read.
+- `dry_run=false` requires `idempotency_key` so repeated client calls do not accidentally create duplicate captures.
+
 ## Live Deploy Boundary
 
 Until the live MCP server is migrated to a CI/deploy flow, deployment is controlled by a dry-run-first repo script:
@@ -46,7 +58,7 @@ Dry-run prints the exact plan without SSH/scp side effects. Apply mode:
 4. backs up the current live `index.js`;
 5. replaces `index.js`;
 6. restarts PM2 process `adhd-mcp`;
-7. verifies `/healthz` and the `/mcp` Bearer auth boundary.
+7. verifies `/healthz` and the `/mcp` Bearer auth boundary with short retries for PM2/nginx warmup.
 
 The deploy helper does not copy secrets, service-account JSON, OAuth clients, logs, backup files, or live Firestore data.
 

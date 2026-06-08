@@ -15,6 +15,7 @@ Already covered repo-side:
 - fake-transaction coverage now exercises `runPlannerCommand(TASK_ADD_SUBTASK)` end to end for canonical task mutation, `lastUpdated`, event trace, title index, Telegram context, and duplicate noop behavior;
 - `/api/captures` preserves `origin.channel: "mcp"` for `source=mcp...` capture intake;
 - repo/API contract coverage proves non-dry-run `source=mcp...` capture requests call append-only capture storage with MCP origin metadata and process the stored capture;
+- repo-side MCP server source now includes a `capture_note` tool that calls the already-verified captures API path with `dry_run` defaulting to `true`;
 - `npm run check:mcp` verifies the public MCP auth boundary without credentials: live endpoint returns Bearer `401`, advertises scope `mcp:tools`, and serves OAuth protected-resource metadata for `ADHD Planner MCP`.
 
 Live client evidence:
@@ -33,7 +34,7 @@ Still remaining:
 
 - prove the web app sees that MCP write after refresh/bootstrap;
 - prove the task does not disappear or bounce because of stale local/web state;
-- optionally add and smoke a live Hetzner MCP capture tool that calls the already-verified capture API path with `source=mcp...`.
+- smoke the live Hetzner MCP `capture_note` tool through an authenticated MCP client, starting with `dry_run: true`.
 
 Codex can keep strengthening repo-side contracts without touching live data. The authenticated task read/write/cleanup path is now proven through the real MCP client; web visual refresh proof remains separate.
 
@@ -93,11 +94,14 @@ Stop if:
 
 ## Optional Capture Smoke
 
-Only run this after the subtask write smoke passes.
+Only run this after the subtask write smoke passes. The MCP server source has a `capture_note` tool; use dry-run first.
 
 Action:
 
-- From the MCP client or an authorized API path, submit a dry-run capture with `source=mcp:live-smoke`.
+- From the MCP client, call `capture_note` with:
+  - `text: "MCP live-smoke dry run: verify capture tool origin only"`
+  - `dry_run: true`
+  - `source_label: "live-smoke"`
 - By default, dry-run capture intake does not read live Firestore tasks. Pass an explicit task snapshot as `activeTasks`, or intentionally set `includeLiveTasks: true` if the test needs live task context.
 
 Expected:
@@ -110,6 +114,7 @@ Expected:
 Current evidence:
 
 - 2026-06-08: production dry-run API smoke passed with `source=mcp:live-smoke`, `origin.channel: "mcp"`, and `activeTasksSource: "none"`. This verifies the capture API origin path, not a dedicated Hetzner MCP capture tool.
+- 2026-06-08: live Hetzner MCP source now contains `capture_note` with `dry_run` defaulting to `true` and `idempotency_key` required for `dry_run=false`. `/healthz` and `/mcp` auth-boundary checks passed after deploy. Authenticated MCP tool-call smoke is still pending.
 
 ## Evidence To Record
 
