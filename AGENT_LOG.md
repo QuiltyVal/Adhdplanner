@@ -2325,3 +2325,25 @@ Entry template:
 - Risks / follow-up:
   - No live Firestore export was run; this heartbeat did not read or write live Firestore data.
   - First live export still needs an explicit safe run where a service-account JSON file is available, then the output path, total docs, size, and SHA-256 should be logged.
+
+## 2026-06-08 - Codex
+
+- Summary: Added a normal known-password change page to the live Hetzner MCP server.
+- Live server actions:
+  - Patched standalone `/root/adhd-mcp/index.js` to add `GET/POST /change-password`.
+  - The route requires an active MCP login session, asks for current password plus new password confirmation, enforces a 12-character minimum, writes a chmod `600` backup of `auth-secrets.json`, and updates only `passwordSalt`/`passwordHash` without changing OAuth token secrets.
+  - Restarted PM2 process `adhd-mcp`.
+  - Server code backup created: `/root/adhd-mcp/index.js.backup-change-password-20260608114600`.
+- Changed in repo:
+  - `docs/mcp-oauth-password-reset.md` — documented the normal `/change-password` flow and clarified that SSH reset is only for lost-password/admin recovery.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded the live-only MCP server route and backup filename.
+- Verified:
+  - local `node --check` on the patched MCP server file before upload.
+  - server-side `node --check index.change-password-candidate.js` before replacing `index.js`.
+  - `curl https://mcp.valquilty.com/healthz` returned HTTP 200 with `auth: "oauth-password"`.
+  - `curl -I https://mcp.valquilty.com/change-password` returned HTTP 302 to `/login?returnTo=%2Fchange-password` without a session.
+  - `curl https://mcp.valquilty.com/mcp` still returned HTTP 401 with Bearer `mcp:tools` metadata.
+  - `pm2 status adhd-mcp` showed the process online after restart.
+- Risks / follow-up:
+  - This is a live-only manual deployment because `/root/adhd-mcp` is not a git checkout. The MCP server source should eventually be moved into versioned repo code.
+  - Normal password change does not revoke existing OAuth tokens; add token/session revocation later if needed for compromised-password recovery.

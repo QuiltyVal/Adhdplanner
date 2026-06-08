@@ -130,6 +130,7 @@ The product should do three things well:
   - 2026-06-07: `npm run check:mcp-readiness` now combines endpoint health and Codex config registration into one read-only report for Codex MCP readiness.
   - 2026-06-07: `npm run setup:codex-mcp` now previews the exact Codex config entry; `--apply` appends only the Planner MCP URL entry, without tokens or headers.
   - 2026-06-08: `scripts/set-mcp-oauth-password.mjs` now provides a tested admin-only MCP OAuth password reset helper. It updates only `passwordSalt`/`passwordHash`, writes a backup, can generate or read a password from stdin, and can restart the `adhd-mcp` PM2 process.
+  - 2026-06-08: live Hetzner MCP now exposes `https://mcp.valquilty.com/change-password` for normal known-password changes after MCP login; admin SSH reset remains only for lost-password recovery.
   - 2026-06-07: Codex CLI OAuth is now completed and a fresh post-OAuth Codex thread executed the live disposable MCP task smoke end to end: read tasks, create QA task, add QA subtask, verify, delete QA task, and confirm the final task count returned to baseline.
   - 2026-06-06: `/api/captures` now preserves MCP/API origin metadata for `source=mcp...` dry-run and stored capture paths, with contract coverage. Separate live Hetzner MCP capture/write smoke remains required.
   - 2026-06-06: `docs/mcp-live-smoke-checklist.md` now defines the real-client Hetzner MCP smoke path for read-only task list, disposable add-subtask write, web refresh proof, cleanup, and optional dry-run MCP capture origin check.
