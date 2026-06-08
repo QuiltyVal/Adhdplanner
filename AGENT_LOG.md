@@ -2368,3 +2368,22 @@ Entry template:
 - Risks / follow-up:
   - Live Hetzner still runs from `/root/adhd-mcp`; this commit creates a source-controlled mirror but does not yet replace manual deploy with CI.
   - The service source is still large and mostly unmodular. Next cleanup should split auth, Firestore task store, and tool definitions before adding more MCP features.
+
+## 2026-06-08 - Codex
+
+- Summary: Added a dry-run-first deploy helper for the mirrored MCP server.
+- Changed:
+  - `scripts/deploy-mcp-server.mjs` — added a controlled Hetzner sync helper for `services/mcp-server/src/index.js`. Dry-run prints the plan; apply mode runs local syntax check, uploads a candidate, runs server syntax check, backs up live `index.js`, replaces it, restarts PM2 `adhd-mcp`, and verifies `/healthz` plus the `/mcp` Bearer auth boundary.
+  - `tests/mcp-server-deploy.test.mjs` — covered option parsing, shell quoting, remote deploy command construction, dry-run safety metadata, mocked apply execution, and help text.
+  - `package.json` — added `npm run deploy:mcp-server` and `npm run check:mcp-server-deploy`, and included deploy-helper checks in `verify:server` and `test:contract`.
+  - `services/mcp-server/README.md`, `README.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `AGENTS.md` — documented the controlled deploy path and clarified that it copies no secrets or live Firestore data.
+- Verified:
+  - `npm run check:mcp-server-deploy`
+  - `npm run deploy:mcp-server` returned a dry-run plan with no SSH/scp side effects and `livePlannerDataTouched: false`.
+  - `npm run deploy:mcp-server -- --help`
+  - `npm run verify:server`
+  - `npm run test:contract`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - No live deploy was run in this heartbeat; only the deploy helper and tests/docs were added.
+  - This is still manual deploy automation, not CI. Next step can either run a dry-run/apply when there is an actual MCP source change to deploy, or modularize the service source before adding MCP capture tooling.

@@ -31,13 +31,23 @@ This only checks JavaScript syntax. Running the server locally requires valid Fi
 
 ## Live Deploy Boundary
 
-Until the live MCP server is migrated to a CI/deploy flow, deployment is manual:
+Until the live MCP server is migrated to a CI/deploy flow, deployment is controlled by a dry-run-first repo script:
 
-1. Copy `services/mcp-server/src/index.js` to the live server.
-2. Run `node --check` on the candidate file on the server.
-3. Back up the current live `index.js`.
-4. Replace `index.js`.
-5. Restart PM2 process `adhd-mcp`.
-6. Verify `/healthz`, `/mcp` auth boundary, and any changed routes.
+```bash
+npm run deploy:mcp-server
+npm run deploy:mcp-server -- --apply
+```
+
+Dry-run prints the exact plan without SSH/scp side effects. Apply mode:
+
+1. checks `services/mcp-server/src/index.js` locally;
+2. copies only that source file to a candidate path on the live server;
+3. checks the candidate with `node --check` on the server;
+4. backs up the current live `index.js`;
+5. replaces `index.js`;
+6. restarts PM2 process `adhd-mcp`;
+7. verifies `/healthz` and the `/mcp` Bearer auth boundary.
+
+The deploy helper does not copy secrets, service-account JSON, OAuth clients, logs, backup files, or live Firestore data.
 
 Record every live-only change in `AGENT_LOG.md` and `SESSION_HANDOFF.md`.

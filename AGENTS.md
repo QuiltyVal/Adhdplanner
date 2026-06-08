@@ -135,7 +135,7 @@ Do not assume deadline already changes heat. It does not.
 
 - Vercel Cron is not reliable to the exact minute on this setup. Do not assume `09:00` means exactly `09:00`.
 - Google Calendar browser-side connect still exists in web UI, but Telegram scheduling uses server-side OAuth.
-- The MCP server on Hetzner should be changed from `services/mcp-server` first, then manually deployed until CI/deploy automation exists. Check `SESSION_HANDOFF.md` before touching it.
+- The MCP server on Hetzner should be changed from `services/mcp-server` first, then deployed with `npm run deploy:mcp-server -- --apply` after reviewing the dry-run plan. Check `SESSION_HANDOFF.md` before touching it.
 
 ## Before making risky changes
 

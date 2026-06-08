@@ -64,6 +64,7 @@ Read-only MCP auth-boundary probe:
 - `npm run check:mcp-readiness`
 - `npm run setup:codex-mcp`
 - `npm run check:mcp-server-source`
+- `npm run deploy:mcp-server`
 
 `check:mcp` verifies that `https://mcp.valquilty.com/mcp` is reachable, protected by Bearer auth, and publishes OAuth protected-resource metadata. `check:codex-mcp` verifies that the Codex Desktop config has that server URL registered. Neither command calls MCP tools or mutates planner data.
 
@@ -76,6 +77,8 @@ Codex setup notes: [docs/codex-mcp-setup.md](docs/codex-mcp-setup.md)
 MCP OAuth password reset notes: [docs/mcp-oauth-password-reset.md](docs/mcp-oauth-password-reset.md)
 
 MCP server source mirror: [services/mcp-server](services/mcp-server)
+
+`deploy:mcp-server` is dry-run by default. Use `npm run deploy:mcp-server -- --apply` only when intentionally syncing `services/mcp-server/src/index.js` to Hetzner.
 
 ## Live QA Checklists
 
