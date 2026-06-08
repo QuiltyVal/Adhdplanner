@@ -2483,3 +2483,26 @@ Entry template:
 - Live/data boundary:
   - No Firestore data was read or written by this deploy.
   - This thread still did not expose callable `adhd_planner` MCP tools through `tool_search`, so authenticated `capture_note` tool-call smoke remains pending in a fresh MCP-capable client/thread.
+
+## 2026-06-08 - Codex
+
+- Summary: Fixed MCP healthcheck version drift.
+- Changed:
+  - `services/mcp-server/src/index.js` — added `MCP_SERVER_VERSION` and used it for both MCP server metadata and `/healthz`.
+  - `tests/mcp-server-source.test.mjs` — added guards that `/healthz` and MCP metadata share the same version constant and that stale `version: "4.0.0"` does not return.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded the ops visibility fix.
+- Verified:
+  - `npm run check:mcp-server-source`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run deploy:mcp-server` dry-run
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `npm run check:mcp`
+  - `npm run check:mcp-readiness`
+- Live/data boundary:
+  - Ran `npm run deploy:mcp-server -- --apply`.
+  - Remote backups created: `/root/adhd-mcp/index.js.backup-deploy-20260608T151520` and `/root/adhd-mcp/capture-client.js.backup-deploy-20260608T151520`.
+  - Live `/healthz` now returns `version: "4.1.0"`.
+  - Live `/mcp` auth boundary still returns HTTP 401 Bearer with `mcp:tools`.
+  - No Firestore data was read or written for this source-only fix.

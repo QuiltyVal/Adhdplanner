@@ -24,6 +24,7 @@ const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 const AUTH_CODE_TTL_MS = 5 * 60 * 1000;
 const SUPPORTED_SCOPE = "mcp:tools";
+const MCP_SERVER_VERSION = "4.1.0";
 const DEFAULT_TASK_HEAT = 35;
 const TOUCH_HEAT_BONUS = 12;
 const SUBTASK_COMPLETION_CAP = 18;
@@ -292,7 +293,7 @@ function updateHeatForSubtaskChange(task, previousCompletedCount) {
 function createServer() {
   const server = new McpServer({
     name: "adhd-planner",
-    version: "4.1.0",
+    version: MCP_SERVER_VERSION,
   });
 
   server.registerTool(
@@ -1791,7 +1792,7 @@ app.get("/healthz", (_req, res) => {
   res.json({
     ok: true,
     name: "adhd-planner",
-    version: "4.0.0",
+    version: MCP_SERVER_VERSION,
     transport: ["streamable-http"],
     auth: "oauth-password",
   });

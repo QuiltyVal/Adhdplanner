@@ -143,6 +143,7 @@ The product should do three things well:
   - 2026-06-08: production `/api/captures` dry-run smoke with `source=mcp:live-smoke` returned `origin.channel: "mcp"` and `activeTasksSource: "none"`, proving the deployed no-write/no-live-read capture-origin path. A dedicated live Hetzner MCP capture tool remains pending.
   - 2026-06-08: live Hetzner MCP now includes `capture_note`, which calls the verified Planner captures API with `source=mcp:*`, `dry_run` defaulting to `true`, `include_live_tasks` defaulting to `false`, and `idempotency_key` required for `dry_run=false`. Deploy/auth-boundary smoke passed; authenticated tool-call smoke remains pending.
   - 2026-06-08: `capture_note` request construction moved into `services/mcp-server/src/capture-client.js` with mocked-fetch coverage for source normalization, dry-run defaults, idempotency protection, active task snapshots, timeouts, and non-OK capture API errors. The deploy helper now syncs both MCP source files instead of only `index.js`.
+  - 2026-06-08: MCP server version reporting now uses one `MCP_SERVER_VERSION` constant for both MCP metadata and `/healthz`, preventing deploy evidence from reporting stale versions.
 
 ## Next Product Features
 

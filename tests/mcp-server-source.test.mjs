@@ -13,6 +13,10 @@ const captureClientSource = fs.readFileSync(captureClientPath, "utf8");
 
 assert.match(source, /app\.get\("\/change-password"/);
 assert.match(source, /app\.post\("\/change-password"/);
+assert.match(source, /const MCP_SERVER_VERSION = "4\.1\.0"/);
+assert.match(source, /new McpServer\(\{\s*name: "adhd-planner",\s*version: MCP_SERVER_VERSION,/s);
+assert.match(source, /app\.get\("\/healthz"[\s\S]*version: MCP_SERVER_VERSION/);
+assert.doesNotMatch(source, /version: "4\.0\.0"/);
 assert.match(source, /FIRESTORE_DOCUMENT_ID \?\? process\.env\.FIRESTORE_USER_ID \?\? ""/);
 assert.match(source, /from "\.\/capture-client\.js"/);
 assert.doesNotMatch(source, /async function postPlannerCapture/);

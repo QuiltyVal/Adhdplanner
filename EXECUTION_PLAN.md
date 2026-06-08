@@ -138,6 +138,7 @@ Goal: let the user dump chaos into the system without first organizing it.
   - 2026-06-08: production dry-run `/api/captures` smoke for `source=mcp:live-smoke` passed with `origin.channel: "mcp"` and `activeTasksSource: "none"`, proving the deployed capture-origin path without Firestore writes or live task reads.
   - 2026-06-08: live Hetzner MCP now has `capture_note`, routed through the captures API rather than direct Firestore writes. It defaults to dry-run/no live task read and requires `idempotency_key` before an intentional non-dry-run capture write. Authenticated tool-call smoke is still pending.
   - 2026-06-08: MCP capture request building is now isolated in `services/mcp-server/src/capture-client.js` with mocked-fetch coverage for dry-run/no-live-read defaults, idempotency guard, active task snapshots, timeout handling, and capture API error reporting. Deploy sync now includes this extra source file.
+  - 2026-06-08: MCP `/healthz` now reports the same `MCP_SERVER_VERSION` used by the MCP server metadata, so deploy postchecks no longer show stale service version evidence.
 - [x] Track capture lifecycle:
   - `new`
   - `processed`
