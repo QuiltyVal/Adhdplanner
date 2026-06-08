@@ -7,6 +7,7 @@ The live server currently runs as a standalone PM2 process in `/root/adhd-mcp`. 
 ## What Belongs In Git
 
 - `src/index.js` — MCP HTTP/OAuth server source.
+- `src/capture-client.js` — isolated Planner captures API client used by `capture_note`.
 - `package.json` — service dependencies and scripts.
 - `ecosystem.config.cjs.example` — PM2 configuration template without secrets.
 - `env.example` — required environment variable names without values.
@@ -52,11 +53,11 @@ npm run deploy:mcp-server -- --apply
 
 Dry-run prints the exact plan without SSH/scp side effects. Apply mode:
 
-1. checks `services/mcp-server/src/index.js` locally;
-2. copies only that source file to a candidate path on the live server;
-3. checks the candidate with `node --check` on the server;
-4. backs up the current live `index.js`;
-5. replaces `index.js`;
+1. checks `services/mcp-server/src/index.js` and `services/mcp-server/src/capture-client.js` locally;
+2. copies only those source files to candidate paths on the live server;
+3. checks each candidate with `node --check` on the server;
+4. backs up existing live source files before replacement;
+5. replaces the source files;
 6. restarts PM2 process `adhd-mcp`;
 7. verifies `/healthz` and the `/mcp` Bearer auth boundary with short retries for PM2/nginx warmup.
 

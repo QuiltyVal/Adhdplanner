@@ -5,7 +5,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULTS = {
-  source: "services/mcp-server/src/index.js",
+  sources: [
+    "services/mcp-server/src/index.js",
+    "services/mcp-server/src/capture-client.js",
+  ],
   host: "root@mcp.valquilty.com",
   remoteDir: "/root/adhd-mcp",
   processName: "adhd-mcp",
@@ -20,6 +23,16 @@ function getArgValue(name, argv = process.argv) {
   return String(argv[index + 1] || "");
 }
 
+function getArgValues(name, argv = process.argv) {
+  const values = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    if (argv[index] === name) {
+      values.push(String(argv[index + 1] || ""));
+    }
+  }
+  return values.filter(Boolean);
+}
+
 function hasArg(name, argv = process.argv) {
   return argv.includes(name);
 }
@@ -32,7 +45,7 @@ function getHelpText() {
     "",
     "Options:",
     "  --apply                 Execute the deploy. Omit for dry-run.",
-    "  --source <path>          Source file. Default: services/mcp-server/src/index.js",
+    "  --source <path>          Source file. Repeatable. Default: services/mcp-server/src/index.js plus capture-client.js",
     "  --host <ssh-host>        SSH host. Default: root@mcp.valquilty.com",
     "  --remote-dir <path>      Remote MCP dir. Default: /root/adhd-mcp",
     "  --process <name>         PM2 process name. Default: adhd-mcp",
@@ -42,8 +55,8 @@ function getHelpText() {
     "Safety:",
     "  - Dry-run by default.",
     "  - Does not copy secrets or live data.",
-    "  - Checks syntax locally and on the server before replacing index.js.",
-    "  - Creates a remote index.js backup before replacing it.",
+    "  - Checks syntax locally and on the server before replacing source files.",
+    "  - Creates remote source backups before replacing existing files.",
     "  - Verifies /healthz and the /mcp Bearer auth boundary after apply, with short retries for PM2/nginx warmup.",
   ].join("\n");
 }
@@ -53,24 +66,43 @@ function parseDeployOptions(argv = process.argv, cwd = process.cwd(), now = new 
     return { help: true };
   }
 
-  const source = getArgValue("--source", argv) || DEFAULTS.source;
+  const sources = getArgValues("--source", argv);
+  const sourceFiles = sources.length > 0 ? sources : DEFAULTS.sources;
   const host = getArgValue("--host", argv) || DEFAULTS.host;
   const remoteDir = getArgValue("--remote-dir", argv) || DEFAULTS.remoteDir;
   const processName = getArgValue("--process", argv) || DEFAULTS.processName;
   const publicBaseUrl = getArgValue("--public-base-url", argv) || DEFAULTS.publicBaseUrl;
   const stamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "");
+  const files = sourceFiles.map(source => {
+    const targetName = path.basename(source);
+    const stem = targetName.replace(/\.js$/, "");
+    const candidateName = `${stem}.codex-candidate-${stamp}.js`;
+    const backupName = `${targetName}.backup-deploy-${stamp}`;
+
+    return {
+      source,
+      sourcePath: path.resolve(cwd, source),
+      targetName,
+      candidateName,
+      backupName,
+    };
+  });
 
   return {
     help: false,
     apply: hasArg("--apply", argv),
-    source,
-    sourcePath: path.resolve(cwd, source),
+    source: files[0]?.source ?? "",
+    sourcePath: files[0]?.sourcePath ?? "",
+    sourceFiles,
+    sourcePaths: files.map(file => file.sourcePath),
+    files,
     host,
     remoteDir,
     processName,
     publicBaseUrl: publicBaseUrl.replace(/\/+$/, ""),
-    candidateName: `index.codex-candidate-${stamp}.js`,
-    backupName: `index.js.backup-deploy-${stamp}`,
+    candidateName: files[0]?.candidateName ?? "",
+    backupName: files[0]?.backupName ?? "",
+    backupNames: files.map(file => file.backupName),
   };
 }
 
@@ -81,38 +113,50 @@ function shellQuote(value) {
 function buildRemoteDeployScript(plan) {
   return [
     `cd ${shellQuote(plan.remoteDir)}`,
-    `node --check ${shellQuote(plan.candidateName)}`,
-    `cp -p index.js ${shellQuote(plan.backupName)}`,
-    `mv ${shellQuote(plan.candidateName)} index.js`,
+    ...plan.files.map(file => `node --check ${shellQuote(file.candidateName)}`),
+    ...plan.files.map(file => (
+      `if [ -f ${shellQuote(file.targetName)} ]; then cp -p ${shellQuote(file.targetName)} ${shellQuote(file.backupName)}; fi`
+    )),
+    ...plan.files.map(file => `mv ${shellQuote(file.candidateName)} ${shellQuote(file.targetName)}`),
     `pm2 restart ${shellQuote(plan.processName)} --update-env >/dev/null`,
-    `echo ${shellQuote(plan.backupName)}`,
+    `echo ${shellQuote(plan.backupNames.join(","))}`,
   ].join(" && ");
 }
 
 function buildDeployPlan(options) {
-  const remoteCandidatePath = `${options.remoteDir}/${options.candidateName}`;
+  const files = options.files.map(file => ({
+    ...file,
+    remoteCandidatePath: `${options.remoteDir}/${file.candidateName}`,
+    remoteTargetPath: `${options.remoteDir}/${file.targetName}`,
+  }));
+  const remoteCandidatePath = files[0]?.remoteCandidatePath ?? "";
+
   return {
     apply: options.apply,
     source: options.source,
     sourcePath: options.sourcePath,
+    sourceFiles: options.sourceFiles,
+    sourcePaths: options.sourcePaths,
+    files,
     host: options.host,
     remoteDir: options.remoteDir,
     remoteCandidatePath,
     candidateName: options.candidateName,
     backupName: options.backupName,
+    backupNames: options.backupNames,
     processName: options.processName,
     publicBaseUrl: options.publicBaseUrl,
     commands: [
-      {
+      ...files.map(file => ({
         step: "local_syntax_check",
         command: "node",
-        args: ["--check", options.sourcePath],
-      },
-      {
+        args: ["--check", file.sourcePath],
+      })),
+      ...files.map(file => ({
         step: "upload_candidate",
         command: "scp",
-        args: [options.sourcePath, `${options.host}:${remoteCandidatePath}`],
-      },
+        args: [file.sourcePath, `${options.host}:${file.remoteCandidatePath}`],
+      })),
       {
         step: "remote_check_backup_replace_restart",
         command: "ssh",
@@ -231,15 +275,16 @@ async function runPostChecksWithRetry(
 }
 
 async function executeDeploy(plan, { run = runExecFile, postChecks = runPostChecks } = {}) {
-  const localCheck = run("node", ["--check", plan.sourcePath]);
-  const upload = run("scp", [plan.sourcePath, `${plan.host}:${plan.remoteCandidatePath}`]);
+  const localCheck = plan.files.map(file => run("node", ["--check", file.sourcePath]));
+  const upload = plan.files.map(file => run("scp", [file.sourcePath, `${plan.host}:${file.remoteCandidatePath}`]));
   const remoteOutput = run("ssh", [plan.host, buildRemoteDeployScript(plan)]);
   const checks = await postChecks(plan.publicBaseUrl);
 
   return {
     ok: postChecksPassed(checks),
     applied: true,
-    backupName: remoteOutput || plan.backupName,
+    backupName: remoteOutput || plan.backupNames.join(","),
+    backupNames: remoteOutput ? remoteOutput.split(",").filter(Boolean) : plan.backupNames,
     localCheck,
     upload,
     postChecks: checks,
@@ -271,9 +316,11 @@ async function main() {
     dryRun: false,
     plan: {
       source: plan.source,
+      sourceFiles: plan.sourceFiles,
       host: plan.host,
       remoteDir: plan.remoteDir,
       backupName: result.backupName,
+      backupNames: result.backupNames,
       processName: plan.processName,
       publicBaseUrl: plan.publicBaseUrl,
     },

@@ -17,11 +17,23 @@ const fixedDate = new Date("2026-06-08T12:13:05.000Z");
   assert.equal(options.apply, false);
   assert.equal(options.source, "services/mcp-server/src/index.js");
   assert.equal(options.sourcePath, "/repo/services/mcp-server/src/index.js");
+  assert.deepEqual(options.sourceFiles, [
+    "services/mcp-server/src/index.js",
+    "services/mcp-server/src/capture-client.js",
+  ]);
+  assert.deepEqual(options.sourcePaths, [
+    "/repo/services/mcp-server/src/index.js",
+    "/repo/services/mcp-server/src/capture-client.js",
+  ]);
   assert.equal(options.host, "root@mcp.valquilty.com");
   assert.equal(options.remoteDir, "/root/adhd-mcp");
   assert.equal(options.processName, "adhd-mcp");
   assert.equal(options.candidateName, "index.codex-candidate-20260608T121305.js");
   assert.equal(options.backupName, "index.js.backup-deploy-20260608T121305");
+  assert.deepEqual(options.backupNames, [
+    "index.js.backup-deploy-20260608T121305",
+    "capture-client.js.backup-deploy-20260608T121305",
+  ]);
 }
 
 {
@@ -56,10 +68,14 @@ const fixedDate = new Date("2026-06-08T12:13:05.000Z");
   const plan = buildDeployPlan(parseDeployOptions(["node", "script"], "/repo", fixedDate));
   assert.equal(plan.apply, false);
   assert.equal(plan.remoteCandidatePath, "/root/adhd-mcp/index.codex-candidate-20260608T121305.js");
+  assert.deepEqual(plan.files.map(file => file.remoteCandidatePath), [
+    "/root/adhd-mcp/index.codex-candidate-20260608T121305.js",
+    "/root/adhd-mcp/capture-client.codex-candidate-20260608T121305.js",
+  ]);
   assert.equal(plan.safety.dryRunDefault, true);
   assert.equal(plan.safety.livePlannerDataTouched, false);
   assert.equal(plan.safety.secretsCopied, false);
-  assert.equal(plan.commands.length, 5);
+  assert.equal(plan.commands.length, 7);
   assert.equal(JSON.stringify(plan).includes("auth-secrets"), false);
 }
 
@@ -75,7 +91,10 @@ const fixedDate = new Date("2026-06-08T12:13:05.000Z");
   const remoteScript = buildRemoteDeployScript(plan);
   assert.match(remoteScript, /cd '\/srv\/mcp path'/);
   assert.match(remoteScript, /node --check 'index\.codex-candidate-20260608T121305\.js'/);
-  assert.match(remoteScript, /cp -p index\.js 'index\.js\.backup-deploy-20260608T121305'/);
+  assert.match(remoteScript, /node --check 'capture-client\.codex-candidate-20260608T121305\.js'/);
+  assert.match(remoteScript, /cp -p 'index\.js' 'index\.js\.backup-deploy-20260608T121305'/);
+  assert.match(remoteScript, /cp -p 'capture-client\.js' 'capture-client\.js\.backup-deploy-20260608T121305'/);
+  assert.match(remoteScript, /mv 'capture-client\.codex-candidate-20260608T121305\.js' 'capture-client\.js'/);
   assert.match(remoteScript, /pm2 restart 'adhd-mcp-prod' --update-env/);
 }
 
@@ -99,7 +118,13 @@ const fixedDate = new Date("2026-06-08T12:13:05.000Z");
 
   assert.equal(result.ok, true);
   assert.equal(result.backupName, "index.js.backup-deploy-20260608T121305");
-  assert.deepEqual(calls.map(call => call.command), ["node", "scp", "ssh"]);
+  assert.deepEqual(calls.map(call => call.command), ["node", "node", "scp", "scp", "ssh"]);
+  assert.deepEqual(calls.map(call => call.args[0]).slice(0, 4), [
+    "--check",
+    "--check",
+    "/repo/services/mcp-server/src/index.js",
+    "/repo/services/mcp-server/src/capture-client.js",
+  ]);
 }
 
 {

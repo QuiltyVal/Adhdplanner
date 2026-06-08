@@ -2454,3 +2454,32 @@ Entry template:
 - Live/data boundary:
   - No Firestore data was read or written by the deploy.
   - No `capture_note` MCP tool call was run in this thread; authenticated tool-call smoke remains pending in a fresh MCP-capable client/thread.
+
+## 2026-06-08 - Codex
+
+- Summary: Made MCP `capture_note` request handling modular and deployable as a multi-file source sync.
+- Changed:
+  - `services/mcp-server/src/capture-client.js` — extracted capture request construction and posting from `index.js`.
+  - `services/mcp-server/src/index.js` — imports the capture client and keeps the MCP tool handler focused on schema-to-client mapping.
+  - `tests/mcp-capture-client.test.mjs` — added mocked-fetch coverage for source normalization, dry-run defaults, idempotency protection, active task snapshots, timeout wiring, and capture API error reporting.
+  - `scripts/deploy-mcp-server.mjs` and `tests/mcp-server-deploy.test.mjs` — deploy helper now syncs both MCP source files (`index.js` and `capture-client.js`) with local/remote syntax checks, existing-file backup, PM2 restart, and postchecks.
+  - `package.json`, `services/mcp-server/package.json`, `services/mcp-server/README.md`, `docs/mcp-live-smoke-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — wired the new checks and documented the multi-file deploy boundary.
+- Verified:
+  - `npm run check:mcp-server-source`
+  - `npm run check:mcp-server-deploy`
+  - `npm --prefix services/mcp-server run check`
+  - `git diff --check`
+  - `npm run deploy:mcp-server` dry-run showed both MCP source files and no secret/live-data copy.
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live deploy:
+  - Ran `npm run deploy:mcp-server -- --apply`.
+  - Uploaded only `services/mcp-server/src/index.js` and `services/mcp-server/src/capture-client.js`.
+  - Remote `index.js` backup exists at `/root/adhd-mcp/index.js.backup-deploy-20260608T143713`.
+  - `capture-client.js` was a new remote file, so no previous `capture-client.js` backup existed to create.
+  - Postchecks passed: `/healthz` HTTP 200 and `/mcp` HTTP 401 Bearer auth boundary with `mcp:tools`.
+  - Remote syntax checks passed for `/root/adhd-mcp/index.js` and `/root/adhd-mcp/capture-client.js`; remote `index.js` imports `./capture-client.js` and still registers `capture_note`.
+- Live/data boundary:
+  - No Firestore data was read or written by this deploy.
+  - This thread still did not expose callable `adhd_planner` MCP tools through `tool_search`, so authenticated `capture_note` tool-call smoke remains pending in a fresh MCP-capable client/thread.

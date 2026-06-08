@@ -16,6 +16,7 @@ Already covered repo-side:
 - `/api/captures` preserves `origin.channel: "mcp"` for `source=mcp...` capture intake;
 - repo/API contract coverage proves non-dry-run `source=mcp...` capture requests call append-only capture storage with MCP origin metadata and process the stored capture;
 - repo-side MCP server source now includes a `capture_note` tool that calls the already-verified captures API path with `dry_run` defaulting to `true`;
+- `capture_note` request construction is covered by mocked-fetch tests in `tests/mcp-capture-client.test.mjs` without live Firestore reads or writes;
 - `npm run check:mcp` verifies the public MCP auth boundary without credentials: live endpoint returns Bearer `401`, advertises scope `mcp:tools`, and serves OAuth protected-resource metadata for `ADHD Planner MCP`.
 
 Live client evidence:
