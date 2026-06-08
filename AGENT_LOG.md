@@ -2387,3 +2387,25 @@ Entry template:
 - Risks / follow-up:
   - No live deploy was run in this heartbeat; only the deploy helper and tests/docs were added.
   - This is still manual deploy automation, not CI. Next step can either run a dry-run/apply when there is an actual MCP source change to deploy, or modularize the service source before adding MCP capture tooling.
+
+## 2026-06-08 - Codex
+
+- Summary: Completed the first live read-only Firestore planner backup export.
+- Changed:
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded the first live backup evidence and removed the practical ambiguity around the previously pending export.
+- Live/data actions:
+  - Ran backup dry-run for user `U2geUdbvWyVRNLWnSZBnftOMSU22`; no Firestore read/write and no local file write.
+  - Ran backup preflight with Firebase service-account JSON sourced into the command environment; credential values were not printed or written into the repo.
+  - Ran the real export once; this read Firestore and wrote a local ignored JSON file under `backups/`, with `safety.firestoreWrite: false`.
+  - Ran local `--verify-file` against the generated JSON; this read only the backup file and did not read or write Firestore.
+- Evidence:
+  - Backup file: `backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-08T12-26-06-380Z.json`.
+  - Absolute local path: `/Users/valquilty/Documents/My Website/Adhdplanner-repo/backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-08T12-26-06-380Z.json`.
+  - `totalDocs: 6775`
+  - `sizeBytes: 9800417`
+  - `fileSha256: d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`
+  - Collection counts: `tasks: 61`, `taskSnapshots: 87`, `captures: 124`, `commitments: 6`, `plannerEvents: 779`, `reportItems: 490`, `outbox: 104`, `engineRuns: 2438`, `outboxRuns: 1689`, `plannerCommands: 319`, `telegramLogs: 677`, `angelDecisions: 1`.
+  - `git status --short --ignored backups` reported `!! backups/`, confirming the generated backup output remains ignored.
+- Risks / follow-up:
+  - The backup file is local and intentionally not committed. If work moves to another machine, create a fresh backup there or copy this file intentionally through a secure path.
+  - This creates a recovery artifact but does not yet add a restore UI or automated revision-history workflow.

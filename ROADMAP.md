@@ -1,6 +1,6 @@
 # ADHD Planner Roadmap
 
-Last updated: 2026-06-07
+Last updated: 2026-06-08
 
 ## Product Direction
 
@@ -66,14 +66,15 @@ The product should do three things well:
   - 2026-06-07: repo-side fake-transaction coverage now verifies `TASK_ADD_SUBTASK` through `runPlannerCommand`: canonical task write, `lastUpdated`, created-subtask payload, event trace, title index, Telegram context, and duplicate noop behavior. Live Hetzner MCP smoke is still pending.
   - 2026-06-07: authenticated Codex MCP live smoke passed for a disposable QA task: `get_tasks` read canonical data, `add_task` created `QA MCP smoke — delete after test`, `add_subtask` attached `QA MCP subtask write — delete after test`, follow-up `get_tasks` saw the exact subtask, and `delete_task` cleaned it up. Separate web refresh/QA-packet proof remains pending.
 - [x] Add a simple Firestore backup / export strategy.
-  - 2026-06-06: read-only local JSON export script added; first live export run is still pending.
+  - 2026-06-06: read-only local JSON export script added; at that point the first live export run was still pending.
   - 2026-06-06: backup script now has a no-Firestore `--dry-run` plan plus collection/user-id validation and regression coverage, so the first live export can be previewed before reading data.
   - 2026-06-06: backup script now validates generated backup payloads and supports local `--verify-file` checks for schema, user id, collection shape, and document paths before trusting an export.
   - 2026-06-07: backup verification output now includes `sizeBytes` and `fileSha256`, so first live backup evidence can be pinned to a stable checksum without reading Firestore again.
-  - 2026-06-07: first real-user dry-run scope check passed for `U2geUdbvWyVRNLWnSZBnftOMSU22`; no Firestore read/write was performed and `backups/` is gitignored. First live export remains pending.
+  - 2026-06-07: first real-user dry-run scope check passed for `U2geUdbvWyVRNLWnSZBnftOMSU22`; no Firestore read/write was performed and `backups/` is gitignored. At that point the first live export was still pending.
   - 2026-06-07: backup CLI output now includes explicit `safety` flags for dry-run, verify-file, and real export modes, so it is clear when Firestore is read and that Firestore is never written.
   - 2026-06-07: backup CLI now supports `--preflight` to validate that Firebase credentials are present and shaped correctly without reading Firestore, writing Firestore, creating a local backup file, or printing credential values.
-  - 2026-06-08: backup preflight also accepts `--credentials-file` / `FIREBASE_CREDENTIALS_FILE` / `GOOGLE_APPLICATION_CREDENTIALS`, reads the service-account JSON only for credential readiness, and keeps credential values plus file paths out of the report. First live export remains pending.
+  - 2026-06-08: backup preflight also accepts `--credentials-file` / `FIREBASE_CREDENTIALS_FILE` / `GOOGLE_APPLICATION_CREDENTIALS`, reads the service-account JSON only for credential readiness, and keeps credential values plus file paths out of the report. This was the final guard before the first live export.
+  - 2026-06-08: first live read-only Firestore export completed for `U2geUdbvWyVRNLWnSZBnftOMSU22`. The ignored backup file is `backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-08T12-26-06-380Z.json`, verified with `totalDocs: 6775`, `sizeBytes: 9800417`, and SHA-256 `d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`; `safety.firestoreWrite` stayed `false`.
 - [x] Add operation logging for destructive task changes.
   - 2026-06-06: destructive/status-transition events include structured status transition payloads; bulk/delete/snapshot paths already write planner events.
   - 2026-06-07: subtask toggle events now use the canonical planner event type constant with regression coverage, keeping subtask activity traces consistent for MCP/Telegram/web-origin mutations.

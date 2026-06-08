@@ -1,6 +1,6 @@
 # ADHD Planner Execution Plan
 
-Last updated: 2026-06-07
+Last updated: 2026-06-08
 
 This is the working execution plan for the next product layer.
 
@@ -114,10 +114,11 @@ Notes:
 - As of 2026-06-07, authenticated Codex MCP task read/write/cleanup smoke passed in a fresh post-OAuth thread: a disposable QA task was created, one exact QA subtask was added and verified by `get_tasks`, and the QA task was deleted with final count returning to baseline. Web refresh/QA-packet proof remains separate.
 - As of 2026-06-06, the Firestore backup export CLI has a no-Firebase `--dry-run` plan and input validation, covered by regression tests. First live export remains an intentional manual/read-only step.
 - As of 2026-06-07, backup verification emits `sizeBytes` and `fileSha256` for both `--verify-file` and successful real exports, so live backup evidence can be logged by checksum.
-- As of 2026-06-07, the real-user backup dry-run for `U2geUdbvWyVRNLWnSZBnftOMSU22` passed and confirmed the default collection scope without reading Firestore or writing a file; first live export is still pending.
+- As of 2026-06-07, the real-user backup dry-run for `U2geUdbvWyVRNLWnSZBnftOMSU22` passed and confirmed the default collection scope without reading Firestore or writing a file; at that point the first live export was still pending.
 - As of 2026-06-07, backup CLI responses include `safety` metadata for dry-run, verify-file, and export modes, explicitly distinguishing Firestore reads from local file writes and confirming no Firestore writes.
 - As of 2026-06-07, backup CLI supports `--preflight` for credential-readiness checks without Firestore reads, Firestore writes, local file writes, or credential value output.
 - As of 2026-06-08, backup preflight supports service-account JSON files via `--credentials-file`, `FIREBASE_CREDENTIALS_FILE`, or `GOOGLE_APPLICATION_CREDENTIALS`. The report can say a file was requested/readable but still does not print the file path, credential values, or Firestore data.
+- As of 2026-06-08, the first live read-only Firestore backup export for `U2geUdbvWyVRNLWnSZBnftOMSU22` completed and verified locally. Evidence: `backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-08T12-26-06-380Z.json`, `totalDocs: 6775`, `sizeBytes: 9800417`, SHA-256 `d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`, `safety.firestoreRead: true`, `safety.firestoreWrite: false`, and `backups/` remains gitignored.
 
 Done when:
 - a new agent can implement on top of this plan without guessing where state is allowed to live
