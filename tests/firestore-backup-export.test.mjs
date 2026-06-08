@@ -18,6 +18,8 @@ const {
   normalizeFirestoreValue,
   parseBackupOptions,
   parseCollections,
+  prepareFirebaseCredentials,
+  resolveFirebaseCredentialsRaw,
   sanitizePathSegment,
   validateBackupPayload,
   verifyBackupFile,
@@ -51,6 +53,7 @@ assert.deepEqual(buildBackupSafetyMetadata("preflight"), {
   localFileWrite: false,
   verifiedReadback: false,
   credentialEnvRead: true,
+  credentialFileRead: false,
 });
 assert.deepEqual(buildBackupSafetyMetadata("verify-file"), {
   mode: "verify-file",
@@ -117,6 +120,20 @@ assert.throws(() => buildBackupSafetyMetadata("delete"), /Unsupported backup saf
   assert.deepEqual(options.collections, ["tasks", "plannerEvents"]);
 }
 
+{
+  const options = parseBackupOptions([
+    "node",
+    "scripts/export-firestore-planner.js",
+    "--userId",
+    "user-1",
+    "--credentials-file",
+    "/tmp/service-account.json",
+    "--preflight",
+  ], {});
+
+  assert.equal(options.credentialsFile, "/tmp/service-account.json");
+}
+
 assert.throws(
   () => parseBackupOptions(["node", "script", "--userId", "bad/user"], {}),
   /User id cannot contain/,
@@ -160,11 +177,15 @@ assert.throws(
 {
   const missingCredentials = buildFirebaseCredentialsPreflight({});
   assert.equal(missingCredentials.ready, false);
+  assert.equal(missingCredentials.source, "none");
   assert.equal(missingCredentials.present, false);
+  assert.equal(missingCredentials.fileRequested, false);
+  assert.equal(missingCredentials.fileReadable, false);
   assert.deepEqual(missingCredentials.issues, ["FIREBASE_CREDENTIALS is not set."]);
 
   const invalidCredentials = buildFirebaseCredentialsPreflight({ FIREBASE_CREDENTIALS: "private-key-fragment" });
   assert.equal(invalidCredentials.ready, false);
+  assert.equal(invalidCredentials.source, "env");
   assert.equal(invalidCredentials.present, true);
   assert.equal(invalidCredentials.validJson, false);
   assert.deepEqual(invalidCredentials.issues, ["FIREBASE_CREDENTIALS is not valid JSON."]);
@@ -174,6 +195,7 @@ assert.throws(
     FIREBASE_CREDENTIALS: JSON.stringify({ project_id: "demo-project" }),
   });
   assert.equal(incompleteCredentials.ready, false);
+  assert.equal(incompleteCredentials.source, "env");
   assert.equal(incompleteCredentials.validJson, true);
   assert.equal(incompleteCredentials.projectIdPresent, true);
   assert.equal(incompleteCredentials.clientEmailPresent, false);
@@ -188,13 +210,70 @@ assert.throws(
   });
   assert.deepEqual(validCredentials, {
     ready: true,
+    source: "env",
     present: true,
+    fileRequested: false,
+    fileReadable: false,
     validJson: true,
     projectIdPresent: true,
     clientEmailPresent: true,
     privateKeyPresent: true,
     issues: [],
   });
+}
+
+{
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "backup-credentials-file-test-"));
+  try {
+    const credentialsPath = path.join(tmpDir, "service-account.json");
+    const credentialsJson = JSON.stringify({
+      project_id: "demo-project",
+      client_email: "firebase-admin@example.test",
+      private_key: "-----BEGIN PRIVATE KEY-----\\nfake\\n-----END PRIVATE KEY-----\\n",
+    });
+    fs.writeFileSync(credentialsPath, credentialsJson, "utf8");
+
+    assert.deepEqual(resolveFirebaseCredentialsRaw({}, { credentialsFile: credentialsPath }), {
+      raw: credentialsJson,
+      source: "file",
+      fileRequested: true,
+      fileReadable: true,
+      issue: "",
+    });
+
+    const fileCredentials = buildFirebaseCredentialsPreflight({}, { credentialsFile: credentialsPath });
+    assert.equal(fileCredentials.ready, true);
+    assert.equal(fileCredentials.source, "file");
+    assert.equal(fileCredentials.present, true);
+    assert.equal(fileCredentials.fileRequested, true);
+    assert.equal(fileCredentials.fileReadable, true);
+    assert.equal(JSON.stringify(fileCredentials).includes(credentialsPath), false);
+    assert.equal(JSON.stringify(fileCredentials).includes("firebase-admin@example.test"), false);
+
+    const env = {};
+    const prepared = prepareFirebaseCredentials(env, { credentialsFile: credentialsPath });
+    assert.deepEqual(prepared, {
+      source: "file",
+      fileRequested: true,
+      fileReadable: true,
+    });
+    assert.equal(env.FIREBASE_CREDENTIALS, credentialsJson);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+{
+  const missingFileCredentials = buildFirebaseCredentialsPreflight({}, {
+    credentialsFile: "/tmp/does-not-exist/service-account.json",
+  });
+  assert.equal(missingFileCredentials.ready, false);
+  assert.equal(missingFileCredentials.source, "file");
+  assert.equal(missingFileCredentials.present, false);
+  assert.equal(missingFileCredentials.fileRequested, true);
+  assert.equal(missingFileCredentials.fileReadable, false);
+  assert.match(missingFileCredentials.issues[0], /Credentials file could not be read/);
+  assert.equal(JSON.stringify(missingFileCredentials).includes("does-not-exist"), false);
 }
 
 {
@@ -228,9 +307,45 @@ assert.throws(
   });
   assert.equal(readyReport.ok, true);
   assert.equal(readyReport.credentials.ready, true);
+  assert.equal(readyReport.safety.credentialFileRead, false);
   assert.equal(JSON.stringify(readyReport).includes("fake-private-key"), false);
   assert.equal(JSON.stringify(readyReport).includes("firebase-admin@example.test"), false);
   assert.equal(JSON.stringify(readyReport).includes("demo-project"), false);
+}
+
+{
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "backup-preflight-file-report-test-"));
+  try {
+    const credentialsPath = path.join(tmpDir, "service-account.json");
+    fs.writeFileSync(credentialsPath, JSON.stringify({
+      project_id: "demo-project",
+      client_email: "firebase-admin@example.test",
+      private_key: "fake-private-key",
+    }), "utf8");
+
+    const plan = buildBackupPlan({
+      options: {
+        userId: "user-1",
+        collections: ["tasks"],
+        maxDocs: 0,
+        outputPath: null,
+      },
+      exportedAt: "2026-06-06T08:00:00.000Z",
+      cwd: "/tmp/planner",
+    });
+    const report = buildBackupPreflightReport({
+      plan,
+      env: {},
+      credentialsFile: credentialsPath,
+    });
+
+    assert.equal(report.ok, true);
+    assert.equal(report.safety.credentialFileRead, true);
+    assert.equal(JSON.stringify(report).includes(credentialsPath), false);
+    assert.equal(JSON.stringify(report).includes("fake-private-key"), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 }
 
 {

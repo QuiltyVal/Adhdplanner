@@ -73,6 +73,7 @@ The product should do three things well:
   - 2026-06-07: first real-user dry-run scope check passed for `U2geUdbvWyVRNLWnSZBnftOMSU22`; no Firestore read/write was performed and `backups/` is gitignored. First live export remains pending.
   - 2026-06-07: backup CLI output now includes explicit `safety` flags for dry-run, verify-file, and real export modes, so it is clear when Firestore is read and that Firestore is never written.
   - 2026-06-07: backup CLI now supports `--preflight` to validate that Firebase credentials are present and shaped correctly without reading Firestore, writing Firestore, creating a local backup file, or printing credential values.
+  - 2026-06-08: backup preflight also accepts `--credentials-file` / `FIREBASE_CREDENTIALS_FILE` / `GOOGLE_APPLICATION_CREDENTIALS`, reads the service-account JSON only for credential readiness, and keeps credential values plus file paths out of the report. First live export remains pending.
 - [x] Add operation logging for destructive task changes.
   - 2026-06-06: destructive/status-transition events include structured status transition payloads; bulk/delete/snapshot paths already write planner events.
   - 2026-06-07: subtask toggle events now use the canonical planner event type constant with regression coverage, keeping subtask activity traces consistent for MCP/Telegram/web-origin mutations.

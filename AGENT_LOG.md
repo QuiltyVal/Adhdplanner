@@ -2307,3 +2307,21 @@ Entry template:
 - Risks / follow-up:
   - The plaintext password now exists intentionally only in the local user-owned file `/Users/valquilty/.codex/adhd-mcp-oauth-password.txt`; keep it out of git and chat.
   - This is an admin CLI helper, not a public password-change endpoint.
+
+## 2026-06-08 - Codex
+
+- Summary: Added credentials-file support for Firestore backup preflight.
+- Changed:
+  - `scripts/export-firestore-planner.js` — backup CLI now accepts `--credentials-file`, `FIREBASE_CREDENTIALS_FILE`, or `GOOGLE_APPLICATION_CREDENTIALS` for service-account JSON readiness checks. Real exports also prepare `FIREBASE_CREDENTIALS` from that file path before initializing Firebase Admin.
+  - `tests/firestore-backup-export.test.mjs` — covered credential-file parsing, readable/missing file preflight, secret/path redaction, `prepareFirebaseCredentials`, and `credentialFileRead` safety metadata.
+  - `docs/firestore-backup-export.md`, `README.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the credentials-file preflight flow and the remaining first-live-export boundary.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js`
+  - `node --check tests/firestore-backup-export.test.mjs`
+  - `node tests/firestore-backup-export.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Risks / follow-up:
+  - No live Firestore export was run; this heartbeat did not read or write live Firestore data.
+  - First live export still needs an explicit safe run where a service-account JSON file is available, then the output path, total docs, size, and SHA-256 should be logged.

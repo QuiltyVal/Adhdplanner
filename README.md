@@ -53,6 +53,7 @@ Quick help:
 - `npm run backup:planner -- --help`
 - `npm run backup:planner -- --userId <uid> --dry-run`
 - `npm run backup:planner -- --userId <uid> --preflight`
+- `npm run backup:planner -- --userId <uid> --credentials-file /path/to/serviceAccountKey.json --preflight`
 
 ## MCP Endpoint Probe
 

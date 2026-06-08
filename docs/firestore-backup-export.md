@@ -6,7 +6,7 @@ The export script is read-only. It reads `Users/{uid}` and selected subcollectio
 
 ## Requirements
 
-- `FIREBASE_CREDENTIALS` contains the Firebase service account JSON.
+- `FIREBASE_CREDENTIALS` contains the Firebase service account JSON, or pass `--credentials-file /path/to/serviceAccountKey.json`.
 - `PLANNER_DEFAULT_USER_ID` is set, or pass `--userId`.
 - Do not commit generated backup files.
 
@@ -22,6 +22,12 @@ Check that Firebase credentials are present and shaped correctly without reading
 
 ```bash
 npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22 --preflight
+```
+
+If the service account is stored as a file instead of an environment JSON string:
+
+```bash
+npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22 --credentials-file /path/to/serviceAccountKey.json --preflight
 ```
 
 ```bash
@@ -49,11 +55,11 @@ Successful real exports now validate the generated payload before writing, read 
 Every command prints a `safety` object:
 
 - dry-run: `firestoreRead: false`, `firestoreWrite: false`, `localFileWrite: false`
-- preflight: `firestoreRead: false`, `firestoreWrite: false`, `localFileWrite: false`, `credentialEnvRead: true`
+- preflight: `firestoreRead: false`, `firestoreWrite: false`, `localFileWrite: false`, `credentialEnvRead: true`, and `credentialFileRead: true` only when `--credentials-file` was used and readable
 - verify-file: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`
 - real export: `firestoreRead: true`, `firestoreWrite: false`, `localFileWrite: true`, `verifiedReadback: true`
 
-Preflight output reports only whether required credential fields are present. It does not print `project_id`, `client_email`, `private_key`, or the raw `FIREBASE_CREDENTIALS` value.
+Preflight output reports only whether required credential fields are present. It does not print `project_id`, `client_email`, `private_key`, the raw `FIREBASE_CREDENTIALS` value, or a credentials file path.
 
 The export command never writes to Firestore.
 

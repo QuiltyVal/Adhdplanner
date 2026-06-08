@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { createHash } = require("node:crypto");
+const fsSync = require("node:fs");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { getDb } = require("../api/_lib/firebase-admin");
@@ -111,6 +112,11 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
     collections: parseCollections(getArgValue("--collections", argv)),
     maxDocs,
     outputArg: getArgValue("--out", argv),
+    credentialsFile:
+      getArgValue("--credentials-file", argv)
+      || env.FIREBASE_CREDENTIALS_FILE
+      || env.GOOGLE_APPLICATION_CREDENTIALS
+      || "",
   };
 }
 
@@ -148,6 +154,7 @@ function getHelpText() {
     "Options:",
     "  --collections tasks,taskSnapshots,captures",
     "  --maxDocs 100",
+    "  --credentials-file /path/to/serviceAccountKey.json",
     "  --dry-run",
     "  --preflight",
     "  --verify-file backups/file.json [--expectUserId <uid>]",
@@ -176,6 +183,7 @@ function buildBackupSafetyMetadata(mode) {
         localFileWrite: false,
         verifiedReadback: false,
         credentialEnvRead: true,
+        credentialFileRead: false,
       };
     case "verify-file":
       return {
@@ -200,17 +208,78 @@ function buildBackupSafetyMetadata(mode) {
   }
 }
 
-function buildFirebaseCredentialsPreflight(env = process.env) {
-  const raw = env.FIREBASE_CREDENTIALS;
+function readCredentialsFile(filePath) {
+  const safePath = String(filePath || "").trim();
+  if (!safePath) {
+    return {
+      ok: false,
+      raw: "",
+      issue: "Credentials file path is empty.",
+    };
+  }
+
+  try {
+    return {
+      ok: true,
+      raw: fsSync.readFileSync(safePath, "utf8"),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      raw: "",
+      issue: `Credentials file could not be read: ${error.code || "UNKNOWN_ERROR"}`,
+    };
+  }
+}
+
+function resolveFirebaseCredentialsRaw(env = process.env, { credentialsFile = "" } = {}) {
+  const envRaw = env.FIREBASE_CREDENTIALS;
+  if (envRaw) {
+    return {
+      raw: envRaw,
+      source: "env",
+      fileRequested: false,
+      fileReadable: false,
+      issue: "",
+    };
+  }
+
+  const filePath = credentialsFile || env.FIREBASE_CREDENTIALS_FILE || env.GOOGLE_APPLICATION_CREDENTIALS || "";
+  if (!filePath) {
+    return {
+      raw: "",
+      source: "none",
+      fileRequested: false,
+      fileReadable: false,
+      issue: "FIREBASE_CREDENTIALS is not set.",
+    };
+  }
+
+  const file = readCredentialsFile(filePath);
+  return {
+    raw: file.raw,
+    source: "file",
+    fileRequested: true,
+    fileReadable: file.ok,
+    issue: file.issue || "",
+  };
+}
+
+function buildFirebaseCredentialsPreflight(env = process.env, options = {}) {
+  const resolved = resolveFirebaseCredentialsRaw(env, options);
+  const raw = resolved.raw;
   if (!raw) {
     return {
       ready: false,
+      source: resolved.source,
       present: false,
+      fileRequested: resolved.fileRequested,
+      fileReadable: resolved.fileReadable,
       validJson: false,
       projectIdPresent: false,
       clientEmailPresent: false,
       privateKeyPresent: false,
-      issues: ["FIREBASE_CREDENTIALS is not set."],
+      issues: [resolved.issue || "FIREBASE_CREDENTIALS is not set."],
     };
   }
 
@@ -220,7 +289,10 @@ function buildFirebaseCredentialsPreflight(env = process.env) {
   } catch {
     return {
       ready: false,
+      source: resolved.source,
       present: true,
+      fileRequested: resolved.fileRequested,
+      fileReadable: resolved.fileReadable,
       validJson: false,
       projectIdPresent: false,
       clientEmailPresent: false,
@@ -239,7 +311,10 @@ function buildFirebaseCredentialsPreflight(env = process.env) {
 
   return {
     ready: issues.length === 0,
+    source: resolved.source,
     present: true,
+    fileRequested: resolved.fileRequested,
+    fileReadable: resolved.fileReadable,
     validJson: true,
     projectIdPresent,
     clientEmailPresent,
@@ -248,15 +323,18 @@ function buildFirebaseCredentialsPreflight(env = process.env) {
   };
 }
 
-function buildBackupPreflightReport({ plan, env = process.env } = {}) {
+function buildBackupPreflightReport({ plan, env = process.env, credentialsFile = "" } = {}) {
   if (!plan || typeof plan !== "object") {
     throw new Error("Backup plan is required for preflight.");
   }
-  const credentials = buildFirebaseCredentialsPreflight(env);
+  const credentials = buildFirebaseCredentialsPreflight(env, { credentialsFile });
   return {
     ok: credentials.ready,
     preflight: true,
-    safety: buildBackupSafetyMetadata("preflight"),
+    safety: {
+      ...buildBackupSafetyMetadata("preflight"),
+      credentialFileRead: Boolean(credentials.fileRequested && credentials.fileReadable),
+    },
     outputPath: plan.outputPath,
     userId: plan.userId,
     rootPath: plan.rootPath,
@@ -265,7 +343,22 @@ function buildBackupPreflightReport({ plan, env = process.env } = {}) {
     credentials,
     nextAction: credentials.ready
       ? "Run the export command without --preflight to read Firestore and write a local backup file."
-      : "Set FIREBASE_CREDENTIALS to a Firebase service account JSON before running a live export.",
+      : "Set FIREBASE_CREDENTIALS or pass --credentials-file with a Firebase service account JSON before running a live export.",
+  };
+}
+
+function prepareFirebaseCredentials(env = process.env, { credentialsFile = "" } = {}) {
+  const resolved = resolveFirebaseCredentialsRaw(env, { credentialsFile });
+  if (!resolved.raw) {
+    throw new Error(resolved.issue || "Firebase credentials are not configured.");
+  }
+  if (!env.FIREBASE_CREDENTIALS) {
+    env.FIREBASE_CREDENTIALS = resolved.raw;
+  }
+  return {
+    source: resolved.source,
+    fileRequested: resolved.fileRequested,
+    fileReadable: resolved.fileReadable,
   };
 }
 
@@ -414,7 +507,11 @@ async function main() {
   const exportedAt = new Date().toISOString();
   const plan = buildBackupPlan({ options, exportedAt });
   if (options.preflight) {
-    const preflightReport = buildBackupPreflightReport({ plan });
+    const preflightReport = buildBackupPreflightReport({
+      plan,
+      env: process.env,
+      credentialsFile: options.credentialsFile,
+    });
     console.log(JSON.stringify(preflightReport, null, 2));
     if (!preflightReport.ok) process.exitCode = 1;
     return;
@@ -435,6 +532,7 @@ async function main() {
     return;
   }
 
+  prepareFirebaseCredentials(process.env, { credentialsFile: options.credentialsFile });
   const db = getDb();
   const userRef = db.collection("Users").doc(plan.userId);
   const userSnap = await userRef.get();
@@ -491,6 +589,8 @@ module.exports = {
   buildBackupSafetyMetadata,
   buildBackupPreflightReport,
   buildFirebaseCredentialsPreflight,
+  prepareFirebaseCredentials,
+  resolveFirebaseCredentialsRaw,
   getHelpText,
   normalizeFirestoreValue,
   parseBackupOptions,
