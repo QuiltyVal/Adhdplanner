@@ -2280,3 +2280,30 @@ Entry template:
   - `npm run check:mcp-readiness` returned `ok: true` and `readyForCodexToolUse: true`.
 - Risks / follow-up:
   - This is a deployed API dry-run smoke only. A dedicated live Hetzner MCP capture tool that calls this API path is still pending.
+
+## 2026-06-08 - Codex
+
+- Summary: Added and used an admin MCP OAuth password reset helper.
+- Changed:
+  - `scripts/set-mcp-oauth-password.mjs` — added an admin-only password rotation helper for the separate Hetzner MCP server. It supports generated passwords or stdin passwords, writes a backup, updates only `passwordSalt`/`passwordHash`, preserves OAuth token secrets, can restart PM2, and does not print/store passwords unless explicitly requested.
+  - `tests/mcp-oauth-password-reset.test.mjs` — added coverage for password hashing/verification, backup path construction, preserved secret fields, reset behavior, CLI parsing, and password output files without trailing newlines.
+  - `package.json` — included the password reset test in `test:contract` and `verify:server`.
+  - `docs/mcp-oauth-password-reset.md` and `README.md` — documented the safe reset flow.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded the MCP password rotation helper and current reset evidence.
+- Live server actions:
+  - Copied the helper to `/root/adhd-mcp/set-mcp-oauth-password.mjs` and set mode `700`.
+  - Generated a new MCP OAuth password, updated `/root/adhd-mcp/auth-secrets.json`, and restarted PM2 process `adhd-mcp`.
+  - Backup created: `/root/adhd-mcp/auth-secrets.json.backup-20260608103812`.
+  - Copied the generated password to `/Users/valquilty/.codex/adhd-mcp-oauth-password.txt` with mode `600`, then deleted the server-side one-time password file.
+- Verified:
+  - `node --check scripts/set-mcp-oauth-password.mjs`
+  - `node --check tests/mcp-oauth-password-reset.test.mjs && node tests/mcp-oauth-password-reset.test.mjs`
+  - server-side `node --check /root/adhd-mcp/set-mcp-oauth-password.mjs`
+  - MCP `/login` returned HTTP `302` when the new password file was submitted without a trailing newline.
+  - `codex mcp list` shows `adhd_planner` enabled with `Auth: OAuth`.
+  - `npm run check:mcp-readiness` returned `ok: true` and `readyForCodexToolUse: true`.
+  - `npm run verify:server`
+  - `npm run test:contract`
+- Risks / follow-up:
+  - The plaintext password now exists intentionally only in the local user-owned file `/Users/valquilty/.codex/adhd-mcp-oauth-password.txt`; keep it out of git and chat.
+  - This is an admin CLI helper, not a public password-change endpoint.

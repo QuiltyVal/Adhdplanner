@@ -71,6 +71,8 @@ Read-only MCP auth-boundary probe:
 
 Codex setup notes: [docs/codex-mcp-setup.md](docs/codex-mcp-setup.md)
 
+MCP OAuth password reset notes: [docs/mcp-oauth-password-reset.md](docs/mcp-oauth-password-reset.md)
+
 ## Live QA Checklists
 
 - Telegram live smoke: [docs/telegram-live-smoke-checklist.md](docs/telegram-live-smoke-checklist.md)
