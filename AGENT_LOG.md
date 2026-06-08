@@ -2268,3 +2268,15 @@ Entry template:
   - `node --check tests/captures-origin-contract.test.mjs && node tests/captures-origin-contract.test.mjs`
 - Risks / follow-up:
   - This does not add a new live Hetzner MCP capture tool yet. It proves the Planner API path that such a tool should call.
+
+## 2026-06-08 - Codex
+
+- Summary: Verified deployed MCP-origin capture dry-run path.
+- Changed:
+  - `docs/mcp-live-smoke-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded production dry-run evidence for `source=mcp:live-smoke`.
+- Verified:
+  - `curl -X POST https://planner.valquilty.com/api/captures` with `{"text":"MCP live-smoke dry run: verify capture origin only","source":"mcp:live-smoke","dryRun":true}` returned `ok: true`, `dryRun: true`, `origin.channel: "mcp"`, `origin.via: "captures_api"`, `origin.source: "mcp:live-smoke"`, `activeTasksSource: "none"`, and `activeTasksCount: 0`.
+  - `curl -I -L --max-time 20 https://planner.valquilty.com/demo` returned HTTP 200 from Vercel.
+  - `npm run check:mcp-readiness` returned `ok: true` and `readyForCodexToolUse: true`.
+- Risks / follow-up:
+  - This is a deployed API dry-run smoke only. A dedicated live Hetzner MCP capture tool that calls this API path is still pending.

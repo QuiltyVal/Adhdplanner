@@ -128,6 +128,7 @@ Goal: let the user dump chaos into the system without first organizing it.
 - [x] Support append-only capture creation from web input.
 - [~] Support append-only capture creation from MCP-originated notes/facts.
   - 2026-06-07: repo/API contract coverage now proves non-dry-run `source=mcp:...` capture requests call append-only capture storage with MCP origin metadata and process that capture through the existing capture-processing path instead of a direct MCP task mutation tool. A live Hetzner MCP tool that submits captures is still pending.
+  - 2026-06-08: production dry-run `/api/captures` smoke for `source=mcp:live-smoke` passed with `origin.channel: "mcp"` and `activeTasksSource: "none"`, proving the deployed capture-origin path without Firestore writes or live task reads.
 - [x] Track capture lifecycle:
   - `new`
   - `processed`

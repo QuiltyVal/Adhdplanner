@@ -27,12 +27,13 @@ Live client evidence:
   - `delete_task`: removed only the QA task;
   - final `get_tasks`: `count=61`, `score=511`, exact QA task absent.
 - No non-QA task was touched, and cleanup completed.
+- 2026-06-08: production `/api/captures` dry-run smoke passed for `source=mcp:live-smoke`: response returned `dryRun: true`, `origin.channel: "mcp"`, `origin.via: "captures_api"`, `origin.source: "mcp:live-smoke"`, `activeTasksSource: "none"`, and `activeTasksCount: 0`.
 
 Still remaining:
 
 - prove the web app sees that MCP write after refresh/bootstrap;
 - prove the task does not disappear or bounce because of stale local/web state;
-- optionally add and smoke a live Hetzner MCP capture tool with `source=mcp...`.
+- optionally add and smoke a live Hetzner MCP capture tool that calls the already-verified capture API path with `source=mcp...`.
 
 Codex can keep strengthening repo-side contracts without touching live data. The authenticated task read/write/cleanup path is now proven through the real MCP client; web visual refresh proof remains separate.
 
@@ -105,6 +106,10 @@ Expected:
 - Response includes `origin.channel: mcp`.
 - Response includes `activeTasksSource: "none"` for a pure no-live-read dry run, `activeTasksSource: "request"` when a task snapshot was supplied, or `activeTasksSource: "live"` only when `includeLiveTasks: true` was intentional.
 - No Firestore write is required for this dry-run.
+
+Current evidence:
+
+- 2026-06-08: production dry-run API smoke passed with `source=mcp:live-smoke`, `origin.channel: "mcp"`, and `activeTasksSource: "none"`. This verifies the capture API origin path, not a dedicated Hetzner MCP capture tool.
 
 ## Evidence To Record
 
