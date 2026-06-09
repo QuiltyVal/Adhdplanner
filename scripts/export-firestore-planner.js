@@ -71,6 +71,8 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
 
   const verifyFile = getArgValue("--verify-file", argv);
   const restorePlanFile = getArgValue("--restore-plan", argv);
+  const listBackups = hasFlag("--list-backups", argv);
+  const listBackupsDir = listBackups ? (getArgValue("--list-backups", argv) || "backups") : "";
   if (hasFlag("--verify-file", argv) && !verifyFile) {
     throw new Error("Missing backup file. Pass --verify-file <path>.");
   }
@@ -80,16 +82,25 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   if (verifyFile && restorePlanFile) {
     throw new Error("Use either --verify-file or --restore-plan, not both.");
   }
+  if (listBackups && (verifyFile || restorePlanFile)) {
+    throw new Error("Use only one of --list-backups, --verify-file, or --restore-plan.");
+  }
   if (verifyFile && preflight) {
     throw new Error("Use either --verify-file or --preflight, not both.");
   }
   if (restorePlanFile && preflight) {
     throw new Error("Use either --restore-plan or --preflight, not both.");
   }
+  if (listBackups && preflight) {
+    throw new Error("Use either --list-backups or --preflight, not both.");
+  }
   if ((verifyFile || restorePlanFile) && dryRun) {
     throw new Error("--verify-file and --restore-plan are already non-mutating; do not combine them with --dry-run.");
   }
-  if (verifyFile || restorePlanFile) {
+  if (listBackups && dryRun) {
+    throw new Error("--list-backups is already non-mutating; do not combine it with --dry-run.");
+  }
+  if (verifyFile || restorePlanFile || listBackups) {
     const expectedUserId = getArgValue("--expectUserId", argv);
     if (expectedUserId && String(expectedUserId).includes("/")) {
       throw new Error("Expected user id cannot contain '/'.");
@@ -100,6 +111,7 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
       dryRun: false,
       verifyFile,
       restorePlanFile,
+      listBackupsDir,
       expectedUserId: expectedUserId ? String(expectedUserId) : "",
     };
   }
@@ -171,6 +183,7 @@ function getHelpText() {
     "  --credentials-file /path/to/serviceAccountKey.json",
     "  --dry-run",
     "  --preflight",
+    "  --list-backups [backups-dir] [--expectUserId <uid>]",
     "  --verify-file backups/file.json [--expectUserId <uid>]",
     "  --restore-plan backups/file.json [--expectUserId <uid>]",
     "",
@@ -218,6 +231,15 @@ function buildBackupSafetyMetadata(mode) {
         localFileWrite: false,
         verifiedReadback: true,
         restorePlanOnly: true,
+      };
+    case "list-backups":
+      return {
+        mode,
+        firestoreRead: false,
+        firestoreWrite: false,
+        localFileRead: true,
+        localFileWrite: false,
+        verifiedReadback: true,
       };
     case "export":
       return {
@@ -559,6 +581,72 @@ async function buildRestorePlan(filePath, { expectedUserId = "", cwd = process.c
   };
 }
 
+async function listPlannerBackups(directory = "backups", { expectedUserId = "", cwd = process.cwd() } = {}) {
+  const backupDir = path.resolve(cwd, directory || "backups");
+  let entries;
+  try {
+    entries = await fs.readdir(backupDir, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return {
+        backupDir,
+        missingDirectory: true,
+        count: 0,
+        validCount: 0,
+        invalidCount: 0,
+        latest: null,
+        backups: [],
+      };
+    }
+    throw error;
+  }
+
+  const backupFiles = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+    .map((entry) => path.join(backupDir, entry.name));
+  const backups = [];
+
+  for (const filePath of backupFiles) {
+    try {
+      const verification = await verifyBackupFile(filePath, { expectedUserId, cwd });
+      backups.push({
+        fileName: path.basename(filePath),
+        valid: true,
+        ...verification,
+      });
+    } catch (error) {
+      const stat = await fs.stat(filePath).catch(() => null);
+      backups.push({
+        fileName: path.basename(filePath),
+        outputPath: filePath,
+        valid: false,
+        sizeBytes: stat?.size ?? null,
+        issue: error.message,
+      });
+    }
+  }
+
+  backups.sort((left, right) => {
+    if (left.valid !== right.valid) return left.valid ? -1 : 1;
+    const leftTime = Date.parse(left.exportedAt || "") || 0;
+    const rightTime = Date.parse(right.exportedAt || "") || 0;
+    if (leftTime !== rightTime) return rightTime - leftTime;
+    return left.fileName.localeCompare(right.fileName);
+  });
+
+  const validBackups = backups.filter((backup) => backup.valid);
+
+  return {
+    backupDir,
+    missingDirectory: false,
+    count: backups.length,
+    validCount: validBackups.length,
+    invalidCount: backups.length - validBackups.length,
+    latest: validBackups[0] || null,
+    backups,
+  };
+}
+
 async function main() {
   const options = parseBackupOptions();
   if (options.help) {
@@ -575,6 +663,19 @@ async function main() {
       verified: true,
       safety: buildBackupSafetyMetadata("verify-file"),
       ...verification,
+    }, null, 2));
+    return;
+  }
+
+  if (options.listBackupsDir) {
+    const list = await listPlannerBackups(options.listBackupsDir, {
+      expectedUserId: options.expectedUserId,
+    });
+    console.log(JSON.stringify({
+      ok: true,
+      listBackups: true,
+      safety: buildBackupSafetyMetadata("list-backups"),
+      ...list,
     }, null, 2));
     return;
   }
@@ -678,6 +779,7 @@ module.exports = {
   buildBackupPreflightReport,
   buildFirebaseCredentialsPreflight,
   buildRestorePlan,
+  listPlannerBackups,
   prepareFirebaseCredentials,
   readVerifiedBackupPayload,
   resolveFirebaseCredentialsRaw,

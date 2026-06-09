@@ -48,6 +48,12 @@ Verify a generated backup file without reading Firestore:
 npm run backup:planner -- --verify-file backups/firestore-planner-user.json --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22
 ```
 
+List local backup files, validate each one, and identify the latest trusted backup without reading Firestore:
+
+```bash
+npm run backup:planner -- --list-backups backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22
+```
+
 Build a non-mutating restore plan from a generated backup file without reading or writing Firestore:
 
 ```bash
@@ -63,6 +69,7 @@ Every command prints a `safety` object:
 - dry-run: `firestoreRead: false`, `firestoreWrite: false`, `localFileWrite: false`
 - preflight: `firestoreRead: false`, `firestoreWrite: false`, `localFileWrite: false`, `credentialEnvRead: true`, and `credentialFileRead: true` only when `--credentials-file` was used and readable
 - verify-file: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`
+- list-backups: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`
 - restore-plan: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`, `restorePlanOnly: true`
 - real export: `firestoreRead: true`, `firestoreWrite: false`, `localFileWrite: true`, `verifiedReadback: true`
 
@@ -71,6 +78,8 @@ Preflight output reports only whether required credential fields are present. It
 The export command never writes to Firestore.
 
 When taking the first live backup, record the printed `outputPath`, `totalDocs`, and `fileSha256` in the session log before doing risky QA.
+
+When resuming later, run `--list-backups` first. It reports `latest`, `validCount`, `invalidCount`, per-file checksums, and validation issues for broken JSON or wrong-user backups. It only reads local JSON files.
 
 ## Default Scope
 

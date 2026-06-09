@@ -16,6 +16,7 @@ const {
   buildBackupPlan,
   buildFirebaseCredentialsPreflight,
   buildRestorePlan,
+  listPlannerBackups,
   normalizeFirestoreValue,
   parseBackupOptions,
   parseCollections,
@@ -72,6 +73,14 @@ assert.deepEqual(buildBackupSafetyMetadata("restore-plan"), {
   localFileWrite: false,
   verifiedReadback: true,
   restorePlanOnly: true,
+});
+assert.deepEqual(buildBackupSafetyMetadata("list-backups"), {
+  mode: "list-backups",
+  firestoreRead: false,
+  firestoreWrite: false,
+  localFileRead: true,
+  localFileWrite: false,
+  verifiedReadback: true,
 });
 assert.deepEqual(buildBackupSafetyMetadata("export"), {
   mode: "export",
@@ -181,6 +190,30 @@ assert.throws(
   assert.equal(options.expectedUserId, "user-1");
 }
 
+{
+  const options = parseBackupOptions([
+    "node",
+    "scripts/export-firestore-planner.js",
+    "--list-backups",
+    "--expectUserId",
+    "user-1",
+  ], {});
+
+  assert.equal(options.listBackupsDir, "backups");
+  assert.equal(options.expectedUserId, "user-1");
+}
+
+{
+  const options = parseBackupOptions([
+    "node",
+    "scripts/export-firestore-planner.js",
+    "--list-backups",
+    "custom-backups",
+  ], {});
+
+  assert.equal(options.listBackupsDir, "custom-backups");
+}
+
 assert.throws(
   () => parseBackupOptions(["node", "script", "--verify-file", "backup.json", "--expectUserId", "bad/user"], {}),
   /Expected user id cannot contain/,
@@ -210,7 +243,15 @@ assert.throws(
   /either --verify-file or --restore-plan/,
 );
 assert.throws(
+  () => parseBackupOptions(["node", "script", "--list-backups", "--restore-plan", "backup.json"], {}),
+  /Use only one of --list-backups/,
+);
+assert.throws(
   () => parseBackupOptions(["node", "script", "--restore-plan", "backup.json", "--dry-run"], {}),
+  /already non-mutating/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--list-backups", "--dry-run"], {}),
   /already non-mutating/,
 );
 
@@ -489,6 +530,63 @@ assert.throws(
 }
 
 {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "planner-backup-list-test-"));
+  try {
+    const olderBackup = {
+      schema: BACKUP_SCHEMA,
+      exportedAt: "2026-06-06T08:00:00.000Z",
+      userId: "user-1",
+      rootPath: "Users/user-1",
+      root: {},
+      collections: {
+        tasks: [],
+      },
+    };
+    const newerBackup = {
+      schema: BACKUP_SCHEMA,
+      exportedAt: "2026-06-08T12:26:06.380Z",
+      userId: "user-1",
+      rootPath: "Users/user-1",
+      root: {},
+      collections: {
+        tasks: [
+          {
+            id: "task-1",
+            path: "Users/user-1/tasks/task-1",
+            data: { text: "Task" },
+          },
+        ],
+        plannerEvents: [],
+      },
+    };
+    fs.writeFileSync(path.join(tmpDir, "older.json"), `${JSON.stringify(olderBackup)}\n`, "utf8");
+    fs.writeFileSync(path.join(tmpDir, "newer.json"), `${JSON.stringify(newerBackup)}\n`, "utf8");
+    fs.writeFileSync(path.join(tmpDir, "broken.json"), "{bad json", "utf8");
+    fs.writeFileSync(path.join(tmpDir, "notes.txt"), "ignore me", "utf8");
+
+    const listed = await listPlannerBackups(tmpDir, { expectedUserId: "user-1" });
+    assert.equal(listed.backupDir, tmpDir);
+    assert.equal(listed.missingDirectory, false);
+    assert.equal(listed.count, 3);
+    assert.equal(listed.validCount, 2);
+    assert.equal(listed.invalidCount, 1);
+    assert.equal(listed.latest.fileName, "newer.json");
+    assert.equal(listed.latest.totalDocs, 1);
+    assert.equal(listed.latest.collections.tasks, 1);
+    assert.match(listed.latest.fileSha256, /^[a-f0-9]{64}$/);
+    assert.equal(listed.backups[2].valid, false);
+    assert.match(listed.backups[2].issue, /not valid JSON/);
+
+    const missing = await listPlannerBackups(path.join(tmpDir, "missing"));
+    assert.equal(missing.missingDirectory, true);
+    assert.equal(missing.count, 0);
+    assert.equal(missing.latest, null);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+{
   const output = execFileSync("node", [
     "scripts/export-firestore-planner.js",
     "--userId",
@@ -646,6 +744,45 @@ assert.throws(
   assert.equal(restorePlan.plannedOperations.collectionDocuments.collections.tasks.documents, 1);
   assert.equal(restorePlan.plannedOperations.collectionDocuments.collections.plannerEvents.documents, 0);
   assert.match(restorePlan.warnings.join(" "), /does not write Firestore/);
+}
+
+{
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "planner-backup-list-cli-test-"));
+  const backupPath = path.join(tmpDir, "backup.json");
+  fs.writeFileSync(backupPath, JSON.stringify({
+    schema: BACKUP_SCHEMA,
+    exportedAt: "2026-06-08T12:26:06.380Z",
+    userId: "user-1",
+    rootPath: "Users/user-1",
+    root: {},
+    collections: {
+      tasks: [],
+    },
+  }), "utf8");
+
+  const output = execFileSync("node", [
+    "scripts/export-firestore-planner.js",
+    "--list-backups",
+    tmpDir,
+    "--expectUserId",
+    "user-1",
+  ], {
+    cwd: repoRoot,
+    env: {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+    },
+    encoding: "utf8",
+  });
+
+  const listed = JSON.parse(output);
+  assert.equal(listed.ok, true);
+  assert.equal(listed.listBackups, true);
+  assert.deepEqual(listed.safety, buildBackupSafetyMetadata("list-backups"));
+  assert.equal(listed.validCount, 1);
+  assert.equal(listed.latest.fileName, "backup.json");
+  assert.equal(listed.latest.userId, "user-1");
+  assert.match(listed.latest.fileSha256, /^[a-f0-9]{64}$/);
 }
 
 console.log("firestore backup export tests passed");

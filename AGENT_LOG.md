@@ -2506,3 +2506,24 @@ Entry template:
   - Live `/healthz` now returns `version: "4.1.0"`.
   - Live `/mcp` auth boundary still returns HTTP 401 Bearer with `mcp:tools`.
   - No Firestore data was read or written for this source-only fix.
+
+## 2026-06-08 - Codex
+
+- Summary: Added a local-only backup inventory command.
+- Changed:
+  - `scripts/export-firestore-planner.js` — added `--list-backups [dir] [--expectUserId <uid>]`, which scans local JSON backup files, validates each backup, reports the latest trusted backup, and flags invalid files.
+  - `tests/firestore-backup-export.test.mjs` — covered option parsing, safety metadata, helper behavior, missing directory behavior, invalid JSON reporting, latest-backup sorting, and CLI output.
+  - `docs/firestore-backup-export.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the command and its no-Firestore boundary.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js`
+  - `node --check tests/firestore-backup-export.test.mjs`
+  - `node tests/firestore-backup-export.test.mjs`
+  - `npm run backup:planner -- --list-backups backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live/data boundary:
+  - The real local `--list-backups` run found one valid backup, zero invalid backups, and preserved the known checksum `d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`.
+  - This command read only local JSON backup files under ignored `backups/`.
+  - No Firestore data was read or written.
