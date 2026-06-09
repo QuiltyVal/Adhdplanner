@@ -2629,3 +2629,24 @@ Entry template:
 - Caveat / follow-up:
   - Final cleanup QA packets were `liveQaReady: no` because `plannerBootstrapStatus` was still `loading`; task data and MCP cleanup evidence were sufficient to close this smoke, but bootstrap latency after cleanup should be watched if it repeats.
   - No production code or infrastructure was changed in this verification session.
+
+## 2026-06-10 - Codex
+
+- Summary: Hardened web planner bootstrap against indefinite pending QA packets.
+- Changed:
+  - `src/plannerCommandClient.js` — added a default 15s timeout for `runPlannerBootstrap`, AbortController wiring, injectable `fetchImpl` for contract tests, and explicit `PlannerClientActionError` timeout payloads.
+  - `tests/planner-command-client.test.mjs` — covered timeout normalization, successful bootstrap request shape, bootstrap abort behavior, and server error propagation without network or Firestore access.
+  - `package.json` — wired the new test into `npm run test:contract` and `npm run verify:server`.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented that repeated `planner-bootstrap-pending` should now become an explicit bootstrap failure instead of staying in `loading` forever.
+- Verified:
+  - `node --check src/plannerCommandClient.js`
+  - `node --check tests/planner-command-client.test.mjs`
+  - `node tests/planner-command-client.test.mjs`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live/data boundary:
+  - No Firestore data was read or written.
+  - No MCP, Telegram, OAuth, or production deploy action was performed in this hardening slice.
+  - This does not prove the next live QA packet will always bootstrap instantly; it prevents the browser client from hiding a hung bootstrap request as endless `planner-bootstrap-pending`.

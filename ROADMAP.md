@@ -1,6 +1,6 @@
 # ADHD Planner Roadmap
 
-Last updated: 2026-06-08
+Last updated: 2026-06-10
 
 ## Product Direction
 
@@ -66,6 +66,7 @@ The product should do three things well:
   - 2026-06-07: repo-side fake-transaction coverage now verifies `TASK_ADD_SUBTASK` through `runPlannerCommand`: canonical task write, `lastUpdated`, created-subtask payload, event trace, title index, Telegram context, and duplicate noop behavior. Live Hetzner MCP smoke later passed on 2026-06-10.
   - 2026-06-07: authenticated Codex MCP live smoke passed for a disposable QA task: `get_tasks` read canonical data, `add_task` created `QA MCP smoke — delete after test`, `add_subtask` attached `QA MCP subtask write — delete after test`, follow-up `get_tasks` saw the exact subtask, and `delete_task` cleaned it up. Separate web refresh/QA-packet proof later passed on 2026-06-10.
   - 2026-06-10: authenticated MCP/web refresh proof passed. Baseline web packet was `active: 8`, fingerprint `972e7261`; MCP created the disposable QA task and subtask; post-write web packet was `active: 9`, fingerprint `c6faf840`, latest QA task/subtask present; hard-refresh packet kept fingerprint `c6faf840`; cleanup via MCP returned the task count to baseline and removed the QA task without touching other tasks.
+  - 2026-06-10: web planner bootstrap now has a client-side timeout, so QA packets should not remain in `planner-bootstrap-pending` forever if `/api/planner-client-actions` hangs; the packet will become an explicit bootstrap failure instead.
 - [x] Add a simple Firestore backup / export strategy.
   - 2026-06-06: read-only local JSON export script added; at that point the first live export run was still pending.
   - 2026-06-06: backup script now has a no-Firestore `--dry-run` plan plus collection/user-id validation and regression coverage, so the first live export can be previewed before reading data.

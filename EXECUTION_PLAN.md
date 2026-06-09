@@ -351,6 +351,7 @@ Notes:
 - As of 2026-06-02, Progress Decision Safety also shows a visible live-QA mode badge and disables the live safety snapshot action in guest/local sessions. Copied baseline/trace exports include `liveQaReady` and `stopReason`.
 - As of 2026-06-09, QA packets include task-data freshness evidence (`taskDataFingerprint`, latest task update, latest task title/status/subtask count/subtask preview, and a short active-task preview) so MCP/web refresh consistency can be proven without opening Firestore.
 - As of 2026-06-09, `npm run check:qa-packet` validates one copied QA packet or diffs baseline/post-write/post-refresh packet files locally. The authenticated live pass ran on 2026-06-10 and used this checker to prove MCP/web refresh consistency.
+- As of 2026-06-10, client-side planner bootstrap has a 15s timeout. Repeated cleanup packets should no longer stay in `planner-bootstrap-pending` forever if the bootstrap request hangs; the UI should expose a failed bootstrap state instead.
 
 Done when:
 - new memory/angel behavior can be tested without guessing
