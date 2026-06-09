@@ -2609,3 +2609,23 @@ Entry template:
   - This is local-only tooling and documentation.
   - No network, MCP tool call, Firestore read, Firestore write, or production deploy was performed.
   - The authenticated MCP/web refresh proof remains pending; the next pass should save QA packets to local text files and run `npm run check:qa-packet`.
+
+## 2026-06-10 - Codex
+
+- Summary: Completed the authenticated MCP/web refresh smoke for disposable task writes.
+- Evidence:
+  - Preflight `npm run backup:planner -- --safety-check backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22 --maxBackupAgeHours 72` passed with `readyForRiskyQa: true`, backup age about 32.64 hours, `totalDocs: 6775`, and checksum `d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`.
+  - Preflight `npm run check:mcp-readiness` passed with `readyForCodexToolUse: true`, live MCP HTTP 401 Bearer boundary, scope `mcp:tools`, and Codex config pointing at `https://mcp.valquilty.com/mcp`.
+  - Baseline authenticated QA packet at `2026-06-09T21:12:37.215Z`: `liveQaReady: yes`, `plannerBootstrapStatus: success`, `active: 8`, `taskDataFingerprint: 972e7261`.
+  - Authenticated MCP client/user evidence confirmed `capture_note`, `get_tasks`, `add_task`, `add_subtask`, and `delete_task` all passed. Cleanup reported task count `62 -> 61`, QA task ref `ab3825f0` absent, and no other task touched.
+  - Post-write authenticated QA packet at `2026-06-09T22:02:59.394Z`: `liveQaReady: yes`, `plannerBootstrapStatus: success`, `active: 9`, `taskDataFingerprint: c6faf840`, latest task `QA MCP smoke — delete after test`, latest subtask preview `QA MCP subtask write — delete after test`.
+  - `npm run check:qa-packet -- --before qa-before.txt --after qa-after-mcp-write.txt --expectTaskTitle "QA MCP smoke" --expectSubtaskPreview "QA MCP subtask write"` passed with `ok: true`, `fingerprintChanged: true`, and both expectations found.
+  - After hard refresh, authenticated QA packet at `2026-06-09T22:04:32.786Z`: `liveQaReady: yes`, `plannerBootstrapStatus: success`, `active: 9`, `taskDataFingerprint: c6faf840`, QA task/subtask still latest.
+  - `npm run check:qa-packet -- --before qa-after-mcp-write.txt --after qa-after-refresh.txt --expectStable` passed with `ok: true` and `fingerprintStable: true`.
+  - Cleanup web packets at `2026-06-09T22:06:58.296Z` and `2026-06-09T22:13:18.237Z` were copied while bootstrap was still pending, but both task-data fields returned to baseline: `active: 8`, `taskDataFingerprint: 972e7261`, and latest task returned to `Приготовить лесгинский злеб`.
+- Result:
+  - The historical stale-web rollback risk did not reproduce: the MCP-created QA task and subtask stayed visible after hard refresh.
+  - The disposable QA task was cleaned up through MCP, and MCP confirmed it was absent afterward.
+- Caveat / follow-up:
+  - Final cleanup QA packets were `liveQaReady: no` because `plannerBootstrapStatus` was still `loading`; task data and MCP cleanup evidence were sufficient to close this smoke, but bootstrap latency after cleanup should be watched if it repeats.
+  - No production code or infrastructure was changed in this verification session.

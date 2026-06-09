@@ -137,11 +137,12 @@ Goal: let the user dump chaos into the system without first organizing it.
 - [x] Support append-only capture creation from Telegram free text.
 - [x] Support append-only capture creation from web input.
 - [~] Support append-only capture creation from MCP-originated notes/facts.
-  - 2026-06-07: repo/API contract coverage now proves non-dry-run `source=mcp:...` capture requests call append-only capture storage with MCP origin metadata and process that capture through the existing capture-processing path instead of a direct MCP task mutation tool. A live Hetzner MCP tool that submits captures is still pending.
+  - 2026-06-07: repo/API contract coverage now proves non-dry-run `source=mcp:...` capture requests call append-only capture storage with MCP origin metadata and process that capture through the existing capture-processing path instead of a direct MCP task mutation tool. Live Hetzner MCP `capture_note` dry-run later passed on 2026-06-10; intentional non-dry-run capture remains separate future smoke.
   - 2026-06-08: production dry-run `/api/captures` smoke for `source=mcp:live-smoke` passed with `origin.channel: "mcp"` and `activeTasksSource: "none"`, proving the deployed capture-origin path without Firestore writes or live task reads.
-  - 2026-06-08: live Hetzner MCP now has `capture_note`, routed through the captures API rather than direct Firestore writes. It defaults to dry-run/no live task read and requires `idempotency_key` before an intentional non-dry-run capture write. Authenticated tool-call smoke is still pending.
+  - 2026-06-08: live Hetzner MCP now has `capture_note`, routed through the captures API rather than direct Firestore writes. It defaults to dry-run/no live task read and requires `idempotency_key` before an intentional non-dry-run capture write.
   - 2026-06-08: MCP capture request building is now isolated in `services/mcp-server/src/capture-client.js` with mocked-fetch coverage for dry-run/no-live-read defaults, idempotency guard, active task snapshots, timeout handling, and capture API error reporting. Deploy sync now includes this extra source file.
   - 2026-06-08: MCP `/healthz` now reports the same `MCP_SERVER_VERSION` used by the MCP server metadata, so deploy postchecks no longer show stale service version evidence.
+  - 2026-06-10: authenticated MCP/web refresh proof passed for a disposable QA task. The MCP client ran `capture_note`, `get_tasks`, `add_task`, `add_subtask`, and `delete_task`; web QA packets proved the MCP write changed `taskDataFingerprint` from `972e7261` to `c6faf840`, survived hard refresh with the same fingerprint, and cleanup returned task data to baseline. Final cleanup packets were copied while bootstrap was loading, but MCP cleanup and task fingerprint evidence confirmed the QA task was gone.
 - [x] Track capture lifecycle:
   - `new`
   - `processed`
@@ -205,8 +206,8 @@ Notes:
 - As of 2026-04-18, `show_today` now explicitly surfaces high-cost commitments that stayed without an active linked step longer than their `needsTaskIfSilentDays` threshold.
 - As of 2026-04-18, `processCapture` now performs safe hint upsert into existing active tasks for web capture flow (`urgency`, `resistance`, `isVital`, `deadlineAt`, `lifeArea`, `commitmentIds`) using `mutatePlanner` with stale-write protection and conservative text-match thresholds.
 - The broader Phase 2 item stays in progress because MCP-originated capture enrichment is still missing, and deadline/vital extraction is not yet fully inferred outside explicit intent fields.
-- As of 2026-06-06, `/api/captures` preserves MCP/API origin metadata when `source` is sent as `mcp`, `mcp:*`, or `api:*`, and dry-run contract coverage verifies `origin.channel: "mcp"` without Firestore writes. Live Hetzner MCP capture wiring is still pending.
-- As of 2026-06-08, live Hetzner MCP exposes a `capture_note` tool. It calls `/api/captures` with `source=mcp:*`, defaults to `dry_run: true`, and requires an idempotency key for `dry_run:false`. Deploy/auth-boundary smoke passed; authenticated tool-call smoke is still pending.
+- As of 2026-06-06, `/api/captures` preserves MCP/API origin metadata when `source` is sent as `mcp`, `mcp:*`, or `api:*`, and dry-run contract coverage verifies `origin.channel: "mcp"` without Firestore writes. Live Hetzner MCP `capture_note` dry-run wiring passed on 2026-06-10.
+- As of 2026-06-08, live Hetzner MCP exposes a `capture_note` tool. It calls `/api/captures` with `source=mcp:*`, defaults to `dry_run: true`, and requires an idempotency key for `dry_run:false`. Deploy/auth-boundary smoke passed; authenticated dry-run tool-call smoke passed on 2026-06-10.
 
 ## Phase 4 - Angel pin layer
 
@@ -349,7 +350,7 @@ Notes:
 - As of 2026-06-03, plain Kanban task creation keeps the current mission stable briefly and avoids task-highlight auto-scroll / fallback `DAY MISSION` labeling. Angel Lab create remains explicitly sourced and keeps its own post-add focus behavior.
 - As of 2026-06-02, Progress Decision Safety also shows a visible live-QA mode badge and disables the live safety snapshot action in guest/local sessions. Copied baseline/trace exports include `liveQaReady` and `stopReason`.
 - As of 2026-06-09, QA packets include task-data freshness evidence (`taskDataFingerprint`, latest task update, latest task title/status/subtask count/subtask preview, and a short active-task preview) so MCP/web refresh consistency can be proven without opening Firestore.
-- As of 2026-06-09, `npm run check:qa-packet` validates one copied QA packet or diffs baseline/post-write/post-refresh packet files locally. This removes manual fingerprint comparison from MCP/web refresh proof, but the authenticated live pass still needs to be run.
+- As of 2026-06-09, `npm run check:qa-packet` validates one copied QA packet or diffs baseline/post-write/post-refresh packet files locally. The authenticated live pass ran on 2026-06-10 and used this checker to prove MCP/web refresh consistency.
 
 Done when:
 - new memory/angel behavior can be tested without guessing

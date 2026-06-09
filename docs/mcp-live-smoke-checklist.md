@@ -31,14 +31,20 @@ Live client evidence:
   - final `get_tasks`: `count=61`, `score=511`, exact QA task absent.
 - No non-QA task was touched, and cleanup completed.
 - 2026-06-08: production `/api/captures` dry-run smoke passed for `source=mcp:live-smoke`: response returned `dryRun: true`, `origin.channel: "mcp"`, `origin.via: "captures_api"`, `origin.source: "mcp:live-smoke"`, `activeTasksSource: "none"`, and `activeTasksCount: 0`.
+- 2026-06-10: authenticated MCP/web refresh smoke passed:
+  - baseline web QA packet: `active=8`, `taskDataFingerprint=972e7261`, `liveQaReady=yes`;
+  - MCP client ran `capture_note`, `get_tasks`, `add_task`, `add_subtask`, and `delete_task` on only the disposable QA task;
+  - post-write web QA packet: `active=9`, `taskDataFingerprint=c6faf840`, latest task `QA MCP smoke — delete after test`, latest subtask `QA MCP subtask write — delete after test`;
+  - hard-refresh web QA packet kept `taskDataFingerprint=c6faf840`, proving the MCP write did not bounce after refresh;
+  - cleanup returned MCP task count `62 -> 61`, confirmed QA task ref `ab3825f0` absent, and web task-data fields returned to baseline fingerprint `972e7261`.
 
 Still remaining:
 
-- prove the web app sees that MCP write after refresh/bootstrap;
-- prove the task does not disappear or bounce because of stale local/web state;
-- smoke the live Hetzner MCP `capture_note` tool through an authenticated MCP client, starting with `dry_run: true`.
+- non-dry-run `capture_note` remains intentionally untested;
+- destructive Yes/Cemetery on a real task remains outside safe smoke;
+- Google Calendar OAuth completion remains a separate live smoke.
 
-Codex can keep strengthening repo-side contracts without touching live data. The authenticated task read/write/cleanup path is now proven through the real MCP client; web visual refresh proof remains separate.
+Codex can keep strengthening repo-side contracts without touching live data. The authenticated MCP task/subtask write, web hard-refresh persistence, cleanup, and dry-run capture-note paths are now proven.
 
 ## Preconditions
 
@@ -123,7 +129,7 @@ Expected:
 Current evidence:
 
 - 2026-06-08: production dry-run API smoke passed with `source=mcp:live-smoke`, `origin.channel: "mcp"`, and `activeTasksSource: "none"`. This verifies the capture API origin path, not a dedicated Hetzner MCP capture tool.
-- 2026-06-08: live Hetzner MCP source now contains `capture_note` with `dry_run` defaulting to `true` and `idempotency_key` required for `dry_run=false`. `/healthz` and `/mcp` auth-boundary checks passed after deploy. Authenticated MCP tool-call smoke is still pending.
+- 2026-06-08: live Hetzner MCP source now contains `capture_note` with `dry_run` defaulting to `true` and `idempotency_key` required for `dry_run=false`. `/healthz` and `/mcp` auth-boundary checks passed after deploy. Authenticated dry-run MCP tool-call smoke passed on 2026-06-10; non-dry-run capture remains intentionally untested.
 
 ## Evidence To Record
 
