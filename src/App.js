@@ -3166,6 +3166,16 @@ function getTaskDisplayTitle(task) {
   return String(task?.text || task?.title || "").trim();
 }
 
+function buildTaskQaFingerprint(value = "") {
+  let hash = 2166136261;
+  const text = String(value || "");
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 function getControlActionSignal(task) {
   const text = getTaskDisplayTitle(task).toLowerCase();
   if (!text) return "";
@@ -10453,6 +10463,73 @@ export default function App() {
     scrollToProgressSection(plannerReportSectionRef);
   };
 
+  const buildTaskQaFreshnessEvidence = () => {
+    const taskList = Array.isArray(tasks) ? tasks.filter(Boolean) : [];
+    const compactTaskTitle = (task) => (getTaskDisplayTitle(task) || "Untitled")
+      .replace(/\s+/g, " ")
+      .slice(0, 160);
+    const compactSubtaskTitle = (subtask) => String(subtask?.text || subtask?.title || subtask || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 120);
+    const resolveTaskUpdatedAt = (task = {}) => Math.max(
+      resolvePlannerTimestamp(task.lastUpdated),
+      resolvePlannerTimestamp(task.updatedAt),
+      resolvePlannerTimestamp(task.createdAt),
+      resolvePlannerTimestamp(task.created),
+    );
+    const taskFingerprintSource = taskList
+      .map((task) => {
+        const taskId = String(task.id || "").trim();
+        const status = String(task.status || "unknown").trim();
+        const subtaskCount = Array.isArray(task.subtasks) ? task.subtasks.length : 0;
+        return [
+          taskId,
+          status,
+          subtaskCount,
+          task.isToday ? "today" : "",
+          task.isVital ? "critical" : "",
+          resolveTaskUpdatedAt(task),
+        ].join(":");
+      })
+      .sort()
+      .join("|");
+    const latestTask = taskList
+      .map((task, index) => ({
+        task,
+        index,
+        updatedAt: resolveTaskUpdatedAt(task),
+      }))
+      .filter((item) => item.updatedAt > 0)
+      .sort((left, right) => (right.updatedAt - left.updatedAt) || (left.index - right.index))[0]?.task || null;
+    const latestTaskUpdatedAt = latestTask ? resolveTaskUpdatedAt(latestTask) : 0;
+    const latestTaskSubtaskPreview = latestTask && Array.isArray(latestTask.subtasks)
+      ? latestTask.subtasks
+        .map(compactSubtaskTitle)
+        .filter(Boolean)
+        .slice(0, 5)
+      : [];
+    const activeTaskPreview = activeTasks.slice(0, 5).map((task) => {
+      const subtaskCount = Array.isArray(task.subtasks) ? task.subtasks.length : 0;
+      const markers = [
+        `${subtaskCount} step${subtaskCount === 1 ? "" : "s"}`,
+        task.isToday ? "today" : "",
+        task.isVital ? "critical" : "",
+      ].filter(Boolean).join(", ");
+      return `${compactTaskTitle(task)} (${markers})`;
+    });
+
+    return {
+      taskDataFingerprint: buildTaskQaFingerprint(taskFingerprintSource),
+      latestTaskUpdatedAt: latestTaskUpdatedAt ? new Date(latestTaskUpdatedAt).toISOString() : "none",
+      latestTaskUpdatedTitle: latestTask ? compactTaskTitle(latestTask) : "none",
+      latestTaskUpdatedStatus: latestTask ? String(latestTask.status || "unknown") : "none",
+      latestTaskUpdatedSubtasks: latestTask && Array.isArray(latestTask.subtasks) ? latestTask.subtasks.length : 0,
+      latestTaskUpdatedSubtaskPreview: latestTaskSubtaskPreview.length ? latestTaskSubtaskPreview.join("; ") : "none",
+      activeTaskPreview: activeTaskPreview.length ? activeTaskPreview.join("; ") : "none",
+    };
+  };
+
   const buildDecisionQaBaselineText = (capturedAt = new Date().toISOString()) => {
     const outboxBacklog = plannerMeta?.outbox_backlog && typeof plannerMeta.outbox_backlog === "object"
       ? plannerMeta.outbox_backlog
@@ -10467,6 +10544,7 @@ export default function App() {
     });
     const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
     const latestHumanEventAt = resolvePlannerTimestamp(humanPlannerEvents[0]?.createdAt);
+    const taskFreshness = buildTaskQaFreshnessEvidence();
     return [
       "ADHD Planner live QA baseline",
       `capturedAt: ${capturedAt}`,
@@ -10494,6 +10572,13 @@ export default function App() {
       `technicalEventsVisible: ${technicalPlannerEvents.length}`,
       `eventWindowLimit: ${PLANNER_EVENT_LIMIT}`,
       `latestHumanEventAt: ${latestHumanEventAt ? new Date(latestHumanEventAt).toISOString() : "none"}`,
+      `taskDataFingerprint: ${taskFreshness.taskDataFingerprint}`,
+      `latestTaskUpdatedAt: ${taskFreshness.latestTaskUpdatedAt}`,
+      `latestTaskUpdatedTitle: ${taskFreshness.latestTaskUpdatedTitle}`,
+      `latestTaskUpdatedStatus: ${taskFreshness.latestTaskUpdatedStatus}`,
+      `latestTaskUpdatedSubtasks: ${taskFreshness.latestTaskUpdatedSubtasks}`,
+      `latestTaskUpdatedSubtaskPreview: ${taskFreshness.latestTaskUpdatedSubtaskPreview}`,
+      `activeTaskPreview: ${taskFreshness.activeTaskPreview}`,
     ].join("\n");
   };
 

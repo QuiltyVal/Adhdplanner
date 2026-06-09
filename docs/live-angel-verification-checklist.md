@@ -27,6 +27,7 @@ This checklist covers the real end-to-end path:
 - Create a safety snapshot from Progress Decision Safety before a test that may mutate real tasks.
 - Use `Copy QA packet` in Progress -> Decision Safety, then keep that copied or displayed text with the test notes. It combines the QA baseline and Decision Trace in one block with one timestamp.
 - Confirm the copied QA packet says `mode: cloud-authenticated` and `liveQaReady: yes`. If it says `guest-or-local` or `liveQaReady: no`, stop; the browser is not in the real live account.
+- For cross-client or MCP consistency checks, also keep the packet's `taskDataFingerprint`, `latestTaskUpdatedAt`, `latestTaskUpdatedTitle`, `latestTaskUpdatedSubtasks`, and `latestTaskUpdatedSubtaskPreview` fields.
 - Treat `visibleHumanEvents` inside the packet as a recent-window diagnostic, not an append-only total. Compare `latestHumanEventAt`, `eventWindowLimit`, and the report/event rows when deciding whether an event trace is healthy.
 - Use `More copy options` / `Ещё копировать` only when you need a narrower `Copy QA baseline` or `Copy decision trace` diagnostic.
 - Use one deliberately named QA task/capture so cleanup is unambiguous, for example `QA angel verification <date>`.

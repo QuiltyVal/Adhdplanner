@@ -348,6 +348,7 @@ Notes:
 - As of 2026-06-03, latest Engine evidence labels a separate rescue snapshot as `Engine rescue target` / `Rescue-цель движка`, so QA packets do not imply that the rescue target must match the current mission.
 - As of 2026-06-03, plain Kanban task creation keeps the current mission stable briefly and avoids task-highlight auto-scroll / fallback `DAY MISSION` labeling. Angel Lab create remains explicitly sourced and keeps its own post-add focus behavior.
 - As of 2026-06-02, Progress Decision Safety also shows a visible live-QA mode badge and disables the live safety snapshot action in guest/local sessions. Copied baseline/trace exports include `liveQaReady` and `stopReason`.
+- As of 2026-06-09, QA packets include task-data freshness evidence (`taskDataFingerprint`, latest task update, latest task title/status/subtask count/subtask preview, and a short active-task preview) so MCP/web refresh consistency can be proven without opening Firestore.
 
 Done when:
 - new memory/angel behavior can be tested without guessing

@@ -127,6 +127,7 @@ Record:
 - mutation request text;
 - MCP success result;
 - web screenshot or QA packet showing the subtask;
+- if using a QA packet for web proof, keep `taskDataFingerprint`, `latestTaskUpdatedAt`, `latestTaskUpdatedTitle`, `latestTaskUpdatedSubtasks`, and `latestTaskUpdatedSubtaskPreview`;
 - cleanup evidence;
 - any anomaly or mismatch.
 

@@ -2569,3 +2569,21 @@ Entry template:
   - The real local safety check found one valid backup, zero invalid backups, `readyForRiskyQa: true`, backup age about 28.2 hours, `totalDocs: 6775`, and checksum `d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`.
   - This command read only local JSON backup files under ignored `backups/`.
   - No Firestore data was read or written.
+
+## 2026-06-09 - Codex
+
+- Summary: Added task-data freshness evidence to QA packets.
+- Changed:
+  - `src/App.js` — QA baseline/packet exports now include `taskDataFingerprint`, latest task update timestamp/title/status/subtask count/subtask preview, and a short active-task preview.
+  - `docs/mcp-live-smoke-checklist.md` and `docs/live-angel-verification-checklist.md` — document the new fields for MCP/web refresh and cross-client proof.
+  - `docs/angel-engagement-loop.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — record the QA evidence improvement.
+- Verified:
+  - `git diff --check`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - Browser QA at `http://localhost:3001/main?qa=task-freshness`: guest/local Progress -> Decision Safety copied a QA packet containing `taskDataFingerprint`, `latestTaskUpdatedAt`, `latestTaskUpdatedTitle`, `latestTaskUpdatedStatus`, `latestTaskUpdatedSubtasks`, `latestTaskUpdatedSubtaskPreview`, and `activeTaskPreview`; browser console errors were empty.
+  - `npm run test:contract`
+  - `npm run verify:server`
+- Live/data boundary:
+  - Browser QA used guest/local state only.
+  - No Firestore data was read or written.
+  - This does not complete the authenticated MCP/web refresh smoke; it adds the non-Firestore evidence fields needed for that future live pass.
