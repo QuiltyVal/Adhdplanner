@@ -2587,3 +2587,25 @@ Entry template:
   - Browser QA used guest/local state only.
   - No Firestore data was read or written.
   - This does not complete the authenticated MCP/web refresh smoke; it adds the non-Firestore evidence fields needed for that future live pass.
+
+## 2026-06-09 - Codex
+
+- Summary: Added a local-only QA packet checker/differ for MCP/web refresh evidence.
+- Changed:
+  - `scripts/check-qa-packet.mjs` — validates copied QA packet text files and diffs baseline/post-write/post-refresh packets with explicit safety metadata.
+  - `tests/qa-packet-check.test.mjs` — covers valid cloud packets, guest/local rejection, missing freshness fields, changed fingerprint proof, stable refresh proof, and CLI behavior.
+  - `package.json` — added `npm run check:qa-packet` and wired the test into `npm run test:contract` / `npm run verify:server`.
+  - `docs/mcp-live-smoke-checklist.md`, `docs/live-angel-verification-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented packet-file comparison as the preferred MCP/web refresh evidence path.
+- Verified:
+  - `node --check scripts/check-qa-packet.mjs`
+  - `node --check tests/qa-packet-check.test.mjs`
+  - `node tests/qa-packet-check.test.mjs`
+  - `npm run check:qa-packet -- --help`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live/data boundary:
+  - This is local-only tooling and documentation.
+  - No network, MCP tool call, Firestore read, Firestore write, or production deploy was performed.
+  - The authenticated MCP/web refresh proof remains pending; the next pass should save QA packets to local text files and run `npm run check:qa-packet`.

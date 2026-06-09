@@ -18,6 +18,7 @@ Already covered repo-side:
 - repo-side MCP server source now includes a `capture_note` tool that calls the already-verified captures API path with `dry_run` defaulting to `true`;
 - `capture_note` request construction is covered by mocked-fetch tests in `tests/mcp-capture-client.test.mjs` without live Firestore reads or writes;
 - `npm run check:mcp` verifies the public MCP auth boundary without credentials: live endpoint returns Bearer `401`, advertises scope `mcp:tools`, and serves OAuth protected-resource metadata for `ADHD Planner MCP`.
+- `npm run check:qa-packet` validates copied web QA packets and diffs baseline/post-write/post-refresh packets locally, without network or Firestore access.
 
 Live client evidence:
 
@@ -49,6 +50,10 @@ Codex can keep strengthening repo-side contracts without touching live data. The
 - Confirm the MCP client is connected to the real planner server: `https://mcp.valquilty.com/mcp`.
 - Prefer running `npm run backup:planner -- --userId <uid> --dry-run` first to confirm backup scope.
 - If credentials are available and the test is risky, run the real read-only backup before mutating anything.
+- Save copied web QA packets as local text files when using packet evidence. For example:
+  - `qa-before.txt`
+  - `qa-after-mcp-write.txt`
+  - `qa-after-refresh.txt`
 - Use one deliberately disposable active task, for example `QA MCP smoke — delete after test`.
 - Do not use an important live task for the first mutation smoke.
 
@@ -80,6 +85,9 @@ Expected:
 - The task `lastUpdated` changes.
 - No duplicate task is created.
 - No unrelated task receives the subtask.
+- A local packet diff passes:
+  - `npm run check:qa-packet -- --before qa-before.txt --after qa-after-mcp-write.txt --expectTaskTitle "QA MCP smoke" --expectSubtaskPreview "QA MCP subtask write"`
+  - after hard refresh: `npm run check:qa-packet -- --before qa-after-mcp-write.txt --after qa-after-refresh.txt --expectStable`
 
 Cleanup:
 
@@ -128,6 +136,7 @@ Record:
 - MCP success result;
 - web screenshot or QA packet showing the subtask;
 - if using a QA packet for web proof, keep `taskDataFingerprint`, `latestTaskUpdatedAt`, `latestTaskUpdatedTitle`, `latestTaskUpdatedSubtasks`, and `latestTaskUpdatedSubtaskPreview`;
+- if using packet files, keep the `npm run check:qa-packet` JSON report or paste its `ok`, `comparison`, and `safety` fields into the log;
 - cleanup evidence;
 - any anomaly or mismatch.
 

@@ -148,6 +148,7 @@ The product should do three things well:
   - 2026-06-08: `capture_note` request construction moved into `services/mcp-server/src/capture-client.js` with mocked-fetch coverage for source normalization, dry-run defaults, idempotency protection, active task snapshots, timeouts, and non-OK capture API errors. The deploy helper now syncs both MCP source files instead of only `index.js`.
   - 2026-06-08: MCP server version reporting now uses one `MCP_SERVER_VERSION` constant for both MCP metadata and `/healthz`, preventing deploy evidence from reporting stale versions.
   - 2026-06-09: QA packets now include task-data freshness fields, so the pending web refresh proof can record a task fingerprint and latest task/subtask preview after MCP writes without opening Firestore.
+  - 2026-06-09: `npm run check:qa-packet` now validates copied QA packets and diffs baseline/post-write/post-refresh packet files locally, so MCP/web consistency evidence can fail fast without reading Firestore or comparing fingerprints manually.
 
 ## Next Product Features
 
