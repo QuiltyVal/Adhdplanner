@@ -2646,7 +2646,12 @@ Entry template:
   - `npm run test:contract`
   - `npm run verify:server`
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `./deploy-prod-safe.sh`
+  - `curl -I -L --max-time 20 https://planner.valquilty.com/main`
+  - Production bundle check: `/static/js/main.bc0c2d9f.js` returned HTTP 200 and contained both `Planner bootstrap` and `timed out after`.
+- Production deploy:
+  - Vercel deployment `dpl_768iWqGQif1CoGfF2VMX43fje3zN` completed with `readyState: READY` and was aliased to `https://planner.valquilty.com`.
 - Live/data boundary:
   - No Firestore data was read or written.
-  - No MCP, Telegram, OAuth, or production deploy action was performed in this hardening slice.
+  - No MCP, Telegram, or OAuth action was performed in this hardening slice.
   - This does not prove the next live QA packet will always bootstrap instantly; it prevents the browser client from hiding a hung bootstrap request as endless `planner-bootstrap-pending`.
