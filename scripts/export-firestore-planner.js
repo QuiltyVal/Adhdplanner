@@ -73,6 +73,8 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   const restorePlanFile = getArgValue("--restore-plan", argv);
   const listBackups = hasFlag("--list-backups", argv);
   const listBackupsDir = listBackups ? (getArgValue("--list-backups", argv) || "backups") : "";
+  const restoreLatest = hasFlag("--restore-latest", argv);
+  const restoreLatestDir = restoreLatest ? (getArgValue("--restore-latest", argv) || "backups") : "";
   if (hasFlag("--verify-file", argv) && !verifyFile) {
     throw new Error("Missing backup file. Pass --verify-file <path>.");
   }
@@ -85,6 +87,9 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   if (listBackups && (verifyFile || restorePlanFile)) {
     throw new Error("Use only one of --list-backups, --verify-file, or --restore-plan.");
   }
+  if (restoreLatest && (verifyFile || restorePlanFile || listBackups)) {
+    throw new Error("Use only one of --restore-latest, --list-backups, --verify-file, or --restore-plan.");
+  }
   if (verifyFile && preflight) {
     throw new Error("Use either --verify-file or --preflight, not both.");
   }
@@ -94,13 +99,19 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   if (listBackups && preflight) {
     throw new Error("Use either --list-backups or --preflight, not both.");
   }
+  if (restoreLatest && preflight) {
+    throw new Error("Use either --restore-latest or --preflight, not both.");
+  }
   if ((verifyFile || restorePlanFile) && dryRun) {
     throw new Error("--verify-file and --restore-plan are already non-mutating; do not combine them with --dry-run.");
   }
   if (listBackups && dryRun) {
     throw new Error("--list-backups is already non-mutating; do not combine it with --dry-run.");
   }
-  if (verifyFile || restorePlanFile || listBackups) {
+  if (restoreLatest && dryRun) {
+    throw new Error("--restore-latest is already non-mutating; do not combine it with --dry-run.");
+  }
+  if (verifyFile || restorePlanFile || listBackups || restoreLatest) {
     const expectedUserId = getArgValue("--expectUserId", argv);
     if (expectedUserId && String(expectedUserId).includes("/")) {
       throw new Error("Expected user id cannot contain '/'.");
@@ -112,6 +123,7 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
       verifyFile,
       restorePlanFile,
       listBackupsDir,
+      restoreLatestDir,
       expectedUserId: expectedUserId ? String(expectedUserId) : "",
     };
   }
@@ -186,6 +198,7 @@ function getHelpText() {
     "  --list-backups [backups-dir] [--expectUserId <uid>]",
     "  --verify-file backups/file.json [--expectUserId <uid>]",
     "  --restore-plan backups/file.json [--expectUserId <uid>]",
+    "  --restore-latest [backups-dir] [--expectUserId <uid>]",
     "",
     "This script is read-only. It does not write to Firestore.",
   ].join("\n");
@@ -223,6 +236,16 @@ function buildBackupSafetyMetadata(mode) {
         verifiedReadback: true,
       };
     case "restore-plan":
+      return {
+        mode,
+        firestoreRead: false,
+        firestoreWrite: false,
+        localFileRead: true,
+        localFileWrite: false,
+        verifiedReadback: true,
+        restorePlanOnly: true,
+      };
+    case "restore-latest":
       return {
         mode,
         firestoreRead: false,
@@ -647,6 +670,33 @@ async function listPlannerBackups(directory = "backups", { expectedUserId = "", 
   };
 }
 
+async function buildLatestRestorePlan(directory = "backups", { expectedUserId = "", cwd = process.cwd() } = {}) {
+  const inventory = await listPlannerBackups(directory, { expectedUserId, cwd });
+  if (!inventory.latest) {
+    throw new Error(`No valid backup files found in ${inventory.backupDir}.`);
+  }
+
+  const restorePlan = await buildRestorePlan(inventory.latest.outputPath, { expectedUserId, cwd });
+
+  return {
+    ...restorePlan,
+    restoreLatest: true,
+    selectedBackup: {
+      fileName: inventory.latest.fileName,
+      outputPath: inventory.latest.outputPath,
+      exportedAt: inventory.latest.exportedAt,
+      fileSha256: inventory.latest.fileSha256,
+      totalDocs: inventory.latest.totalDocs,
+    },
+    backupInventory: {
+      backupDir: inventory.backupDir,
+      count: inventory.count,
+      validCount: inventory.validCount,
+      invalidCount: inventory.invalidCount,
+    },
+  };
+}
+
 async function main() {
   const options = parseBackupOptions();
   if (options.help) {
@@ -676,6 +726,20 @@ async function main() {
       listBackups: true,
       safety: buildBackupSafetyMetadata("list-backups"),
       ...list,
+    }, null, 2));
+    return;
+  }
+
+  if (options.restoreLatestDir) {
+    const restorePlan = await buildLatestRestorePlan(options.restoreLatestDir, {
+      expectedUserId: options.expectedUserId,
+    });
+    console.log(JSON.stringify({
+      ok: true,
+      restorePlan: true,
+      restoreLatest: true,
+      safety: buildBackupSafetyMetadata("restore-latest"),
+      ...restorePlan,
     }, null, 2));
     return;
   }
@@ -778,6 +842,7 @@ module.exports = {
   buildBackupSafetyMetadata,
   buildBackupPreflightReport,
   buildFirebaseCredentialsPreflight,
+  buildLatestRestorePlan,
   buildRestorePlan,
   listPlannerBackups,
   prepareFirebaseCredentials,

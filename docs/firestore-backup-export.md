@@ -60,6 +60,12 @@ Build a non-mutating restore plan from a generated backup file without reading o
 npm run backup:planner -- --restore-plan backups/firestore-planner-user.json --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22
 ```
 
+Build the same non-mutating restore plan from the latest valid local backup:
+
+```bash
+npm run backup:planner -- --restore-latest backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22
+```
+
 Collection names are intentionally restricted to simple Firestore collection ids (`letters`, `numbers`, `_`, `-`). This prevents an accidental nested path from being exported when the command is typed by hand.
 
 Successful real exports now validate the generated payload before writing, read the saved file back, and print `verified: true` with per-collection document counts, `sizeBytes`, and `fileSha256`. This does not prove semantic correctness of every task, but it catches broken JSON, wrong user ids, schema drift, invalid document paths, and gives you a checksum to record before a backup is trusted.
@@ -71,6 +77,7 @@ Every command prints a `safety` object:
 - verify-file: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`
 - list-backups: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`
 - restore-plan: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`, `restorePlanOnly: true`
+- restore-latest: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`, `restorePlanOnly: true`
 - real export: `firestoreRead: true`, `firestoreWrite: false`, `localFileWrite: true`, `verifiedReadback: true`
 
 Preflight output reports only whether required credential fields are present. It does not print `project_id`, `client_email`, `private_key`, the raw `FIREBASE_CREDENTIALS` value, or a credentials file path.
@@ -79,7 +86,7 @@ The export command never writes to Firestore.
 
 When taking the first live backup, record the printed `outputPath`, `totalDocs`, and `fileSha256` in the session log before doing risky QA.
 
-When resuming later, run `--list-backups` first. It reports `latest`, `validCount`, `invalidCount`, per-file checksums, and validation issues for broken JSON or wrong-user backups. It only reads local JSON files.
+When resuming later, run `--list-backups` first. It reports `latest`, `validCount`, `invalidCount`, per-file checksums, and validation issues for broken JSON or wrong-user backups. It only reads local JSON files. If the latest valid backup is the intended recovery point, `--restore-latest` builds the restore review artifact without requiring you to paste the long backup filename.
 
 ## Default Scope
 
@@ -101,6 +108,6 @@ The default export includes:
 
 ## Restore Boundary
 
-This script does not restore data. `--restore-plan` is a review artifact only: it verifies the backup file, prints the target root path, and lists the root user document plus per-collection document counts that a separate restore flow would need to write.
+This script does not restore data. `--restore-plan` and `--restore-latest` are review artifacts only: they verify a backup file, print the target root path, and list the root user document plus per-collection document counts that a separate restore flow would need to write.
 
 The current restore plan does not delete Firestore documents that are absent from the backup. A real restore apply path must be separate, explicitly confirmed, and reviewed before it writes live data.
