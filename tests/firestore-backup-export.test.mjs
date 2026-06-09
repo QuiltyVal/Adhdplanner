@@ -13,6 +13,7 @@ const {
   DEFAULT_COLLECTIONS,
   buildBackupPreflightReport,
   buildBackupSafetyMetadata,
+  buildBackupSafetyCheck,
   buildBackupPlan,
   buildFirebaseCredentialsPreflight,
   buildLatestRestorePlan,
@@ -83,6 +84,14 @@ assert.deepEqual(buildBackupSafetyMetadata("restore-latest"), {
   localFileWrite: false,
   verifiedReadback: true,
   restorePlanOnly: true,
+});
+assert.deepEqual(buildBackupSafetyMetadata("safety-check"), {
+  mode: "safety-check",
+  firestoreRead: false,
+  firestoreWrite: false,
+  localFileRead: true,
+  localFileWrite: false,
+  verifiedReadback: true,
 });
 assert.deepEqual(buildBackupSafetyMetadata("list-backups"), {
   mode: "list-backups",
@@ -214,6 +223,23 @@ assert.throws(
   const options = parseBackupOptions([
     "node",
     "scripts/export-firestore-planner.js",
+    "--safety-check",
+    "custom-backups",
+    "--expectUserId",
+    "user-1",
+    "--maxBackupAgeHours",
+    "24",
+  ], {});
+
+  assert.equal(options.safetyCheckDir, "custom-backups");
+  assert.equal(options.expectedUserId, "user-1");
+  assert.equal(options.maxBackupAgeHours, 24);
+}
+
+{
+  const options = parseBackupOptions([
+    "node",
+    "scripts/export-firestore-planner.js",
     "--restore-plan",
     "backups/manual.json",
     "--expectUserId",
@@ -283,6 +309,22 @@ assert.throws(
 assert.throws(
   () => parseBackupOptions(["node", "script", "--restore-latest", "--restore-plan", "backup.json"], {}),
   /Use only one of --restore-latest/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--safety-check", "--list-backups"], {}),
+  /Use only one of --safety-check/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--safety-check", "--preflight"], {}),
+  /either --safety-check or --preflight/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--safety-check", "--dry-run"], {}),
+  /already non-mutating/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--safety-check", "--maxBackupAgeHours", "0"], {}),
+  /must be a positive integer/,
 );
 assert.throws(
   () => parseBackupOptions(["node", "script", "--restore-plan", "backup.json", "--dry-run"], {}),
@@ -628,10 +670,40 @@ assert.throws(
     assert.equal(latestRestorePlan.backupInventory.invalidCount, 1);
     assert.equal(latestRestorePlan.plannedOperations.collectionDocuments.collections.tasks.documents, 1);
 
+    const safetyCheck = await buildBackupSafetyCheck(tmpDir, {
+      expectedUserId: "user-1",
+      now: new Date("2026-06-08T18:26:06.380Z"),
+      maxBackupAgeHours: 12,
+    });
+    assert.equal(safetyCheck.ok, true);
+    assert.equal(safetyCheck.readyForRiskyQa, true);
+    assert.equal(safetyCheck.latest.fileName, "newer.json");
+    assert.equal(safetyCheck.latest.ageHours, 6);
+    assert.equal(safetyCheck.latest.stale, false);
+    assert.equal(safetyCheck.validCount, 2);
+    assert.equal(safetyCheck.invalidCount, 1);
+    assert.match(safetyCheck.warnings.join(" "), /invalid backup/);
+
+    const staleSafetyCheck = await buildBackupSafetyCheck(tmpDir, {
+      expectedUserId: "user-1",
+      now: new Date("2026-06-09T18:26:06.380Z"),
+      maxBackupAgeHours: 12,
+    });
+    assert.equal(staleSafetyCheck.ok, false);
+    assert.equal(staleSafetyCheck.readyForRiskyQa, false);
+    assert.equal(staleSafetyCheck.latest.stale, true);
+    assert.match(staleSafetyCheck.blockers.join(" "), /older than 12/);
+
     const missing = await listPlannerBackups(path.join(tmpDir, "missing"));
     assert.equal(missing.missingDirectory, true);
     assert.equal(missing.count, 0);
     assert.equal(missing.latest, null);
+    const missingSafetyCheck = await buildBackupSafetyCheck(path.join(tmpDir, "missing"), {
+      now: new Date("2026-06-08T18:26:06.380Z"),
+    });
+    assert.equal(missingSafetyCheck.ok, false);
+    assert.equal(missingSafetyCheck.readyForRiskyQa, false);
+    assert.match(missingSafetyCheck.blockers.join(" "), /No valid backup/);
     await assert.rejects(
       () => buildLatestRestorePlan(path.join(tmpDir, "missing")),
       /No valid backup files found/,
@@ -893,6 +965,47 @@ assert.throws(
   assert.equal(restorePlan.backupInventory.validCount, 2);
   assert.equal(restorePlan.plannedOperations.collectionDocuments.total, 1);
   assert.equal(restorePlan.plannedOperations.collectionDocuments.collections.tasks.documents, 1);
+}
+
+{
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "planner-backup-safety-check-cli-test-"));
+  fs.writeFileSync(path.join(tmpDir, "backup.json"), JSON.stringify({
+    schema: BACKUP_SCHEMA,
+    exportedAt: new Date().toISOString(),
+    userId: "user-1",
+    rootPath: "Users/user-1",
+    root: {},
+    collections: {
+      tasks: [],
+    },
+  }), "utf8");
+
+  const output = execFileSync("node", [
+    "scripts/export-firestore-planner.js",
+    "--safety-check",
+    tmpDir,
+    "--expectUserId",
+    "user-1",
+    "--maxBackupAgeHours",
+    "72",
+  ], {
+    cwd: repoRoot,
+    env: {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+    },
+    encoding: "utf8",
+  });
+
+  const safetyCheck = JSON.parse(output);
+  assert.equal(safetyCheck.ok, true);
+  assert.equal(safetyCheck.safetyCheck, true);
+  assert.equal(safetyCheck.readyForRiskyQa, true);
+  assert.deepEqual(safetyCheck.safety, buildBackupSafetyMetadata("safety-check"));
+  assert.equal(safetyCheck.validCount, 1);
+  assert.equal(safetyCheck.latest.fileName, "backup.json");
+  assert.equal(safetyCheck.latest.stale, false);
+  assert.match(safetyCheck.latest.fileSha256, /^[a-f0-9]{64}$/);
 }
 
 console.log("firestore backup export tests passed");

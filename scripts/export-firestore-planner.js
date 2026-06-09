@@ -75,6 +75,13 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   const listBackupsDir = listBackups ? (getArgValue("--list-backups", argv) || "backups") : "";
   const restoreLatest = hasFlag("--restore-latest", argv);
   const restoreLatestDir = restoreLatest ? (getArgValue("--restore-latest", argv) || "backups") : "";
+  const safetyCheck = hasFlag("--safety-check", argv);
+  const safetyCheckDir = safetyCheck ? (getArgValue("--safety-check", argv) || "backups") : "";
+  const maxBackupAgeHoursRaw = getArgValue("--maxBackupAgeHours", argv);
+  const maxBackupAgeHours = maxBackupAgeHoursRaw ? Number.parseInt(maxBackupAgeHoursRaw, 10) : 72;
+  if (maxBackupAgeHoursRaw && (!Number.isFinite(maxBackupAgeHours) || maxBackupAgeHours <= 0)) {
+    throw new Error("--maxBackupAgeHours must be a positive integer.");
+  }
   if (hasFlag("--verify-file", argv) && !verifyFile) {
     throw new Error("Missing backup file. Pass --verify-file <path>.");
   }
@@ -90,6 +97,9 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   if (restoreLatest && (verifyFile || restorePlanFile || listBackups)) {
     throw new Error("Use only one of --restore-latest, --list-backups, --verify-file, or --restore-plan.");
   }
+  if (safetyCheck && (verifyFile || restorePlanFile || listBackups || restoreLatest)) {
+    throw new Error("Use only one of --safety-check, --restore-latest, --list-backups, --verify-file, or --restore-plan.");
+  }
   if (verifyFile && preflight) {
     throw new Error("Use either --verify-file or --preflight, not both.");
   }
@@ -102,6 +112,9 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   if (restoreLatest && preflight) {
     throw new Error("Use either --restore-latest or --preflight, not both.");
   }
+  if (safetyCheck && preflight) {
+    throw new Error("Use either --safety-check or --preflight, not both.");
+  }
   if ((verifyFile || restorePlanFile) && dryRun) {
     throw new Error("--verify-file and --restore-plan are already non-mutating; do not combine them with --dry-run.");
   }
@@ -111,7 +124,10 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   if (restoreLatest && dryRun) {
     throw new Error("--restore-latest is already non-mutating; do not combine it with --dry-run.");
   }
-  if (verifyFile || restorePlanFile || listBackups || restoreLatest) {
+  if (safetyCheck && dryRun) {
+    throw new Error("--safety-check is already non-mutating; do not combine it with --dry-run.");
+  }
+  if (verifyFile || restorePlanFile || listBackups || restoreLatest || safetyCheck) {
     const expectedUserId = getArgValue("--expectUserId", argv);
     if (expectedUserId && String(expectedUserId).includes("/")) {
       throw new Error("Expected user id cannot contain '/'.");
@@ -124,6 +140,8 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
       restorePlanFile,
       listBackupsDir,
       restoreLatestDir,
+      safetyCheckDir,
+      maxBackupAgeHours,
       expectedUserId: expectedUserId ? String(expectedUserId) : "",
     };
   }
@@ -199,6 +217,7 @@ function getHelpText() {
     "  --verify-file backups/file.json [--expectUserId <uid>]",
     "  --restore-plan backups/file.json [--expectUserId <uid>]",
     "  --restore-latest [backups-dir] [--expectUserId <uid>]",
+    "  --safety-check [backups-dir] [--expectUserId <uid>] [--maxBackupAgeHours 72]",
     "",
     "This script is read-only. It does not write to Firestore.",
   ].join("\n");
@@ -254,6 +273,15 @@ function buildBackupSafetyMetadata(mode) {
         localFileWrite: false,
         verifiedReadback: true,
         restorePlanOnly: true,
+      };
+    case "safety-check":
+      return {
+        mode,
+        firestoreRead: false,
+        firestoreWrite: false,
+        localFileRead: true,
+        localFileWrite: false,
+        verifiedReadback: true,
       };
     case "list-backups":
       return {
@@ -697,6 +725,77 @@ async function buildLatestRestorePlan(directory = "backups", { expectedUserId = 
   };
 }
 
+async function buildBackupSafetyCheck(
+  directory = "backups",
+  {
+    expectedUserId = "",
+    cwd = process.cwd(),
+    now = new Date(),
+    maxBackupAgeHours = 72,
+  } = {},
+) {
+  if (!Number.isFinite(maxBackupAgeHours) || maxBackupAgeHours <= 0) {
+    throw new Error("maxBackupAgeHours must be a positive number.");
+  }
+
+  const inventory = await listPlannerBackups(directory, { expectedUserId, cwd });
+  const checkedAt = now.toISOString();
+  const blockers = [];
+  const warnings = [];
+  let latest = null;
+
+  if (!inventory.latest) {
+    blockers.push(`No valid backup files found in ${inventory.backupDir}.`);
+  } else {
+    const exportedAtMs = Date.parse(inventory.latest.exportedAt || "");
+    const checkedAtMs = now.getTime();
+    const ageHours = Number.isFinite(exportedAtMs)
+      ? Math.max(0, (checkedAtMs - exportedAtMs) / 3600000)
+      : null;
+    const stale = ageHours === null || ageHours > maxBackupAgeHours;
+    latest = {
+      fileName: inventory.latest.fileName,
+      outputPath: inventory.latest.outputPath,
+      exportedAt: inventory.latest.exportedAt,
+      ageHours: ageHours === null ? null : Number(ageHours.toFixed(2)),
+      stale,
+      maxBackupAgeHours,
+      userId: inventory.latest.userId,
+      totalDocs: inventory.latest.totalDocs,
+      sizeBytes: inventory.latest.sizeBytes,
+      fileSha256: inventory.latest.fileSha256,
+    };
+
+    if (stale) {
+      blockers.push(`Latest backup is older than ${maxBackupAgeHours} hour(s).`);
+    }
+  }
+
+  if (inventory.missingDirectory) {
+    blockers.push(`Backup directory is missing: ${inventory.backupDir}.`);
+  }
+  if (inventory.invalidCount > 0) {
+    warnings.push(`${inventory.invalidCount} invalid backup file(s) were ignored.`);
+  }
+
+  const readyForRiskyQa = blockers.length === 0;
+  return {
+    ok: readyForRiskyQa,
+    safetyCheck: true,
+    readyForRiskyQa,
+    checkedAt,
+    backupDir: inventory.backupDir,
+    validCount: inventory.validCount,
+    invalidCount: inventory.invalidCount,
+    latest,
+    blockers,
+    warnings,
+    nextAction: readyForRiskyQa
+      ? "Create a safety snapshot or QA packet, then proceed with the smallest risky step."
+      : "Run a fresh read-only backup export before risky QA or migration work.",
+  };
+}
+
 async function main() {
   const options = parseBackupOptions();
   if (options.help) {
@@ -741,6 +840,19 @@ async function main() {
       safety: buildBackupSafetyMetadata("restore-latest"),
       ...restorePlan,
     }, null, 2));
+    return;
+  }
+
+  if (options.safetyCheckDir) {
+    const safetyCheck = await buildBackupSafetyCheck(options.safetyCheckDir, {
+      expectedUserId: options.expectedUserId,
+      maxBackupAgeHours: options.maxBackupAgeHours,
+    });
+    console.log(JSON.stringify({
+      safety: buildBackupSafetyMetadata("safety-check"),
+      ...safetyCheck,
+    }, null, 2));
+    if (!safetyCheck.ok) process.exitCode = 1;
     return;
   }
 
@@ -841,6 +953,7 @@ module.exports = {
   buildOutputPath,
   buildBackupSafetyMetadata,
   buildBackupPreflightReport,
+  buildBackupSafetyCheck,
   buildFirebaseCredentialsPreflight,
   buildLatestRestorePlan,
   buildRestorePlan,

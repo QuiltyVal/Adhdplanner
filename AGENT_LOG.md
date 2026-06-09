@@ -2548,3 +2548,24 @@ Entry template:
   - The real local `--restore-latest` run selected `backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-08T12-26-06-380Z.json`, checksum `d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`, `totalDocs: 6775`.
   - This was a restore review artifact only: `firestoreRead: false`, `firestoreWrite: false`, `restorePlanOnly: true`.
   - No Firestore data was read or written.
+
+## 2026-06-09 - Codex
+
+- Summary: Added a local-only backup freshness safety check.
+- Changed:
+  - `scripts/export-firestore-planner.js` — added `--safety-check [dir] [--expectUserId <uid>] [--maxBackupAgeHours 72]`, which validates local backup inventory freshness and reports `readyForRiskyQa`.
+  - `tests/firestore-backup-export.test.mjs` — covered option parsing, safety metadata, fresh/stale/missing backup behavior, and CLI output.
+  - `docs/firestore-backup-export.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the command and its no-Firestore boundary.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js`
+  - `node --check tests/firestore-backup-export.test.mjs`
+  - `node tests/firestore-backup-export.test.mjs`
+  - `npm run backup:planner -- --safety-check backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22 --maxBackupAgeHours 72`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live/data boundary:
+  - The real local safety check found one valid backup, zero invalid backups, `readyForRiskyQa: true`, backup age about 28.2 hours, `totalDocs: 6775`, and checksum `d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`.
+  - This command read only local JSON backup files under ignored `backups/`.
+  - No Firestore data was read or written.

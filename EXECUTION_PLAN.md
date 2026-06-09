@@ -122,6 +122,7 @@ Notes:
 - As of 2026-06-08, `npm run backup:planner -- --restore-plan <backup.json> --expectUserId <uid>` builds a non-mutating restore review artifact from a local backup file. It validates the backup, reports target root/collection document counts, and keeps `firestoreRead: false`, `firestoreWrite: false`, and `restorePlanOnly: true`.
 - As of 2026-06-08, `npm run backup:planner -- --list-backups [dir] --expectUserId <uid>` lists local JSON backup files, validates each file, reports the latest trusted backup, and keeps `firestoreRead: false` / `firestoreWrite: false`.
 - As of 2026-06-09, `npm run backup:planner -- --restore-latest [dir] --expectUserId <uid>` selects the latest valid local backup and builds the same non-mutating restore review artifact. It keeps `firestoreRead: false`, `firestoreWrite: false`, and `restorePlanOnly: true`.
+- As of 2026-06-09, `npm run backup:planner -- --safety-check [dir] --expectUserId <uid>` validates local backup inventory freshness, reports `readyForRiskyQa`, and keeps `firestoreRead: false` / `firestoreWrite: false`.
 
 Done when:
 - a new agent can implement on top of this plan without guessing where state is allowed to live

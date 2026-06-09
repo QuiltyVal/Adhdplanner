@@ -78,6 +78,7 @@ The product should do three things well:
   - 2026-06-08: backup CLI now supports `--restore-plan`, a local-file-only restore drill that validates a backup and prints target root/collection write counts without reading or writing Firestore. The first live backup restore-plan passed with `totalDocs: 6775` and `restorePlanOnly: true`.
   - 2026-06-08: backup CLI now supports `--list-backups [dir]`, which validates local backup JSON files, reports latest trusted backup/checksums, and flags invalid files without reading or writing Firestore.
   - 2026-06-09: backup CLI now supports `--restore-latest [dir]`, which selects the latest valid local backup and builds the same non-mutating restore review artifact without requiring a pasted filename.
+  - 2026-06-09: backup CLI now supports `--safety-check [dir]`, which validates local backup inventory freshness and reports `readyForRiskyQa` before risky QA/migration work without reading or writing Firestore.
 - [x] Add operation logging for destructive task changes.
   - 2026-06-06: destructive/status-transition events include structured status transition payloads; bulk/delete/snapshot paths already write planner events.
   - 2026-06-07: subtask toggle events now use the canonical planner event type constant with regression coverage, keeping subtask activity traces consistent for MCP/Telegram/web-origin mutations.

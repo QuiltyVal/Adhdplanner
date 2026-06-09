@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md
 
-Last updated: 2026-06-08
+Last updated: 2026-06-09
 
 This file exists so the project can survive context loss and switching between Codex, Claude, or another coding agent.
 
@@ -114,6 +114,7 @@ Companion file:
 - As of 2026-06-08, the backup CLI has a non-mutating restore drill: `--restore-plan <backup.json> --expectUserId <uid>`. It reads only the local backup file, validates it, and reports planned root/collection document writes while keeping `firestoreRead: false`, `firestoreWrite: false`, and `restorePlanOnly: true`. The first live backup restore-plan passed against the backup above with `totalDocs: 6775`.
 - As of 2026-06-08, the backup CLI has a local-only inventory mode: `--list-backups [dir] --expectUserId <uid>`. It reads local JSON files, validates each one, reports the latest trusted backup and checksums, flags invalid files, and does not read or write Firestore.
 - As of 2026-06-09, the backup CLI also has `--restore-latest [dir] --expectUserId <uid>`. It picks the latest valid local backup from the inventory and builds the same non-mutating restore review artifact without reading or writing Firestore.
+- As of 2026-06-09, the backup CLI also has `--safety-check [dir] --expectUserId <uid>`. It reads only local backup JSON files, verifies the latest trusted backup is within the configured freshness window, reports `readyForRiskyQa`, and does not read or write Firestore.
 - As of 2026-06-06, single-task status mutation planner events now carry structured audit payloads with `previousStatus`, `nextStatus`, and `scoreDelta` when relevant. This improves destructive/status-change logging for Done, Cemetery, and reopen flows without changing task mutation semantics.
 - As of 2026-06-07, subtask toggle planner events use the canonical event-type constant in both command-service emission and event-message rendering, with regression coverage. This keeps MCP/Telegram/web subtask activity traces consistent.
 - As of 2026-06-06, the repo-side planner action contract has regression coverage for `add_subtask`: validation requires both `taskRef` and `subtaskText`, route-to-command mapping emits `TASK_ADD_SUBTASK`, and event payloads expose `extra.createdSubtask`. The local command service already updates `lastUpdated` for created subtasks. The live Hetzner MCP server is still a separately deployed process and still needs client-side smoke verification.
