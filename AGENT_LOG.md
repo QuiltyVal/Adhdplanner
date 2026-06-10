@@ -2869,3 +2869,29 @@ Entry template:
   - This is docs-only evidence logging.
   - No Firestore data was read or written by this Codex pass.
   - No MCP, Telegram, OAuth, Google API, browser-authenticated QA, or production deploy action was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Added a local-only planner integrity checker for backup JSON files.
+- Changed:
+  - `scripts/check-planner-integrity.mjs` — added a local backup checker with safety metadata, backup schema validation, exit code `1` on findings, and invariants for false-death signatures, invalid `deadlineAt`, stale not-your-move blocks, Angel pins on non-active tasks, overdue active pressure tasks, and QA/test/smoke title markers outside completed status.
+  - `tests/planner-integrity-check.test.mjs` — added fixture coverage for all requested integrity findings, including `0020-02-07`, plus clean-backup and CLI exit-code coverage.
+  - `package.json` — added `npm run check:planner-integrity` and wired the checker into `npm run test:contract` and `npm run verify:server`.
+  - `docs/firestore-backup-export.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the checker and its local-only boundary.
+- Local backup probe:
+  - Ran the checker against `backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-08T12-26-06-380Z.json` with `--asOf 2026-06-10T12:00:00.000Z`.
+  - It correctly returned `ok: false` with six findings, including `invalid_deadlineAt` for `0020-02-07`.
+- Fresh backup attempt:
+  - `npm run backup:planner -- --userId U2geUdbvWyVRNLWnSZBnftOMSU22` could not run because this shell has no `FIREBASE_CREDENTIALS`, `FIREBASE_CREDENTIALS_FILE`, or `GOOGLE_APPLICATION_CREDENTIALS`.
+  - No credential file was found under the checked `.codex` / project paths. The 2026-06-08 backup remains the latest local backup until credentials are provided.
+- Verified:
+  - `node --check scripts/check-planner-integrity.mjs`
+  - `node --check tests/planner-integrity-check.test.mjs`
+  - `node tests/planner-integrity-check.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live/data boundary:
+  - Checker execution was local-only against an ignored backup file.
+  - The attempted fresh backup would have been read-only, but it did not start because credentials were unavailable.
+  - No Firestore write, MCP mutation, Telegram action, OAuth action, Google API mutation, browser-authenticated QA, or production deploy was performed.

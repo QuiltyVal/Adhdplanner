@@ -84,6 +84,12 @@ Require a minimum backup size and key collections before risky work:
 npm run backup:planner -- --safety-check backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22 --maxBackupAgeHours 72 --minTotalDocs 1000 --requireCollections tasks,plannerEvents,outbox,engineRuns
 ```
 
+Check semantic planner integrity in a local backup without reading Firestore:
+
+```bash
+npm run check:planner-integrity -- --backup backups/firestore-planner-user.json --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22
+```
+
 Collection names are intentionally restricted to simple Firestore collection ids (`letters`, `numbers`, `_`, `-`). This prevents an accidental nested path from being exported when the command is typed by hand.
 
 Successful real exports now validate the generated payload before writing, read the saved file back, and print `verified: true` with per-collection document counts, `sizeBytes`, and `fileSha256`. This does not prove semantic correctness of every task, but it catches broken JSON, wrong user ids, schema drift, invalid document paths, and gives you a checksum to record before a backup is trusted.
@@ -98,6 +104,7 @@ Every command prints a `safety` object:
 - restore-latest: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`, `restorePlanOnly: true`
 - compare-backups: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`
 - safety-check: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`, `readyForRiskyQa: true/false`
+- check:planner-integrity: `networkRead: false`, `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`, `liveDataMutation: false`
 - real export: `firestoreRead: true`, `firestoreWrite: false`, `localFileWrite: true`, `verifiedReadback: true`
 
 Preflight output reports only whether required credential fields are present. It does not print `project_id`, `client_email`, `private_key`, the raw `FIREBASE_CREDENTIALS` value, or a credentials file path.
@@ -111,6 +118,21 @@ When resuming later, run `--list-backups` first. It reports `latest`, `validCoun
 When you have two local backups, run `--compare-backups before.json after.json` before treating a newer export as the expected recovery point. The comparison validates both files, confirms the same user id, reports root/document hash deltas, and prints only counts plus path previews for added/removed/changed documents. It intentionally does not print document data.
 
 Before risky live QA, migration, or destructive repair work, run `--safety-check`. It validates the local backup inventory, checks the latest valid backup age against `--maxBackupAgeHours` (default: 72), applies optional `--minTotalDocs` and `--requireCollections` gates, and prints `readyForRiskyQa`. A failed safety check means take a fresh read-only export first.
+
+## Planner Integrity Check
+
+`npm run check:planner-integrity` reads one local backup JSON file and exits with code `1` when it finds task-shape risks. It does not import Firebase Admin, does not use the network, and never reads or writes Firestore.
+
+The current checks report:
+
+- `dead_task_without_deadAt`: a `dead` task without `deadAt`, matching the false-death signature;
+- `invalid_deadlineAt`: missing date parsing safety, including years outside `2020..2100` such as `0020-02-07`;
+- `angelPinned_on_non_active_task`: an Angel pin left on a completed or dead task;
+- `stale_not_your_move_block`: `blocked.status=not_your_move` with `nextCheckInAt` already in the past;
+- `overdue_active_pressure_task`: an active task with an overdue `deadlineAt` while `isVital` or `angelPinned`;
+- `qa_or_smoke_title_outside_completed`: a QA/test/smoke marker in a non-completed task title.
+
+Use `--asOf <iso>` when you need deterministic stale/overdue evidence in tests or incident notes.
 
 ## Default Scope
 
