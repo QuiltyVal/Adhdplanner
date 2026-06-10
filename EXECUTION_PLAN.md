@@ -143,6 +143,7 @@ Goal: let the user dump chaos into the system without first organizing it.
   - 2026-06-08: MCP capture request building is now isolated in `services/mcp-server/src/capture-client.js` with mocked-fetch coverage for dry-run/no-live-read defaults, idempotency guard, active task snapshots, timeout handling, and capture API error reporting. Deploy sync now includes this extra source file.
   - 2026-06-08: MCP `/healthz` now reports the same `MCP_SERVER_VERSION` used by the MCP server metadata, so deploy postchecks no longer show stale service version evidence.
   - 2026-06-10: authenticated MCP/web refresh proof passed for a disposable QA task. The MCP client ran `capture_note`, `get_tasks`, `add_task`, `add_subtask`, and `delete_task`; web QA packets proved the MCP write changed `taskDataFingerprint` from `972e7261` to `c6faf840`, survived hard refresh with the same fingerprint, and cleanup returned task data to baseline. Final cleanup packets were copied while bootstrap was loading, but MCP cleanup and task fingerprint evidence confirmed the QA task was gone.
+  - 2026-06-10: Google Calendar status handling has repo-side coverage for method guard, missing default user config, connected true/false responses, and backend error responses. Real OAuth completion remains untested.
 - [x] Track capture lifecycle:
   - `new`
   - `processed`

@@ -39,6 +39,7 @@ Already covered repo-side:
 - Direct task-card `done:<taskId>` callbacks still route to completed-task mutation with task-card feedback and callback context.
 - `confirm_done:<taskId>` callbacks resolve to the normal completed-task mutation with confirmation feedback and callback context.
 - Google Calendar callback handling is covered for success redirect, missing refresh token, bad/expired state redirect, missing code/state, and non-GET methods without calling live Google or Firestore.
+- Google Calendar status handling is covered for method guard, missing default user config, connected true/false responses, and backend error responses without calling live Google or Firestore.
 
 Not covered by this smoke:
 
@@ -87,6 +88,7 @@ Expected:
 - Keyboard also includes `Open planner`.
 - Do not complete OAuth unless the current test explicitly includes calendar connection.
 - If OAuth is tested, use a fresh `/calendar` response; old connect links intentionally expire.
+- After an OAuth test, verify the planner returns with `calendar=connected` and the status endpoint can report the connection before scheduling any calendar event.
 
 ### 4. `/cemetery`
 

@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const googleCalendarPath = require.resolve("../api/_lib/google-calendar.js");
 const callbackPath = require.resolve("../api/google-calendar-callback.js");
+const statusPath = require.resolve("../api/google-calendar-status.js");
 
 function createResponse() {
   return {
@@ -21,6 +22,10 @@ function createResponse() {
       return this;
     },
     send(body) {
+      this.body = body;
+      return this;
+    },
+    json(body) {
       this.body = body;
       return this;
     },
@@ -55,6 +60,48 @@ function loadCallbackHandlerWithStubs(stubs = {}) {
 
 async function withCallbackHandler(stubs, testFn) {
   const loaded = loadCallbackHandlerWithStubs(stubs);
+  try {
+    await testFn(loaded.handler);
+  } finally {
+    loaded.restore();
+  }
+}
+
+function loadStatusHandlerWithStubs(stubs = {}, env = {}) {
+  const googleCalendar = require(googleCalendarPath);
+  const originals = {
+    hasGoogleCalendarConnection: googleCalendar.hasGoogleCalendarConnection,
+  };
+  const previousPlannerDefaultUserId = process.env.PLANNER_DEFAULT_USER_ID;
+
+  if (Object.hasOwn(env, "PLANNER_DEFAULT_USER_ID")) {
+    if (env.PLANNER_DEFAULT_USER_ID === undefined) {
+      delete process.env.PLANNER_DEFAULT_USER_ID;
+    } else {
+      process.env.PLANNER_DEFAULT_USER_ID = env.PLANNER_DEFAULT_USER_ID;
+    }
+  }
+
+  Object.assign(googleCalendar, stubs);
+  delete require.cache[statusPath];
+  const handler = require(statusPath);
+
+  return {
+    handler,
+    restore() {
+      Object.assign(googleCalendar, originals);
+      if (previousPlannerDefaultUserId === undefined) {
+        delete process.env.PLANNER_DEFAULT_USER_ID;
+      } else {
+        process.env.PLANNER_DEFAULT_USER_ID = previousPlannerDefaultUserId;
+      }
+      delete require.cache[statusPath];
+    },
+  };
+}
+
+async function withStatusHandler(stubs, env, testFn) {
+  const loaded = loadStatusHandlerWithStubs(stubs, env);
   try {
     await testFn(loaded.handler);
   } finally {
@@ -183,4 +230,75 @@ async function withCallbackHandler(stubs, testFn) {
   }
 }
 
-console.log("google calendar callback tests passed");
+{
+  await withStatusHandler({}, { PLANNER_DEFAULT_USER_ID: "user-1" }, async (handler) => {
+    const res = createResponse();
+    await handler({ method: "POST", query: {} }, res);
+
+    assert.equal(res.statusCode, 405);
+    assert.equal(res.headers.Allow, "GET");
+    assert.deepEqual(res.body, { error: "Method not allowed" });
+  });
+}
+
+{
+  await withStatusHandler({}, { PLANNER_DEFAULT_USER_ID: undefined }, async (handler) => {
+    const res = createResponse();
+    await handler({ method: "GET", query: {} }, res);
+
+    assert.equal(res.statusCode, 500);
+    assert.deepEqual(res.body, { error: "PLANNER_DEFAULT_USER_ID is not configured" });
+  });
+}
+
+{
+  await withStatusHandler({
+    async hasGoogleCalendarConnection(userId) {
+      assert.equal(userId, "user-1");
+      return true;
+    },
+  }, { PLANNER_DEFAULT_USER_ID: "user-1" }, async (handler) => {
+    const res = createResponse();
+    await handler({ method: "GET", query: {} }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, { connected: true });
+  });
+}
+
+{
+  await withStatusHandler({
+    async hasGoogleCalendarConnection(userId) {
+      assert.equal(userId, "user-1");
+      return false;
+    },
+  }, { PLANNER_DEFAULT_USER_ID: "user-1" }, async (handler) => {
+    const res = createResponse();
+    await handler({ method: "GET", query: {} }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, { connected: false });
+  });
+}
+
+{
+  const originalConsoleError = console.error;
+  console.error = () => {};
+  try {
+    await withStatusHandler({
+      async hasGoogleCalendarConnection() {
+        throw new Error("Firestore unavailable");
+      },
+    }, { PLANNER_DEFAULT_USER_ID: "user-1" }, async (handler) => {
+      const res = createResponse();
+      await handler({ method: "GET", query: {} }, res);
+
+      assert.equal(res.statusCode, 500);
+      assert.deepEqual(res.body, { error: "Firestore unavailable" });
+    });
+  } finally {
+    console.error = originalConsoleError;
+  }
+}
+
+console.log("google calendar callback/status tests passed");

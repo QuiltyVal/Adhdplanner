@@ -2701,3 +2701,19 @@ Entry template:
   - No Firestore data was read or written.
   - No MCP, Telegram, OAuth, or browser-authenticated QA action was performed.
   - Production deploy changed only the web QA packet/decision trace export surface; no live user task data was mutated.
+
+## 2026-06-10 - Codex
+
+- Summary: Added repo-side Google Calendar status coverage before the remaining live OAuth smoke.
+- Changed:
+  - `tests/google-calendar-callback.test.mjs` — added `/api/google-calendar-status` coverage for non-GET method guard, missing `PLANNER_DEFAULT_USER_ID`, connected true/false JSON responses, and backend error JSON responses with stubbed dependencies.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented that callback and status paths are repo-covered while real OAuth completion remains untested.
+- Verified:
+  - `node --check tests/google-calendar-callback.test.mjs`
+  - `node tests/google-calendar-callback.test.mjs`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
+- Live/data boundary:
+  - No Google OAuth flow was opened or completed.
+  - No Google API, Firestore, MCP, Telegram, or production deploy action was performed.
