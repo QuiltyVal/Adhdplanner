@@ -14,6 +14,13 @@ const REQUIRED_FRESHNESS_FIELDS = [
   "activeTaskPreview",
 ];
 
+const OUTBOX_FIELDS = [
+  "outboxPending",
+  "outboxRetry",
+  "outboxDead",
+  "outboxSending",
+];
+
 function getArgValue(name, argv = process.argv) {
   const direct = argv.find((arg) => arg.startsWith(`${name}=`));
   if (direct) return direct.slice(name.length + 1);
@@ -60,6 +67,14 @@ function parseQaPacketText(text = "") {
     /^-?\d+$/.test(fields.decisionTraceRows)
     ? Number.parseInt(fields.decisionTraceRows, 10)
     : null;
+  const outboxCounts = Object.fromEntries(
+    OUTBOX_FIELDS.map((field) => [
+      field,
+      fields[field] && /^-?\d+$/.test(fields[field])
+        ? Number.parseInt(fields[field], 10)
+        : null,
+    ]),
+  );
 
   return {
     fields,
@@ -75,6 +90,11 @@ function parseQaPacketText(text = "") {
       userId: fields.userId || "",
       active: fields.active || "",
       actionsToday: fields.actionsToday || "",
+      outboxPending: outboxCounts.outboxPending,
+      outboxRetry: outboxCounts.outboxRetry,
+      outboxDead: outboxCounts.outboxDead,
+      outboxSending: outboxCounts.outboxSending,
+      delivery: fields.delivery || "",
       mission: fields.mission || "",
       missionReason: fields.missionReason || "",
       taskDataFingerprint: fields.taskDataFingerprint || "",
@@ -99,6 +119,12 @@ function includesExpectation(value = "", expected = "") {
 function parseTimestampMs(value = "") {
   const timestamp = Date.parse(String(value || ""));
   return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function formatOutboxCounts(summary = {}) {
+  return OUTBOX_FIELDS
+    .map((field) => `${field}=${Number.isInteger(summary[field]) ? summary[field] : "missing"}`)
+    .join(",");
 }
 
 function buildSafetyMetadata() {
@@ -148,6 +174,15 @@ function validateQaPacket(packet, options = {}) {
     issues.push(`invalid_latestTaskUpdatedSubtasks:${fields.latestTaskUpdatedSubtasks || "missing"}`);
   }
 
+  for (const field of OUTBOX_FIELDS) {
+    if (
+      Object.prototype.hasOwnProperty.call(fields, field) &&
+      (!Number.isInteger(summary[field]) || summary[field] < 0)
+    ) {
+      issues.push(`invalid_${field}:${fields[field] || "missing"}`);
+    }
+  }
+
   if (options.expectTaskTitle && !includesExpectation(summary.latestTaskUpdatedTitle, options.expectTaskTitle)) {
     issues.push(`expected_task_title_not_found:${options.expectTaskTitle}`);
   }
@@ -165,6 +200,13 @@ function validateQaPacket(packet, options = {}) {
 
   if (options.expectMissionReason && !includesExpectation(summary.missionReason, options.expectMissionReason)) {
     issues.push(`expected_mission_reason_not_found:${options.expectMissionReason}`);
+  }
+
+  if (options.expectOutboxEmpty) {
+    const outboxEmpty = OUTBOX_FIELDS.every((field) => Number.isInteger(summary[field]) && summary[field] === 0);
+    if (!outboxEmpty) {
+      issues.push(`expected_outbox_empty_not_found:${formatOutboxCounts(summary)}`);
+    }
   }
 
   if (
@@ -196,6 +238,7 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
     expectPlannerBootstrapStatus: options.expectPlannerBootstrapStatus,
     expectMission: options.expectMission,
     expectMissionReason: options.expectMissionReason,
+    expectOutboxEmpty: options.expectOutboxEmpty,
   });
 
   const beforeFingerprint = beforePacket?.summary?.taskDataFingerprint || "";
@@ -281,6 +324,16 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
         afterPacket?.summary?.missionReason || "",
         options.expectMissionReason || "",
       ),
+      expectOutboxEmpty: Boolean(options.expectOutboxEmpty),
+      expectedOutboxEmptyFound: options.expectOutboxEmpty
+        ? OUTBOX_FIELDS.every((field) => Number.isInteger(afterPacket?.summary?.[field]) && afterPacket.summary[field] === 0)
+        : true,
+      outboxCountsAfter: {
+        outboxPending: afterPacket?.summary?.outboxPending ?? null,
+        outboxRetry: afterPacket?.summary?.outboxRetry ?? null,
+        outboxDead: afterPacket?.summary?.outboxDead ?? null,
+        outboxSending: afterPacket?.summary?.outboxSending ?? null,
+      },
       expectedSubtaskPreview: options.expectSubtaskPreview || "",
       expectedSubtaskPreviewFound: includesExpectation(
         afterPacket?.summary?.latestTaskUpdatedSubtaskPreview || "",
@@ -310,6 +363,7 @@ function getHelpText() {
     "                                  Require plannerBootstrapStatus in the after packet to exactly match status.",
     "  --expectMission <text>          Require mission in the after packet to include text.",
     "  --expectMissionReason <text>    Require missionReason in the after packet to include text.",
+    "  --expectOutboxEmpty             Require outboxPending/retry/dead/sending to all be 0.",
     "  --expectTaskTitle <text>        Require latestTaskUpdatedTitle in the after packet to include text.",
     "  --expectSubtaskPreview <text>   Require latestTaskUpdatedSubtaskPreview in the after packet to include text.",
     "  --allowGuest                    Do not require cloud-authenticated/liveQaReady=yes.",
@@ -349,6 +403,7 @@ function parseQaPacketCheckOptions(argv = process.argv) {
     expectPlannerBootstrapStatus: getArgValue("--expectPlannerBootstrapStatus", argv),
     expectMission: getArgValue("--expectMission", argv),
     expectMissionReason: getArgValue("--expectMissionReason", argv),
+    expectOutboxEmpty: hasFlag("--expectOutboxEmpty", argv),
     expectTaskTitle: getArgValue("--expectTaskTitle", argv),
     expectSubtaskPreview: getArgValue("--expectSubtaskPreview", argv),
   };

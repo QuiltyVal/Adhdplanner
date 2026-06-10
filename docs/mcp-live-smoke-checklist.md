@@ -97,6 +97,7 @@ Expected:
   - after hard refresh: `npm run check:qa-packet -- --before qa-after-mcp-write.txt --after qa-after-refresh.txt --expectStable`
   - if no Engine/Telegram action ran between the two packet captures, add `--expectDecisionStable` to prove the visible decision trace did not change across refresh.
   - when validating a specific live focus, add `--expectPlannerBootstrapStatus success --expectMission "<mission text>" --expectMissionReason "<reason>"`.
+  - when the smoke should leave delivery clean, add `--expectOutboxEmpty` to require pending/retry/dead/sending counts to all be `0`.
 - In the JSON report, `comparison.capturedAtOrder` is `after_is_newer`.
 
 Cleanup:

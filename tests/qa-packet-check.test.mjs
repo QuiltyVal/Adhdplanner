@@ -23,6 +23,10 @@ function makePacket({
   liveQaReady = "yes",
   plannerBootstrapStatus = "success",
   plannerBootstrapReason = "bootstrap_applied",
+  outboxPending = 0,
+  outboxRetry = 0,
+  outboxDead = 0,
+  outboxSending = 0,
   mission = "Existing task",
   missionReason = "hard_deadline",
   fingerprint = "fingerprint-before",
@@ -47,6 +51,11 @@ function makePacket({
     "userId: U2geUdbvWyVRNLWnSZBnftOMSU22",
     "active: 7",
     "actionsToday: 0",
+    `outboxPending: ${outboxPending}`,
+    `outboxRetry: ${outboxRetry}`,
+    `outboxDead: ${outboxDead}`,
+    `outboxSending: ${outboxSending}`,
+    "delivery: Planner engine healthy - Queue: 0 pending, 0 retry, 0 dead.",
     `mission: ${mission}`,
     `missionReason: ${missionReason}`,
     `taskDataFingerprint: ${fingerprint}`,
@@ -99,6 +108,11 @@ const guestPacketText = makePacket({
   assert.equal(packet.summary.liveQaReady, "yes");
   assert.equal(packet.summary.plannerBootstrapStatus, "success");
   assert.equal(packet.summary.plannerBootstrapReason, "bootstrap_applied");
+  assert.equal(packet.summary.outboxPending, 0);
+  assert.equal(packet.summary.outboxRetry, 0);
+  assert.equal(packet.summary.outboxDead, 0);
+  assert.equal(packet.summary.outboxSending, 0);
+  assert.match(packet.summary.delivery, /Planner engine healthy/);
   assert.equal(packet.summary.mission, "Existing task");
   assert.equal(packet.summary.missionReason, "hard_deadline");
   assert.equal(packet.summary.taskDataFingerprint, "fingerprint-after");
@@ -114,6 +128,7 @@ const guestPacketText = makePacket({
     expectPlannerBootstrapStatus: "success",
     expectMission: "Existing",
     expectMissionReason: "hard_deadline",
+    expectOutboxEmpty: true,
     expectTaskTitle: "QA MCP smoke",
     expectSubtaskPreview: "QA MCP subtask write",
   });
@@ -129,11 +144,20 @@ const guestPacketText = makePacket({
     expectPlannerBootstrapStatus: "failed",
     expectMission: "Wrong mission",
     expectMissionReason: "calendar",
+    expectOutboxEmpty: true,
   });
   assert.equal(report.ok, false);
   assert.match(report.issues.join("\n"), /expected_planner_bootstrap_status_not_found:failed/);
   assert.match(report.issues.join("\n"), /expected_mission_not_found:Wrong mission/);
   assert.match(report.issues.join("\n"), /expected_mission_reason_not_found:calendar/);
+}
+
+{
+  const report = validateQaPacket(parseQaPacketText(makePacket({ outboxPending: 1 })), {
+    expectOutboxEmpty: true,
+  });
+  assert.equal(report.ok, false);
+  assert.match(report.issues.join("\n"), /expected_outbox_empty_not_found:outboxPending=1/);
 }
 
 {
@@ -158,6 +182,7 @@ const guestPacketText = makePacket({
     expectPlannerBootstrapStatus: "success",
     expectMission: "Existing",
     expectMissionReason: "hard_deadline",
+    expectOutboxEmpty: true,
     expectTaskTitle: "QA MCP smoke",
     expectSubtaskPreview: "QA MCP subtask write",
   });
@@ -171,6 +196,13 @@ const guestPacketText = makePacket({
   assert.equal(report.comparison.expectedPlannerBootstrapStatusFound, true);
   assert.equal(report.comparison.expectedMissionFound, true);
   assert.equal(report.comparison.expectedMissionReasonFound, true);
+  assert.equal(report.comparison.expectedOutboxEmptyFound, true);
+  assert.deepEqual(report.comparison.outboxCountsAfter, {
+    outboxPending: 0,
+    outboxRetry: 0,
+    outboxDead: 0,
+    outboxSending: 0,
+  });
   assert.equal(report.comparison.expectedTaskTitleFound, true);
   assert.equal(report.comparison.expectedSubtaskPreviewFound, true);
 }
@@ -225,6 +257,7 @@ const guestPacketText = makePacket({
     "--expectMission",
     "Existing",
     "--expectMissionReason=hard_deadline",
+    "--expectOutboxEmpty",
     "--expectDecisionStable",
   ]);
 
@@ -236,6 +269,7 @@ const guestPacketText = makePacket({
   assert.equal(options.expectPlannerBootstrapStatus, "success");
   assert.equal(options.expectMission, "Existing");
   assert.equal(options.expectMissionReason, "hard_deadline");
+  assert.equal(options.expectOutboxEmpty, true);
   assert.equal(options.expectDecisionStable, true);
 }
 
@@ -265,10 +299,12 @@ const guestPacketText = makePacket({
       "Existing",
       "--expectMissionReason",
       "hard_deadline",
+      "--expectOutboxEmpty",
     ], { encoding: "utf8" });
     const singleReport = JSON.parse(singleOutput);
     assert.equal(singleReport.ok, true);
     assert.equal(singleReport.type, "qa_packet_validation");
+    assert.equal(singleReport.packet.outboxPending, 0);
 
     const diffOutput = execFileSync(process.execPath, [
       scriptPath,
@@ -286,11 +322,13 @@ const guestPacketText = makePacket({
       "Existing",
       "--expectMissionReason",
       "hard_deadline",
+      "--expectOutboxEmpty",
     ], { encoding: "utf8" });
     const diffReport = JSON.parse(diffOutput);
     assert.equal(diffReport.ok, true);
     assert.equal(diffReport.comparison.fingerprintChanged, true);
     assert.equal(diffReport.comparison.expectedMissionFound, true);
+    assert.equal(diffReport.comparison.expectedOutboxEmptyFound, true);
 
     const stableOutput = execFileSync(process.execPath, [
       scriptPath,

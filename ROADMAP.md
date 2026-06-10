@@ -159,6 +159,7 @@ The product should do three things well:
   - 2026-06-10: Google Calendar status endpoint behavior is covered repo-side, so the remaining OAuth live smoke can verify the actual connection without first debugging method/config/status edge cases.
   - 2026-06-10: QA packet diffs now fail on non-increasing `capturedAt`, preventing swapped packet files or same-file comparisons from being accepted as MCP/web refresh evidence.
   - 2026-06-10: QA packet checker can assert expected bootstrap status, mission text, and mission reason, turning current-focus checks into machine-verifiable evidence.
+  - 2026-06-10: QA packet checker can assert `--expectOutboxEmpty`, so delivery/outbox health checks no longer depend on reading queue counts by eye.
 
 ## Next Product Features
 

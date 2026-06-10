@@ -31,6 +31,7 @@ This checklist covers the real end-to-end path:
 - For decision visibility checks, also keep `decisionTraceFingerprint` and `decisionTraceRows`.
 - When comparing copied QA packets, save them as local text files and run `npm run check:qa-packet` instead of comparing fingerprints by eye. Use normal diff mode for baseline -> post-write and `--expectStable` for post-refresh stability. Add `--expectDecisionStable` only when no Engine/Telegram action ran between packet captures.
 - When the test expects a specific current focus, add `--expectPlannerBootstrapStatus success --expectMission "<mission text>" --expectMissionReason "<reason>"` to the packet checker instead of checking those fields by eye.
+- When the test expects no delivery backlog, add `--expectOutboxEmpty` to require `outboxPending`, `outboxRetry`, `outboxDead`, and `outboxSending` to all be `0`.
 - The packet checker also verifies capture order: `--after` must have a newer `capturedAt` than `--before`. If it reports `captured_at_not_after`, fix the file order before interpreting fingerprint results.
 - Treat `visibleHumanEvents` inside the packet as a recent-window diagnostic, not an append-only total. Compare `latestHumanEventAt`, `eventWindowLimit`, and the report/event rows when deciding whether an event trace is healthy.
 - Use `More copy options` / `Ещё копировать` only when you need a narrower `Copy QA baseline` or `Copy decision trace` diagnostic.
@@ -139,6 +140,7 @@ Action:
 Expected evidence:
 - Outbox pending/retry/dead counts move in the expected direction.
 - Delivery Health shows the latest outbox drain result.
+- After delivery settles, `npm run check:qa-packet -- --packet <packet.txt> --expectOutboxEmpty` passes when the queue should be fully clean.
 - Telegram receives at most one message for the same trigger/task/day.
 - The delivery leaves an event/outbox trace but does not create noisy report spam.
 

@@ -153,6 +153,7 @@ Companion file:
 - As of 2026-06-10, the Decision Trace fingerprint export is deployed in Vercel production deployment `dpl_AYXEnXoaVwsdtmGYuNNVCVdMsrd5`; live bundle `/static/js/main.a8efebb1.js` contains `decisionTraceFingerprint` and `decisionTraceRows`.
 - As of 2026-06-10, QA packet diffs also require `--after` to have a newer `capturedAt` than `--before`; `captured_at_not_after` means the files are reversed, duplicated, or otherwise not usable as chronological evidence.
 - As of 2026-06-10, QA packet checker supports `--expectPlannerBootstrapStatus`, `--expectMission`, and `--expectMissionReason`. Use these for focused live QA instead of eyeballing the copied packet.
+- As of 2026-06-10, QA packet checker supports `--expectOutboxEmpty`, requiring `outboxPending`, `outboxRetry`, `outboxDead`, and `outboxSending` to all be `0` in the checked packet.
 - As of 2026-05-31, public `/demo` is a portfolio entrypoint for Today Mission -> Rescue -> one tiny step, with demo Angel Lab parsing tuned for the portfolio story.
 - This is only the first ingestion slice:
   - no daily angel decision job yet

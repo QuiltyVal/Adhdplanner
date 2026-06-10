@@ -2797,3 +2797,22 @@ Entry template:
   - No Firestore data was read or written.
   - No MCP, OAuth, Google API, or live Telegram message action was performed.
   - Production deploy changed the Telegram intent fallback parser and docs/tests only; a real Telegram free-text panic smoke remains useful.
+
+## 2026-06-10 - Codex
+
+- Summary: Added outbox-empty assertions to the local QA packet checker.
+- Changed:
+  - `scripts/check-qa-packet.mjs` — parses `outboxPending`, `outboxRetry`, `outboxDead`, `outboxSending`, and `delivery` into packet summaries, and adds `--expectOutboxEmpty` for packet validation/diff evidence.
+  - `tests/qa-packet-check.test.mjs` — covers parsing outbox counts, successful empty-queue validation, non-empty queue failures, CLI option parsing, and JSON output.
+  - `docs/mcp-live-smoke-checklist.md`, `docs/live-angel-verification-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — document when to use `--expectOutboxEmpty`.
+- Verified:
+  - `node --check scripts/check-qa-packet.mjs`
+  - `node --check tests/qa-packet-check.test.mjs`
+  - `node tests/qa-packet-check.test.mjs`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
+- Live/data boundary:
+  - This is local-only checker/docs work.
+  - No Firestore data was read or written.
+  - No MCP, Telegram, OAuth, Google API, or production deploy action was performed.
