@@ -70,9 +70,13 @@ function parseQaPacketText(text = "") {
       capturedAt: fields.capturedAt || "",
       mode: fields.mode || "",
       liveQaReady: fields.liveQaReady || "",
+      plannerBootstrapStatus: fields.plannerBootstrapStatus || "",
+      plannerBootstrapReason: fields.plannerBootstrapReason || "",
       userId: fields.userId || "",
       active: fields.active || "",
       actionsToday: fields.actionsToday || "",
+      mission: fields.mission || "",
+      missionReason: fields.missionReason || "",
       taskDataFingerprint: fields.taskDataFingerprint || "",
       latestTaskUpdatedAt: fields.latestTaskUpdatedAt || "",
       latestTaskUpdatedTitle: fields.latestTaskUpdatedTitle || "",
@@ -149,6 +153,21 @@ function validateQaPacket(packet, options = {}) {
   }
 
   if (
+    options.expectPlannerBootstrapStatus &&
+    summary.plannerBootstrapStatus !== options.expectPlannerBootstrapStatus
+  ) {
+    issues.push(`expected_planner_bootstrap_status_not_found:${options.expectPlannerBootstrapStatus}`);
+  }
+
+  if (options.expectMission && !includesExpectation(summary.mission, options.expectMission)) {
+    issues.push(`expected_mission_not_found:${options.expectMission}`);
+  }
+
+  if (options.expectMissionReason && !includesExpectation(summary.missionReason, options.expectMissionReason)) {
+    issues.push(`expected_mission_reason_not_found:${options.expectMissionReason}`);
+  }
+
+  if (
     options.expectSubtaskPreview &&
     !includesExpectation(summary.latestTaskUpdatedSubtaskPreview, options.expectSubtaskPreview)
   ) {
@@ -174,6 +193,9 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
     allowGuest: options.allowGuest,
     expectTaskTitle: options.expectTaskTitle,
     expectSubtaskPreview: options.expectSubtaskPreview,
+    expectPlannerBootstrapStatus: options.expectPlannerBootstrapStatus,
+    expectMission: options.expectMission,
+    expectMissionReason: options.expectMissionReason,
   });
 
   const beforeFingerprint = beforePacket?.summary?.taskDataFingerprint || "";
@@ -245,6 +267,20 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
         afterPacket?.summary?.latestTaskUpdatedTitle || "",
         options.expectTaskTitle || "",
       ),
+      expectedPlannerBootstrapStatus: options.expectPlannerBootstrapStatus || "",
+      expectedPlannerBootstrapStatusFound: options.expectPlannerBootstrapStatus
+        ? afterPacket?.summary?.plannerBootstrapStatus === options.expectPlannerBootstrapStatus
+        : true,
+      expectedMission: options.expectMission || "",
+      expectedMissionFound: includesExpectation(
+        afterPacket?.summary?.mission || "",
+        options.expectMission || "",
+      ),
+      expectedMissionReason: options.expectMissionReason || "",
+      expectedMissionReasonFound: includesExpectation(
+        afterPacket?.summary?.missionReason || "",
+        options.expectMissionReason || "",
+      ),
       expectedSubtaskPreview: options.expectSubtaskPreview || "",
       expectedSubtaskPreviewFound: includesExpectation(
         afterPacket?.summary?.latestTaskUpdatedSubtaskPreview || "",
@@ -270,6 +306,10 @@ function getHelpText() {
     "  --before <file> --after <file>  Compare two copied QA packets.",
     "  --expectStable                  Expect fingerprints to match, used for post-refresh stability proof.",
     "  --expectDecisionStable          Expect decisionTraceFingerprint to match when both packets include it.",
+    "  --expectPlannerBootstrapStatus <status>",
+    "                                  Require plannerBootstrapStatus in the after packet to exactly match status.",
+    "  --expectMission <text>          Require mission in the after packet to include text.",
+    "  --expectMissionReason <text>    Require missionReason in the after packet to include text.",
     "  --expectTaskTitle <text>        Require latestTaskUpdatedTitle in the after packet to include text.",
     "  --expectSubtaskPreview <text>   Require latestTaskUpdatedSubtaskPreview in the after packet to include text.",
     "  --allowGuest                    Do not require cloud-authenticated/liveQaReady=yes.",
@@ -306,6 +346,9 @@ function parseQaPacketCheckOptions(argv = process.argv) {
     allowGuest: hasFlag("--allowGuest", argv),
     expectStable: hasFlag("--expectStable", argv),
     expectDecisionStable: hasFlag("--expectDecisionStable", argv),
+    expectPlannerBootstrapStatus: getArgValue("--expectPlannerBootstrapStatus", argv),
+    expectMission: getArgValue("--expectMission", argv),
+    expectMissionReason: getArgValue("--expectMissionReason", argv),
     expectTaskTitle: getArgValue("--expectTaskTitle", argv),
     expectSubtaskPreview: getArgValue("--expectSubtaskPreview", argv),
   };

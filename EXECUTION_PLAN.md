@@ -356,6 +356,7 @@ Notes:
 - As of 2026-06-10, client-side planner bootstrap has a 15s timeout. Repeated cleanup packets should no longer stay in `planner-bootstrap-pending` forever if the bootstrap request hangs; the UI should expose a failed bootstrap state instead.
 - As of 2026-06-10, QA packets also include `decisionTraceFingerprint` and `decisionTraceRows`, and `npm run check:qa-packet` supports `--expectDecisionStable` for refresh checks where no Engine/Telegram action should have changed the visible Decision Trace.
 - As of 2026-06-10, `npm run check:qa-packet` also checks copied packet chronology in diff mode. If `--after` is not newer than `--before`, it fails with `captured_at_not_after` before the fingerprint result can be mistaken for a real stability proof.
+- As of 2026-06-10, `npm run check:qa-packet` can also assert `--expectPlannerBootstrapStatus`, `--expectMission`, and `--expectMissionReason`, so live focus checks do not require manual reading of the copied packet.
 
 Done when:
 - new memory/angel behavior can be tested without guessing

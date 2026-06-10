@@ -21,6 +21,10 @@ function makePacket({
   capturedAt = "2026-06-09T12:00:00.000Z",
   mode = "cloud-authenticated",
   liveQaReady = "yes",
+  plannerBootstrapStatus = "success",
+  plannerBootstrapReason = "bootstrap_applied",
+  mission = "Existing task",
+  missionReason = "hard_deadline",
   fingerprint = "fingerprint-before",
   latestTaskUpdatedAt = "2026-06-09T11:59:00.000Z",
   latestTaskUpdatedTitle = "Old task",
@@ -38,9 +42,13 @@ function makePacket({
     `mode: ${mode}`,
     `liveQaReady: ${liveQaReady}`,
     "stopReason: none",
+    `plannerBootstrapStatus: ${plannerBootstrapStatus}`,
+    `plannerBootstrapReason: ${plannerBootstrapReason}`,
     "userId: U2geUdbvWyVRNLWnSZBnftOMSU22",
     "active: 7",
     "actionsToday: 0",
+    `mission: ${mission}`,
+    `missionReason: ${missionReason}`,
     `taskDataFingerprint: ${fingerprint}`,
     `latestTaskUpdatedAt: ${latestTaskUpdatedAt}`,
     `latestTaskUpdatedTitle: ${latestTaskUpdatedTitle}`,
@@ -50,8 +58,8 @@ function makePacket({
     `activeTaskPreview: ${activeTaskPreview}`,
     "",
     "=== Decision trace ===",
-    "mission: Existing task",
-    "missionReason: hard_deadline",
+    `mission: ${mission}`,
+    `missionReason: ${missionReason}`,
     `decisionTraceFingerprint: ${decisionTraceFingerprint}`,
     `decisionTraceRows: ${decisionTraceRows}`,
     "",
@@ -89,6 +97,10 @@ const guestPacketText = makePacket({
   const packet = parseQaPacketText(afterPacketText);
   assert.equal(packet.summary.mode, "cloud-authenticated");
   assert.equal(packet.summary.liveQaReady, "yes");
+  assert.equal(packet.summary.plannerBootstrapStatus, "success");
+  assert.equal(packet.summary.plannerBootstrapReason, "bootstrap_applied");
+  assert.equal(packet.summary.mission, "Existing task");
+  assert.equal(packet.summary.missionReason, "hard_deadline");
   assert.equal(packet.summary.taskDataFingerprint, "fingerprint-after");
   assert.equal(packet.summary.latestTaskUpdatedSubtasks, 2);
   assert.equal(packet.summary.latestTaskUpdatedTitle, "QA MCP smoke - delete after test");
@@ -99,6 +111,9 @@ const guestPacketText = makePacket({
 {
   const packet = parseQaPacketText(afterPacketText);
   const report = validateQaPacket(packet, {
+    expectPlannerBootstrapStatus: "success",
+    expectMission: "Existing",
+    expectMissionReason: "hard_deadline",
     expectTaskTitle: "QA MCP smoke",
     expectSubtaskPreview: "QA MCP subtask write",
   });
@@ -107,6 +122,18 @@ const guestPacketText = makePacket({
   assert.deepEqual(report.issues, []);
   assert.equal(report.safety.networkRead, false);
   assert.equal(report.safety.firestoreWrite, false);
+}
+
+{
+  const report = validateQaPacket(parseQaPacketText(afterPacketText), {
+    expectPlannerBootstrapStatus: "failed",
+    expectMission: "Wrong mission",
+    expectMissionReason: "calendar",
+  });
+  assert.equal(report.ok, false);
+  assert.match(report.issues.join("\n"), /expected_planner_bootstrap_status_not_found:failed/);
+  assert.match(report.issues.join("\n"), /expected_mission_not_found:Wrong mission/);
+  assert.match(report.issues.join("\n"), /expected_mission_reason_not_found:calendar/);
 }
 
 {
@@ -128,6 +155,9 @@ const guestPacketText = makePacket({
 
 {
   const report = diffQaPackets(parseQaPacketText(beforePacketText), parseQaPacketText(afterPacketText), {
+    expectPlannerBootstrapStatus: "success",
+    expectMission: "Existing",
+    expectMissionReason: "hard_deadline",
     expectTaskTitle: "QA MCP smoke",
     expectSubtaskPreview: "QA MCP subtask write",
   });
@@ -138,6 +168,9 @@ const guestPacketText = makePacket({
   assert.equal(report.comparison.fingerprintStable, false);
   assert.equal(report.comparison.decisionFingerprintChanged, true);
   assert.equal(report.comparison.decisionFingerprintStable, false);
+  assert.equal(report.comparison.expectedPlannerBootstrapStatusFound, true);
+  assert.equal(report.comparison.expectedMissionFound, true);
+  assert.equal(report.comparison.expectedMissionReasonFound, true);
   assert.equal(report.comparison.expectedTaskTitleFound, true);
   assert.equal(report.comparison.expectedSubtaskPreviewFound, true);
 }
@@ -187,6 +220,11 @@ const guestPacketText = makePacket({
     "--expectTaskTitle",
     "QA MCP smoke",
     "--expectSubtaskPreview=QA MCP subtask write",
+    "--expectPlannerBootstrapStatus",
+    "success",
+    "--expectMission",
+    "Existing",
+    "--expectMissionReason=hard_deadline",
     "--expectDecisionStable",
   ]);
 
@@ -195,6 +233,9 @@ const guestPacketText = makePacket({
   assert.equal(path.basename(options.afterPath), "qa-after.txt");
   assert.equal(options.expectTaskTitle, "QA MCP smoke");
   assert.equal(options.expectSubtaskPreview, "QA MCP subtask write");
+  assert.equal(options.expectPlannerBootstrapStatus, "success");
+  assert.equal(options.expectMission, "Existing");
+  assert.equal(options.expectMissionReason, "hard_deadline");
   assert.equal(options.expectDecisionStable, true);
 }
 
@@ -218,6 +259,12 @@ const guestPacketText = makePacket({
       "QA MCP smoke",
       "--expectSubtaskPreview",
       "QA MCP subtask write",
+      "--expectPlannerBootstrapStatus",
+      "success",
+      "--expectMission",
+      "Existing",
+      "--expectMissionReason",
+      "hard_deadline",
     ], { encoding: "utf8" });
     const singleReport = JSON.parse(singleOutput);
     assert.equal(singleReport.ok, true);
@@ -233,10 +280,17 @@ const guestPacketText = makePacket({
       "QA MCP smoke",
       "--expectSubtaskPreview",
       "QA MCP subtask write",
+      "--expectPlannerBootstrapStatus",
+      "success",
+      "--expectMission",
+      "Existing",
+      "--expectMissionReason",
+      "hard_deadline",
     ], { encoding: "utf8" });
     const diffReport = JSON.parse(diffOutput);
     assert.equal(diffReport.ok, true);
     assert.equal(diffReport.comparison.fingerprintChanged, true);
+    assert.equal(diffReport.comparison.expectedMissionFound, true);
 
     const stableOutput = execFileSync(process.execPath, [
       scriptPath,

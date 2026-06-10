@@ -2606,6 +2606,9 @@ Entry template:
   - `git diff --check`
   - `npm run test:contract`
   - `npm run verify:server`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
   - `npm run check:qa-packet -- --help`
   - `git diff --check`
   - `npm run test:contract`
@@ -2752,5 +2755,21 @@ Entry template:
   - `node tests/firestore-backup-export.test.mjs`
 - Live/data boundary:
   - This reads only local backup JSON files when used.
+  - No Firestore data was read or written.
+  - No MCP, Telegram, OAuth, Google API, or production deploy action was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Added mission/bootstrap expectations to the local QA packet checker.
+- Changed:
+  - `scripts/check-qa-packet.mjs` — parsed `plannerBootstrapStatus`, `plannerBootstrapReason`, `mission`, and `missionReason` into packet summaries, and added `--expectPlannerBootstrapStatus`, `--expectMission`, and `--expectMissionReason`.
+  - `tests/qa-packet-check.test.mjs` — covered parsing, positive validation, negative validation, diff reports, CLI option parsing, and CLI output for the new expectations.
+  - `docs/mcp-live-smoke-checklist.md`, `docs/live-angel-verification-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented focused mission/bootstrap packet checks.
+- Verified:
+  - `node --check scripts/check-qa-packet.mjs`
+  - `node --check tests/qa-packet-check.test.mjs`
+  - `node tests/qa-packet-check.test.mjs`
+- Live/data boundary:
+  - This is local-only checker/docs work.
   - No Firestore data was read or written.
   - No MCP, Telegram, OAuth, Google API, or production deploy action was performed.
