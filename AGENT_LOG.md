@@ -2793,6 +2793,23 @@ Entry template:
 
 ## 2026-06-10 - Codex
 
+- Summary: Added repo-side coverage for Telegram Google Calendar scheduling execution.
+- Changed:
+  - `tests/planner-telegram-readonly-actions.test.mjs` — mocks Google Calendar helpers and covers three `schedule_task` executor paths: disconnected users receive the Calendar connect CTA, connected users missing date/time receive guidance, and a connected valid route calls `createCalendarEvent` with the expected task title/date/time/duration payload.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/telegram-live-smoke-checklist.md` — recorded that the executor path is covered while real OAuth completion and live Google API event creation remain untested.
+- Verified:
+  - `node --check tests/planner-telegram-readonly-actions.test.mjs`
+  - `node tests/planner-telegram-readonly-actions.test.mjs`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
+- Live/data boundary:
+  - This is tests/docs only.
+  - No Firestore data was read or written.
+  - No MCP, Telegram, OAuth, live Google API, or production deploy action was performed.
+
+## 2026-06-10 - Codex
+
 - Summary: Hardened Telegram fallback panic parsing for real button-style text.
 - Changed:
   - `api/_lib/telegram-intent.js` — normalizes curly apostrophes, strips leading panic button/SOS markers, and routes emoji/SOS panic text such as `🆘 I’m stuck`, `SOS I’m stuck`, and `sos` to plain `PANIC` instead of `PANIC_TASK` with the whole button text as `task_ref`.

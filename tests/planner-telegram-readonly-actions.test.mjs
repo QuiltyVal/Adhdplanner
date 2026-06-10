@@ -5,6 +5,10 @@ const require = createRequire(import.meta.url);
 
 let nonActiveTasks = [];
 const contextWrites = [];
+let googleCalendarConnected = false;
+const googleCalendarConnectionChecks = [];
+const googleCalendarConnectUrls = [];
+const createdCalendarEvents = [];
 
 const plannerStorePath = require.resolve("../api/_lib/planner-store.js");
 const actualPlannerStore = require(plannerStorePath);
@@ -32,6 +36,27 @@ require.cache[telegramContextPath] = {
     setPlannerContextFromTelegram: async (userId, options = {}) => {
       contextWrites.push({ userId, options });
       return { ok: true };
+    },
+  },
+};
+
+const googleCalendarPath = require.resolve("../api/_lib/google-calendar.js");
+require.cache[googleCalendarPath] = {
+  id: googleCalendarPath,
+  filename: googleCalendarPath,
+  loaded: true,
+  exports: {
+    hasGoogleCalendarConnection: async (userId) => {
+      googleCalendarConnectionChecks.push(userId);
+      return googleCalendarConnected;
+    },
+    buildGoogleCalendarConnectUrl: (userId) => {
+      googleCalendarConnectUrls.push(userId);
+      return `https://calendar.example/connect?user=${encodeURIComponent(userId)}`;
+    },
+    createCalendarEvent: async (userId, event) => {
+      createdCalendarEvents.push({ userId, event });
+      return { id: "event-1", summary: event.title || "Untitled calendar event" };
     },
   },
 };
@@ -79,6 +104,12 @@ function keyboardHasCallback(keyboard, callbackData) {
   return Boolean((keyboard?.inline_keyboard || [])
     .flat()
     .some((button) => button?.callback_data === callbackData));
+}
+
+function keyboardHasUrl(keyboard, url) {
+  return Boolean((keyboard?.inline_keyboard || [])
+    .flat()
+    .some((button) => button?.url === url));
 }
 
 {
@@ -236,6 +267,108 @@ function keyboardHasCallback(keyboard, callbackData) {
   assert.equal(messages.length, 1);
   assert.match(messages[0].text, /\/today/);
   assert.equal(keyboardHasPlannerLink(messages[0].extra.reply_markup), true);
+}
+
+{
+  nonActiveTasks = [];
+  googleCalendarConnected = false;
+  googleCalendarConnectionChecks.length = 0;
+  googleCalendarConnectUrls.length = 0;
+  createdCalendarEvents.length = 0;
+  const messages = [];
+
+  await executePlannerAction({
+    userId: "user-1",
+    chatId: "chat-1",
+    plannerData: { tasks: [{ id: "active-1", text: "Pay rent", status: "active" }] },
+    route: {
+      type: PLANNER_ACTIONS.SCHEDULE_TASK,
+      taskRef: "Pay rent",
+      deadlineAt: "2026-06-11",
+      startTime: "14:00",
+      durationMinutes: 45,
+    },
+    adapter: buildAdapter(messages),
+  });
+
+  assert.equal(messages.length, 1);
+  assert.match(messages[0].text, /Connect Google Calendar first/);
+  assert.deepEqual(googleCalendarConnectionChecks, ["user-1"]);
+  assert.deepEqual(googleCalendarConnectUrls, ["user-1"]);
+  assert.equal(
+    keyboardHasUrl(messages[0].extra.reply_markup, "https://calendar.example/connect?user=user-1"),
+    true,
+  );
+  assert.equal(createdCalendarEvents.length, 0);
+}
+
+{
+  nonActiveTasks = [];
+  googleCalendarConnected = true;
+  googleCalendarConnectionChecks.length = 0;
+  googleCalendarConnectUrls.length = 0;
+  createdCalendarEvents.length = 0;
+  const messages = [];
+
+  await executePlannerAction({
+    userId: "user-1",
+    chatId: "chat-1",
+    plannerData: { tasks: [{ id: "active-1", text: "Pay rent", status: "active" }] },
+    route: {
+      type: PLANNER_ACTIONS.SCHEDULE_TASK,
+      taskRef: "Pay rent",
+      deadlineAt: "2026-06-11",
+      startTime: "",
+    },
+    adapter: buildAdapter(messages),
+  });
+
+  assert.equal(messages.length, 1);
+  assert.match(messages[0].text, /date and time/);
+  assert.deepEqual(googleCalendarConnectionChecks, ["user-1"]);
+  assert.equal(googleCalendarConnectUrls.length, 0);
+  assert.equal(createdCalendarEvents.length, 0);
+}
+
+{
+  nonActiveTasks = [];
+  googleCalendarConnected = true;
+  googleCalendarConnectionChecks.length = 0;
+  googleCalendarConnectUrls.length = 0;
+  createdCalendarEvents.length = 0;
+  const messages = [];
+
+  await executePlannerAction({
+    userId: "user-1",
+    chatId: "chat-1",
+    plannerData: { tasks: [{ id: "active-1", text: "Pay rent", status: "active" }] },
+    route: {
+      type: PLANNER_ACTIONS.SCHEDULE_TASK,
+      taskRef: "Pay rent",
+      deadlineAt: "2026-06-11",
+      startTime: "14:00",
+      durationMinutes: 45,
+    },
+    adapter: buildAdapter(messages),
+  });
+
+  assert.equal(messages.length, 1);
+  assert.match(messages[0].text, /Added to calendar/);
+  assert.match(messages[0].text, /Pay rent/);
+  assert.match(messages[0].text, /2026-06-11 14:00/);
+  assert.deepEqual(googleCalendarConnectionChecks, ["user-1"]);
+  assert.equal(googleCalendarConnectUrls.length, 0);
+  assert.equal(createdCalendarEvents.length, 1);
+  assert.deepEqual(createdCalendarEvents[0], {
+    userId: "user-1",
+    event: {
+      title: "Pay rent",
+      date: "2026-06-11",
+      startTime: "14:00",
+      durationMinutes: 45,
+      description: "Created from ADHD Planner Telegram bot",
+    },
+  });
 }
 
 console.log("planner telegram read-only action tests passed");

@@ -40,11 +40,13 @@ Already covered repo-side:
 - `confirm_done:<taskId>` callbacks resolve to the normal completed-task mutation with confirmation feedback and callback context.
 - Google Calendar callback handling is covered for success redirect, missing refresh token, bad/expired state redirect, missing code/state, and non-GET methods without calling live Google or Firestore.
 - Google Calendar status handling is covered for method guard, missing default user config, connected true/false responses, and backend error responses without calling live Google or Firestore.
+- Telegram calendar scheduling executor behavior is covered with mocked Google Calendar functions for disconnected, missing date/time, and successful event-create routes.
 - Telegram fallback panic parsing is covered repo-side for button-style emoji/SOS/curly-apostrophe text (`🆘 I’m stuck`, `SOS I’m stuck`, `sos`) and quoted task-specific panic text.
 
 Not covered by this smoke:
 
 - completing Google Calendar OAuth;
+- live Google Calendar event creation after OAuth;
 - real Telegram free-text panic smoke after the fallback parser deploy;
 - moving a real task all the way into Cemetery with `Yes, Cemetery`.
 
