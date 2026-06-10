@@ -229,11 +229,17 @@ assert.throws(
     "user-1",
     "--maxBackupAgeHours",
     "24",
+    "--minTotalDocs",
+    "10",
+    "--requireCollections",
+    "tasks,plannerEvents",
   ], {});
 
   assert.equal(options.safetyCheckDir, "custom-backups");
   assert.equal(options.expectedUserId, "user-1");
   assert.equal(options.maxBackupAgeHours, 24);
+  assert.equal(options.minTotalDocs, 10);
+  assert.deepEqual(options.requiredCollections, ["tasks", "plannerEvents"]);
 }
 
 {
@@ -325,6 +331,30 @@ assert.throws(
 assert.throws(
   () => parseBackupOptions(["node", "script", "--safety-check", "--maxBackupAgeHours", "0"], {}),
   /must be a positive integer/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--safety-check", "--minTotalDocs", "0"], {}),
+  /must be a positive integer/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--safety-check", "--minTotalDocs"], {}),
+  /Missing minimum total docs/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--list-backups", "--minTotalDocs", "10"], {}),
+  /only with --safety-check/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--verify-file", "backup.json", "--requireCollections", "tasks"], {}),
+  /only with --safety-check/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--safety-check", "--requireCollections"], {}),
+  /Missing required collections/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--safety-check", "--requireCollections", "tasks/secret"], {}),
+  /Invalid collection name/,
 );
 assert.throws(
   () => parseBackupOptions(["node", "script", "--restore-plan", "backup.json", "--dry-run"], {}),
@@ -674,15 +704,44 @@ assert.throws(
       expectedUserId: "user-1",
       now: new Date("2026-06-08T18:26:06.380Z"),
       maxBackupAgeHours: 12,
+      minTotalDocs: 1,
+      requiredCollections: ["tasks", "plannerEvents"],
     });
     assert.equal(safetyCheck.ok, true);
     assert.equal(safetyCheck.readyForRiskyQa, true);
     assert.equal(safetyCheck.latest.fileName, "newer.json");
     assert.equal(safetyCheck.latest.ageHours, 6);
     assert.equal(safetyCheck.latest.stale, false);
+    assert.equal(safetyCheck.latest.totalDocs, 1);
+    assert.deepEqual(safetyCheck.latest.collections, { tasks: 1, plannerEvents: 0 });
+    assert.deepEqual(safetyCheck.requirements, {
+      maxBackupAgeHours: 12,
+      minTotalDocs: 1,
+      requiredCollections: ["tasks", "plannerEvents"],
+    });
     assert.equal(safetyCheck.validCount, 2);
     assert.equal(safetyCheck.invalidCount, 1);
     assert.match(safetyCheck.warnings.join(" "), /invalid backup/);
+
+    const tooSmallSafetyCheck = await buildBackupSafetyCheck(tmpDir, {
+      expectedUserId: "user-1",
+      now: new Date("2026-06-08T18:26:06.380Z"),
+      maxBackupAgeHours: 12,
+      minTotalDocs: 2,
+    });
+    assert.equal(tooSmallSafetyCheck.ok, false);
+    assert.equal(tooSmallSafetyCheck.readyForRiskyQa, false);
+    assert.match(tooSmallSafetyCheck.blockers.join(" "), /below required minimum 2/);
+
+    const missingCollectionSafetyCheck = await buildBackupSafetyCheck(tmpDir, {
+      expectedUserId: "user-1",
+      now: new Date("2026-06-08T18:26:06.380Z"),
+      maxBackupAgeHours: 12,
+      requiredCollections: ["tasks", "captures"],
+    });
+    assert.equal(missingCollectionSafetyCheck.ok, false);
+    assert.equal(missingCollectionSafetyCheck.readyForRiskyQa, false);
+    assert.match(missingCollectionSafetyCheck.blockers.join(" "), /missing required collection\(s\): captures/);
 
     const staleSafetyCheck = await buildBackupSafetyCheck(tmpDir, {
       expectedUserId: "user-1",
@@ -883,7 +942,13 @@ assert.throws(
     rootPath: "Users/user-1",
     root: {},
     collections: {
-      tasks: [],
+      tasks: [
+        {
+          id: "task-1",
+          path: "Users/user-1/tasks/task-1",
+          data: { text: "Task" },
+        },
+      ],
     },
   }), "utf8");
 
@@ -976,7 +1041,13 @@ assert.throws(
     rootPath: "Users/user-1",
     root: {},
     collections: {
-      tasks: [],
+      tasks: [
+        {
+          id: "task-1",
+          path: "Users/user-1/tasks/task-1",
+          data: { text: "Task" },
+        },
+      ],
     },
   }), "utf8");
 
@@ -988,6 +1059,10 @@ assert.throws(
     "user-1",
     "--maxBackupAgeHours",
     "72",
+    "--minTotalDocs",
+    "1",
+    "--requireCollections",
+    "tasks",
   ], {
     cwd: repoRoot,
     env: {
@@ -1003,6 +1078,11 @@ assert.throws(
   assert.equal(safetyCheck.readyForRiskyQa, true);
   assert.deepEqual(safetyCheck.safety, buildBackupSafetyMetadata("safety-check"));
   assert.equal(safetyCheck.validCount, 1);
+  assert.deepEqual(safetyCheck.requirements, {
+    maxBackupAgeHours: 72,
+    minTotalDocs: 1,
+    requiredCollections: ["tasks"],
+  });
   assert.equal(safetyCheck.latest.fileName, "backup.json");
   assert.equal(safetyCheck.latest.stale, false);
   assert.match(safetyCheck.latest.fileSha256, /^[a-f0-9]{64}$/);

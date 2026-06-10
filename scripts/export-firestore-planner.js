@@ -36,6 +36,10 @@ function hasFlag(name, argv = process.argv) {
   return argv.includes(name);
 }
 
+function hasOption(name, argv = process.argv) {
+  return argv.includes(name) || argv.some((arg) => arg.startsWith(`${name}=`));
+}
+
 function sanitizePathSegment(value) {
   return String(value || "")
     .replace(/[^a-zA-Z0-9._-]/g, "_")
@@ -79,8 +83,28 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   const safetyCheckDir = safetyCheck ? (getArgValue("--safety-check", argv) || "backups") : "";
   const maxBackupAgeHoursRaw = getArgValue("--maxBackupAgeHours", argv);
   const maxBackupAgeHours = maxBackupAgeHoursRaw ? Number.parseInt(maxBackupAgeHoursRaw, 10) : 72;
+  const minTotalDocsRaw = getArgValue("--minTotalDocs", argv);
+  const minTotalDocs = minTotalDocsRaw ? Number.parseInt(minTotalDocsRaw, 10) : 0;
+  const requireCollectionsArg = getArgValue("--requireCollections", argv);
+  const minTotalDocsRequested = hasOption("--minTotalDocs", argv);
+  const requireCollectionsRequested = hasOption("--requireCollections", argv);
   if (maxBackupAgeHoursRaw && (!Number.isFinite(maxBackupAgeHours) || maxBackupAgeHours <= 0)) {
     throw new Error("--maxBackupAgeHours must be a positive integer.");
+  }
+  if (minTotalDocsRequested && !minTotalDocsRaw) {
+    throw new Error("Missing minimum total docs. Pass --minTotalDocs 1000.");
+  }
+  if (minTotalDocsRaw && (!Number.isFinite(minTotalDocs) || minTotalDocs <= 0)) {
+    throw new Error("--minTotalDocs must be a positive integer.");
+  }
+  if (!safetyCheck && minTotalDocsRequested) {
+    throw new Error("Use --minTotalDocs only with --safety-check.");
+  }
+  if (!safetyCheck && requireCollectionsRequested) {
+    throw new Error("Use --requireCollections only with --safety-check.");
+  }
+  if (safetyCheck && requireCollectionsRequested && !requireCollectionsArg) {
+    throw new Error("Missing required collections. Pass --requireCollections tasks,plannerEvents.");
   }
   if (hasFlag("--verify-file", argv) && !verifyFile) {
     throw new Error("Missing backup file. Pass --verify-file <path>.");
@@ -142,6 +166,8 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
       restoreLatestDir,
       safetyCheckDir,
       maxBackupAgeHours,
+      minTotalDocs,
+      requiredCollections: requireCollectionsArg ? parseCollections(requireCollectionsArg) : [],
       expectedUserId: expectedUserId ? String(expectedUserId) : "",
     };
   }
@@ -218,6 +244,7 @@ function getHelpText() {
     "  --restore-plan backups/file.json [--expectUserId <uid>]",
     "  --restore-latest [backups-dir] [--expectUserId <uid>]",
     "  --safety-check [backups-dir] [--expectUserId <uid>] [--maxBackupAgeHours 72]",
+    "  --safety-check [backups-dir] [--minTotalDocs 100] [--requireCollections tasks,plannerEvents]",
     "",
     "This script is read-only. It does not write to Firestore.",
   ].join("\n");
@@ -732,11 +759,22 @@ async function buildBackupSafetyCheck(
     cwd = process.cwd(),
     now = new Date(),
     maxBackupAgeHours = 72,
+    minTotalDocs = 0,
+    requiredCollections = [],
   } = {},
 ) {
   if (!Number.isFinite(maxBackupAgeHours) || maxBackupAgeHours <= 0) {
     throw new Error("maxBackupAgeHours must be a positive number.");
   }
+  if (!Number.isFinite(minTotalDocs) || minTotalDocs < 0) {
+    throw new Error("minTotalDocs must be zero or a positive number.");
+  }
+  const requiredCollectionInput = Array.isArray(requiredCollections)
+    ? requiredCollections
+    : String(requiredCollections || "").split(",");
+  const safeRequiredCollections = requiredCollectionInput.filter(Boolean).length > 0
+    ? parseCollections(requiredCollectionInput.join(","))
+    : [];
 
   const inventory = await listPlannerBackups(directory, { expectedUserId, cwd });
   const checkedAt = now.toISOString();
@@ -764,10 +802,20 @@ async function buildBackupSafetyCheck(
       totalDocs: inventory.latest.totalDocs,
       sizeBytes: inventory.latest.sizeBytes,
       fileSha256: inventory.latest.fileSha256,
+      collections: inventory.latest.collections,
     };
 
     if (stale) {
       blockers.push(`Latest backup is older than ${maxBackupAgeHours} hour(s).`);
+    }
+    if (minTotalDocs > 0 && inventory.latest.totalDocs < minTotalDocs) {
+      blockers.push(`Latest backup has ${inventory.latest.totalDocs} document(s), below required minimum ${minTotalDocs}.`);
+    }
+    const missingRequiredCollections = safeRequiredCollections.filter(
+      (collectionName) => !(collectionName in (inventory.latest.collections || {})),
+    );
+    if (missingRequiredCollections.length > 0) {
+      blockers.push(`Latest backup is missing required collection(s): ${missingRequiredCollections.join(", ")}.`);
     }
   }
 
@@ -787,6 +835,11 @@ async function buildBackupSafetyCheck(
     backupDir: inventory.backupDir,
     validCount: inventory.validCount,
     invalidCount: inventory.invalidCount,
+    requirements: {
+      maxBackupAgeHours,
+      minTotalDocs,
+      requiredCollections: safeRequiredCollections,
+    },
     latest,
     blockers,
     warnings,
@@ -847,6 +900,8 @@ async function main() {
     const safetyCheck = await buildBackupSafetyCheck(options.safetyCheckDir, {
       expectedUserId: options.expectedUserId,
       maxBackupAgeHours: options.maxBackupAgeHours,
+      minTotalDocs: options.minTotalDocs,
+      requiredCollections: options.requiredCollections,
     });
     console.log(JSON.stringify({
       safety: buildBackupSafetyMetadata("safety-check"),

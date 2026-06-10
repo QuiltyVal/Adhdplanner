@@ -72,6 +72,12 @@ Check whether the local backup inventory is fresh enough before risky QA or migr
 npm run backup:planner -- --safety-check backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22 --maxBackupAgeHours 72
 ```
 
+Require a minimum backup size and key collections before risky work:
+
+```bash
+npm run backup:planner -- --safety-check backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22 --maxBackupAgeHours 72 --minTotalDocs 1000 --requireCollections tasks,plannerEvents,outbox,engineRuns
+```
+
 Collection names are intentionally restricted to simple Firestore collection ids (`letters`, `numbers`, `_`, `-`). This prevents an accidental nested path from being exported when the command is typed by hand.
 
 Successful real exports now validate the generated payload before writing, read the saved file back, and print `verified: true` with per-collection document counts, `sizeBytes`, and `fileSha256`. This does not prove semantic correctness of every task, but it catches broken JSON, wrong user ids, schema drift, invalid document paths, and gives you a checksum to record before a backup is trusted.
@@ -95,7 +101,7 @@ When taking the first live backup, record the printed `outputPath`, `totalDocs`,
 
 When resuming later, run `--list-backups` first. It reports `latest`, `validCount`, `invalidCount`, per-file checksums, and validation issues for broken JSON or wrong-user backups. It only reads local JSON files. If the latest valid backup is the intended recovery point, `--restore-latest` builds the restore review artifact without requiring you to paste the long backup filename.
 
-Before risky live QA, migration, or destructive repair work, run `--safety-check`. It validates the local backup inventory, checks the latest valid backup age against `--maxBackupAgeHours` (default: 72), and prints `readyForRiskyQa`. A failed safety check means take a fresh read-only export first.
+Before risky live QA, migration, or destructive repair work, run `--safety-check`. It validates the local backup inventory, checks the latest valid backup age against `--maxBackupAgeHours` (default: 72), applies optional `--minTotalDocs` and `--requireCollections` gates, and prints `readyForRiskyQa`. A failed safety check means take a fresh read-only export first.
 
 ## Default Scope
 

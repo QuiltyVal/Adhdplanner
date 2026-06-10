@@ -2655,3 +2655,22 @@ Entry template:
   - No Firestore data was read or written.
   - No MCP, Telegram, or OAuth action was performed in this hardening slice.
   - This does not prove the next live QA packet will always bootstrap instantly; it prevents the browser client from hiding a hung bootstrap request as endless `planner-bootstrap-pending`.
+
+## 2026-06-10 - Codex
+
+- Summary: Strengthened local backup safety checks before risky QA.
+- Changed:
+  - `scripts/export-firestore-planner.js` — `--safety-check` now supports `--minTotalDocs` and `--requireCollections`, and reports the applied requirements plus latest backup collection counts.
+  - `tests/firestore-backup-export.test.mjs` — covered option parsing, missing/invalid safety-only flags, minimum-document blockers, required-collection blockers, and the CLI happy path.
+  - `docs/firestore-backup-export.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — documented the stronger safety gate.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js`
+  - `node --check tests/firestore-backup-export.test.mjs`
+  - `node tests/firestore-backup-export.test.mjs`
+  - `npm run backup:planner -- --safety-check backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22 --maxBackupAgeHours 72 --minTotalDocs 1000 --requireCollections tasks,plannerEvents,outbox,engineRuns`
+- Local backup evidence:
+  - The latest ignored backup passed the strengthened safety gate with `readyForRiskyQa: true`, age about 43.33 hours, `totalDocs: 6775`, SHA-256 `d2ff47895555905fa05694982abda800f0d8a123e217e193d499363a53eda13d`, and required collections `tasks`, `plannerEvents`, `outbox`, and `engineRuns` present.
+- Live/data boundary:
+  - This read only local ignored backup JSON files.
+  - No Firestore data was read or written.
+  - No MCP, Telegram, OAuth, or production deploy action was performed.
