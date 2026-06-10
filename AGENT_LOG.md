@@ -2964,3 +2964,18 @@ Entry template:
   - Docs-only change.
   - No Firestore data was read or written.
   - No Telegram action, Google OAuth action, Google API call, MCP tool call, browser-authenticated QA, production deploy, or live user-data mutation was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Added a short Claude/reviewer brief for the remaining non-blocking live items.
+- Changed:
+  - `SESSION_HANDOFF.md` — added a top-level "Current Claude/reviewer brief" clarifying that the remaining items are not known breakages: fresh read-only backup needs Firebase credentials, Google Calendar OAuth needs the user's real Telegram/browser flow, browser QA packet needs the user's authenticated browser, and non-dry-run `capture_note` is intentionally untested because it creates a real capture.
+  - Recorded that the frequent `planner-sprint-heartbeat` automation was deleted because the remaining checks are user-assisted or credential-dependent.
+- Latest safety state recorded:
+  - Local backup safety-check passed at `2026-06-10T19:52:49.044Z` using the 2026-06-08 backup, `ageHours: 55.45`, `readyForRiskyQa: true`.
+- Verified:
+  - `git diff --check`
+- Live/data boundary:
+  - Docs-only change.
+  - No Firestore data was read or written.
+  - No Telegram action, Google OAuth action, Google API call, MCP tool call, browser-authenticated QA, production deploy, or live user-data mutation was performed.

@@ -1,12 +1,23 @@
 # SESSION_HANDOFF.md
 
-Last updated: 2026-06-09
+Last updated: 2026-06-10
 
 This file exists so the project can survive context loss and switching between Codex, Claude, or another coding agent.
 
 Companion file:
 - `AGENT_LOG.md` = append-only short session log
 - `EXECUTION_PLAN.md` = active execution tracker for the angel / memory roadmap
+
+## Current Claude/reviewer brief
+
+As of 2026-06-10, the current remaining items are **not known breakages**. They are deliberately unfinished live-verification steps that require the user, credentials, or explicit permission to perform a real write:
+
+- Fresh read-only backup: useful before the next risky live QA session, but Codex cannot take it from the current shell because no `FIREBASE_CREDENTIALS`, `FIREBASE_CREDENTIALS_FILE`, or `GOOGLE_APPLICATION_CREDENTIALS` is available. The latest local backup safety-check still passed at `2026-06-10T19:52:49.044Z` using `backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-08T12-26-06-380Z.json` (`ageHours: 55.45`, `readyForRiskyQa: true`).
+- Google Calendar OAuth live test: requires the user's real Telegram client and browser/Google account. Use `docs/google-calendar-live-smoke-checklist.md`; run OAuth-only first, and do not create a real calendar event unless the user explicitly approves the optional disposable event smoke.
+- Browser QA packet after the latest deploys: should be copied from the user's normal authenticated Chrome/Safari session, not Codex's in-app browser. Use `npm run check:qa-packet` locally for the copied files.
+- Non-dry-run `capture_note`: intentionally untested. Dry-run `capture_note` is proven through authenticated MCP clients; non-dry-run creates a real capture and requires explicit approval plus an idempotency key.
+
+The frequent `planner-sprint-heartbeat` automation was deleted after the stabilization/deploy work because the remaining useful checks are user-assisted or credential-dependent.
 
 ## Repo portability
 
