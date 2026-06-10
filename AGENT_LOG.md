@@ -2692,7 +2692,12 @@ Entry template:
   - `npm run test:contract`
   - `npm run verify:server`
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `./deploy-prod-safe.sh`
+  - `curl -I -L --max-time 20 https://planner.valquilty.com/main`
+  - Production bundle check: `/static/js/main.a8efebb1.js` returned HTTP 200 and contained both `decisionTraceFingerprint` and `decisionTraceRows`.
+- Production deploy:
+  - Vercel deployment `dpl_AYXEnXoaVwsdtmGYuNNVCVdMsrd5` completed with `readyState: READY` and was aliased to `https://planner.valquilty.com`.
 - Live/data boundary:
   - No Firestore data was read or written.
   - No MCP, Telegram, OAuth, or browser-authenticated QA action was performed.
-  - Production deploy is required after full repo checks because `src/App.js` changes the web QA packet output.
+  - Production deploy changed only the web QA packet/decision trace export surface; no live user task data was mutated.

@@ -147,6 +147,7 @@ Companion file:
 - As of 2026-06-09, Progress Decision Safety QA packets include task-data freshness evidence: `taskDataFingerprint`, latest task update timestamp/title/status/subtask count/subtask preview, and a short active-task preview. Use those fields as web-refresh proof after MCP task/subtask writes when a screenshot is not enough.
 - As of 2026-06-09, `npm run check:qa-packet` validates copied QA packets and compares baseline/post-write/post-refresh packet files locally. It is intentionally no-network/no-Firestore and should be used for MCP/web refresh proof instead of manual fingerprint comparison.
 - As of 2026-06-10, QA packets also include `decisionTraceFingerprint` and `decisionTraceRows`. Use `--expectDecisionStable` only for packet pairs where no Engine/Telegram action should have changed the visible Decision Trace between captures.
+- As of 2026-06-10, the Decision Trace fingerprint export is deployed in Vercel production deployment `dpl_AYXEnXoaVwsdtmGYuNNVCVdMsrd5`; live bundle `/static/js/main.a8efebb1.js` contains `decisionTraceFingerprint` and `decisionTraceRows`.
 - As of 2026-05-31, public `/demo` is a portfolio entrypoint for Today Mission -> Rescue -> one tiny step, with demo Angel Lab parsing tuned for the portfolio story.
 - This is only the first ingestion slice:
   - no daily angel decision job yet
