@@ -2773,3 +2773,27 @@ Entry template:
   - This is local-only checker/docs work.
   - No Firestore data was read or written.
   - No MCP, Telegram, OAuth, Google API, or production deploy action was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Hardened Telegram fallback panic parsing for real button-style text.
+- Changed:
+  - `api/_lib/telegram-intent.js` — normalizes curly apostrophes, strips leading panic button/SOS markers, and routes emoji/SOS panic text such as `🆘 I’m stuck`, `SOS I’m stuck`, and `sos` to plain `PANIC` instead of `PANIC_TASK` with the whole button text as `task_ref`.
+  - `tests/telegram-intent-fallback.test.mjs` — added regression coverage for emoji/SOS/curly-apostrophe panic text and quoted task-specific panic text.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, `SESSION_HANDOFF.md`, and `docs/telegram-live-smoke-checklist.md` — recorded the repo-side coverage and the remaining live Telegram free-text smoke boundary.
+- Verified:
+  - `node --check api/_lib/telegram-intent.js`
+  - `node --check tests/telegram-intent-fallback.test.mjs`
+  - `node tests/telegram-intent-fallback.test.mjs`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `./deploy-prod-safe.sh`
+  - `curl -I -L --max-time 20 https://planner.valquilty.com/main`
+- Production deploy:
+  - Vercel deployment `dpl_DPikz1AHL1cEcJFkpdc54yQDaweT` completed with `readyState: READY` and was aliased to `https://planner.valquilty.com`.
+- Live/data boundary:
+  - No Firestore data was read or written.
+  - No MCP, OAuth, Google API, or live Telegram message action was performed.
+  - Production deploy changed the Telegram intent fallback parser and docs/tests only; a real Telegram free-text panic smoke remains useful.

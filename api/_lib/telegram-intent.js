@@ -38,6 +38,7 @@ function normalizeForIntent(text = "") {
   return String(text || "")
     .trim()
     .toLowerCase()
+    .replace(/[’‘`´]/g, "'")
     .replace(/[«»]/g, "\"")
     .replace(/\s+/g, " ");
 }
@@ -86,6 +87,9 @@ function inferPanicTaskReference(text = "") {
   if (quoted.length > 0) return quoted[0];
 
   const cleaned = String(text || "")
+    .replace(/[’‘`´]/g, "'")
+    .replace(/^[\s🆘🚨❗!]+/u, "")
+    .replace(/^(sos|help)\s*/iu, "")
     .replace(/^(ну\s+)?/iu, "")
     .replace(/^(включи|вруби|запусти|дай|сделай|переключи)\s+/iu, "")
     .replace(/^(паника|паник|panic)\s*/iu, "")
@@ -120,7 +124,7 @@ function inferQuickIntent(text = "") {
     };
   }
 
-  if (/(паник|паника|panic|застрял|застряла|застряло|затык|i\s*'?m\s+stuck|i\s+am\s+stuck|im\s+stuck|stuck)/u.test(normalized)) {
+  if (/(паник|паника|panic|застрял|застряла|застряло|затык|(?:^|\s)sos(?:\s|$)|🆘|i\s*'?m\s+stuck|i\s+am\s+stuck|im\s+stuck|stuck)/u.test(normalized)) {
     const panicTaskRef = inferPanicTaskReference(text);
     if (panicTaskRef) {
       return {

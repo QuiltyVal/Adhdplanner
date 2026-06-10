@@ -126,6 +126,7 @@ The product should do three things well:
   - revive completed/dead tasks
   - 2026-06-06: repo fallback parser now routes Russian and Telegram-button-style English free-text actions for done, revive, Cemetery, Today pin/unpin, and critical on/off when OpenRouter is unavailable. Live Telegram smoke is still pending.
   - 2026-06-06: repo fallback parser now also routes `I'm stuck` / `я застряла` variants to panic or task-specific panic instead of accidental new-task creation when OpenRouter is unavailable. Live Telegram smoke is still pending.
+  - 2026-06-10: repo fallback parser now normalizes Telegram-style panic text with emoji/SOS/curly apostrophes (`🆘 I’m stuck`, `SOS I’m stuck`, `sos`) to plain panic instead of treating the button text as a task reference; task-specific forms such as `I’m stuck on "Pay rent"` remain covered. Production deploy and live free-text smoke remain separate.
 
 ### P1: MCP Reliability
 

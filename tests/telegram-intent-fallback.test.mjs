@@ -110,12 +110,42 @@ await assertIntent("I'm stuck", {
   intent: PLANNER_ACTIONS.PANIC,
 });
 
+await assertIntent("🆘 I’m stuck", {
+  intent: PLANNER_ACTIONS.PANIC,
+  task_ref: null,
+});
+
+await assertIntent("SOS I’m stuck", {
+  intent: PLANNER_ACTIONS.PANIC,
+  task_ref: null,
+});
+
+await assertIntent("sos", {
+  intent: PLANNER_ACTIONS.PANIC,
+  task_ref: null,
+});
+
 await assertIntent("я застряла на «Pay rent»", {
   intent: PLANNER_ACTIONS.PANIC_TASK,
   task_ref: "Pay rent",
 });
 
 await assertIntent("I'm stuck on «Pay rent»", {
+  intent: PLANNER_ACTIONS.PANIC_TASK,
+  task_ref: "Pay rent",
+});
+
+await assertIntent("I’m stuck on «Pay rent»", {
+  intent: PLANNER_ACTIONS.PANIC_TASK,
+  task_ref: "Pay rent",
+});
+
+await assertIntent("🆘 I'm stuck on «Pay rent»", {
+  intent: PLANNER_ACTIONS.PANIC_TASK,
+  task_ref: "Pay rent",
+});
+
+await assertIntent("застряла по задаче «Pay rent»", {
   intent: PLANNER_ACTIONS.PANIC_TASK,
   task_ref: "Pay rent",
 });
