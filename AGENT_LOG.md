@@ -2951,3 +2951,16 @@ Entry template:
   - This deploy changed code behavior only.
   - No Firestore data was read or written by Codex during deploy.
   - No authenticated MCP tool call, Telegram action, OAuth action, Google API mutation, browser-authenticated QA, or live user-data mutation was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Added a dedicated Google Calendar live-smoke runbook.
+- Changed:
+  - `docs/google-calendar-live-smoke-checklist.md` — added a user-assisted OAuth checklist that separates OAuth-only proof from optional disposable event creation, includes the read-only status endpoint check, and lists evidence fields without exposing tokens.
+  - `docs/telegram-live-smoke-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — linked/recorded the Calendar live-smoke procedure.
+- Verified:
+  - `git diff --check`
+- Live/data boundary:
+  - Docs-only change.
+  - No Firestore data was read or written.
+  - No Telegram action, Google OAuth action, Google API call, MCP tool call, browser-authenticated QA, production deploy, or live user-data mutation was performed.

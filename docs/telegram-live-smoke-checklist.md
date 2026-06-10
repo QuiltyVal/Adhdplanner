@@ -41,6 +41,7 @@ Already covered repo-side:
 - Google Calendar callback handling is covered for success redirect, missing refresh token, bad/expired state redirect, missing code/state, and non-GET methods without calling live Google or Firestore.
 - Google Calendar status handling is covered for method guard, missing default user config, connected true/false responses, and backend error responses without calling live Google or Firestore.
 - Telegram calendar scheduling executor behavior is covered with mocked Google Calendar functions for disconnected, missing date/time, and successful event-create routes.
+- Detailed live OAuth procedure lives in [google-calendar-live-smoke-checklist.md](google-calendar-live-smoke-checklist.md).
 - Telegram fallback panic parsing is covered repo-side for button-style emoji/SOS/curly-apostrophe text (`🆘 I’m stuck`, `SOS I’m stuck`, `sos`) and quoted task-specific panic text.
 
 Not covered by this smoke:

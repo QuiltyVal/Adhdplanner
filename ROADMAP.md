@@ -111,6 +111,7 @@ The product should do three things well:
   - 2026-06-06: Google Calendar OAuth state now has repo-side TTL/user-id validation coverage, so stale Telegram connect links are rejected before token exchange.
   - 2026-06-07: Google Calendar OAuth callback now has repo-side coverage for success, missing refresh token, expired/bad state, missing code/state, and method boundaries. Live OAuth completion is still pending.
   - 2026-06-10: Telegram calendar scheduling executor path now has repo-side mocked coverage for disconnected connect CTA, connected missing-date/time guidance, and connected successful event creation. No live Google API call is made; OAuth completion remains the live gap.
+  - 2026-06-10: `docs/google-calendar-live-smoke-checklist.md` now separates OAuth-only live proof from optional disposable event creation, so the next user-assisted Calendar test has a no-event path and explicit evidence fields.
 - Add "kill / revive" from free text and buttons.
   - 2026-06-05: active-task `Cemetery` button and `/cemetery` restore list are implemented.
   - 2026-06-06: repo regression coverage now checks the first-tap Cemetery confirmation payload (`Yes, Cemetery`, `Make smaller`, `Cancel`, `Open planner`) so the task keyboard does not expose direct `confirm_kill`.
