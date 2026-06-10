@@ -2932,3 +2932,22 @@ Entry template:
   - No Firestore data was read or written.
   - No MCP tool call, Telegram action, OAuth action, Google API mutation, browser-authenticated QA, or live user-data mutation was performed in this slice.
   - This is production-behavior code and should be deployed to both Vercel API/web and the standalone MCP server mirror.
+
+## 2026-06-10 - Codex
+
+- Summary: Deployed the planner deadline year validation guard to production web/API and the standalone MCP server.
+- Deployment:
+  - Web/API: `./deploy-prod-safe.sh` completed production deployment `dpl_8md2CxUakCAZd68Ajp3NJVxsCgxs`, aliased to `https://planner.valquilty.com`.
+  - Web live check: `curl -I -L --max-time 20 https://planner.valquilty.com/main` returned HTTP `200`.
+  - MCP: `npm run deploy:mcp-server -- --apply` synced `services/mcp-server/src/index.js` and `services/mcp-server/src/capture-client.js` to `/root/adhd-mcp`, restarted PM2 process `adhd-mcp`, and passed postchecks.
+  - MCP remote backups: `index.js.backup-deploy-20260610T151939` and `capture-client.js.backup-deploy-20260610T151939`.
+  - MCP postchecks: `/healthz` returned HTTP `200` with version `4.1.0`; `/mcp` auth boundary returned HTTP `401` with Bearer auth and `mcp:tools` advertised.
+  - Public MCP probe: `npm run check:mcp` returned `ok: true`.
+- Verified before deployment:
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live/data boundary:
+  - This deploy changed code behavior only.
+  - No Firestore data was read or written by Codex during deploy.
+  - No authenticated MCP tool call, Telegram action, OAuth action, Google API mutation, browser-authenticated QA, or live user-data mutation was performed.
