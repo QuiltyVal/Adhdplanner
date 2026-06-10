@@ -11,6 +11,7 @@ const require = createRequire(import.meta.url);
 const {
   BACKUP_SCHEMA,
   DEFAULT_COLLECTIONS,
+  buildBackupComparison,
   buildBackupPreflightReport,
   buildBackupSafetyMetadata,
   buildBackupSafetyCheck,
@@ -87,6 +88,14 @@ assert.deepEqual(buildBackupSafetyMetadata("restore-latest"), {
 });
 assert.deepEqual(buildBackupSafetyMetadata("safety-check"), {
   mode: "safety-check",
+  firestoreRead: false,
+  firestoreWrite: false,
+  localFileRead: true,
+  localFileWrite: false,
+  verifiedReadback: true,
+});
+assert.deepEqual(buildBackupSafetyMetadata("compare-backups"), {
+  mode: "compare-backups",
   firestoreRead: false,
   firestoreWrite: false,
   localFileRead: true,
@@ -246,6 +255,31 @@ assert.throws(
   const options = parseBackupOptions([
     "node",
     "scripts/export-firestore-planner.js",
+    "--compare-backups",
+    "before.json",
+    "after.json",
+    "--expectUserId",
+    "user-1",
+  ], {});
+
+  assert.deepEqual(options.compareBackupFiles, ["before.json", "after.json"]);
+  assert.equal(options.expectedUserId, "user-1");
+}
+
+{
+  const options = parseBackupOptions([
+    "node",
+    "scripts/export-firestore-planner.js",
+    "--compare-backups=before.json,after.json",
+  ], {});
+
+  assert.deepEqual(options.compareBackupFiles, ["before.json", "after.json"]);
+}
+
+{
+  const options = parseBackupOptions([
+    "node",
+    "scripts/export-firestore-planner.js",
     "--restore-plan",
     "backups/manual.json",
     "--expectUserId",
@@ -319,6 +353,18 @@ assert.throws(
 assert.throws(
   () => parseBackupOptions(["node", "script", "--safety-check", "--list-backups"], {}),
   /Use only one of --safety-check/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--compare-backups", "before.json"], {}),
+  /Pass exactly two backup files/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--compare-backups", "before.json", "after.json", "--verify-file", "backup.json"], {}),
+  /Use only one of --compare-backups/,
+);
+assert.throws(
+  () => parseBackupOptions(["node", "script", "--compare-backups", "before.json", "after.json", "--dry-run"], {}),
+  /already non-mutating/,
 );
 assert.throws(
   () => parseBackupOptions(["node", "script", "--safety-check", "--preflight"], {}),
@@ -644,6 +690,114 @@ assert.throws(
 }
 
 {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "planner-backup-compare-test-"));
+  try {
+    const beforePath = path.join(tmpDir, "before.json");
+    const afterPath = path.join(tmpDir, "after.json");
+    fs.writeFileSync(beforePath, JSON.stringify({
+      schema: BACKUP_SCHEMA,
+      exportedAt: "2026-06-08T10:00:00.000Z",
+      userId: "user-1",
+      rootPath: "Users/user-1",
+      root: { displayName: "Before" },
+      collections: {
+        tasks: [
+          {
+            id: "task-1",
+            path: "Users/user-1/tasks/task-1",
+            data: { text: "Old task", nested: { b: 2, a: 1 } },
+          },
+          {
+            id: "task-removed",
+            path: "Users/user-1/tasks/task-removed",
+            data: { text: "Removed" },
+          },
+        ],
+        plannerEvents: [
+          {
+            id: "event-1",
+            path: "Users/user-1/plannerEvents/event-1",
+            data: { type: "same" },
+          },
+        ],
+      },
+    }), "utf8");
+    fs.writeFileSync(afterPath, JSON.stringify({
+      schema: BACKUP_SCHEMA,
+      exportedAt: "2026-06-08T12:00:00.000Z",
+      userId: "user-1",
+      rootPath: "Users/user-1",
+      root: { displayName: "After" },
+      collections: {
+        tasks: [
+          {
+            id: "task-1",
+            path: "Users/user-1/tasks/task-1",
+            data: { text: "New task", nested: { a: 1, b: 2 } },
+          },
+          {
+            id: "task-added",
+            path: "Users/user-1/tasks/task-added",
+            data: { text: "Added" },
+          },
+        ],
+        plannerEvents: [
+          {
+            id: "event-1",
+            path: "Users/user-1/plannerEvents/event-1",
+            data: { type: "same" },
+          },
+        ],
+      },
+    }), "utf8");
+
+    const comparison = await buildBackupComparison(beforePath, afterPath, { expectedUserId: "user-1" });
+    assert.equal(comparison.ok, true);
+    assert.equal(comparison.compareBackups, true);
+    assert.deepEqual(comparison.safety, buildBackupSafetyMetadata("compare-backups"));
+    assert.equal(comparison.before.totalDocs, 3);
+    assert.equal(comparison.after.totalDocs, 3);
+    assert.equal(comparison.rootChanged, true);
+    assert.deepEqual(comparison.totals, {
+      beforeDocs: 3,
+      afterDocs: 3,
+      totalDocsDelta: 0,
+      added: 1,
+      removed: 1,
+      changed: 1,
+      unchanged: 1,
+    });
+    assert.deepEqual(comparison.collections.tasks, {
+      before: 2,
+      after: 2,
+      added: 1,
+      removed: 1,
+      changed: 1,
+    });
+    assert.deepEqual(comparison.collections.plannerEvents, {
+      before: 1,
+      after: 1,
+      added: 0,
+      removed: 0,
+      changed: 0,
+    });
+    assert.deepEqual(comparison.changePreview.added.shown, ["Users/user-1/tasks/task-added"]);
+    assert.deepEqual(comparison.changePreview.removed.shown, ["Users/user-1/tasks/task-removed"]);
+    assert.deepEqual(comparison.changePreview.changed.shown, ["Users/user-1/tasks/task-1"]);
+    assert.equal(JSON.stringify(comparison).includes("New task"), false);
+
+    const sameComparison = await buildBackupComparison(beforePath, beforePath, { expectedUserId: "user-1" });
+    assert.equal(sameComparison.rootChanged, false);
+    assert.equal(sameComparison.totals.added, 0);
+    assert.equal(sameComparison.totals.removed, 0);
+    assert.equal(sameComparison.totals.changed, 0);
+    assert.equal(sameComparison.totals.unchanged, 3);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+{
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "planner-backup-list-test-"));
   try {
     const olderBackup = {
@@ -930,6 +1084,75 @@ assert.throws(
   assert.equal(restorePlan.plannedOperations.collectionDocuments.collections.tasks.documents, 1);
   assert.equal(restorePlan.plannedOperations.collectionDocuments.collections.plannerEvents.documents, 0);
   assert.match(restorePlan.warnings.join(" "), /does not write Firestore/);
+}
+
+{
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "planner-backup-compare-cli-test-"));
+  const beforePath = path.join(tmpDir, "before.json");
+  const afterPath = path.join(tmpDir, "after.json");
+  fs.writeFileSync(beforePath, JSON.stringify({
+    schema: BACKUP_SCHEMA,
+    exportedAt: "2026-06-08T10:00:00.000Z",
+    userId: "user-1",
+    rootPath: "Users/user-1",
+    root: {},
+    collections: {
+      tasks: [
+        {
+          id: "task-1",
+          path: "Users/user-1/tasks/task-1",
+          data: { text: "Task" },
+        },
+      ],
+    },
+  }), "utf8");
+  fs.writeFileSync(afterPath, JSON.stringify({
+    schema: BACKUP_SCHEMA,
+    exportedAt: "2026-06-08T12:00:00.000Z",
+    userId: "user-1",
+    rootPath: "Users/user-1",
+    root: {},
+    collections: {
+      tasks: [
+        {
+          id: "task-1",
+          path: "Users/user-1/tasks/task-1",
+          data: { text: "Task changed" },
+        },
+        {
+          id: "task-2",
+          path: "Users/user-1/tasks/task-2",
+          data: { text: "Task added" },
+        },
+      ],
+    },
+  }), "utf8");
+
+  const output = execFileSync("node", [
+    "scripts/export-firestore-planner.js",
+    "--compare-backups",
+    beforePath,
+    afterPath,
+    "--expectUserId",
+    "user-1",
+  ], {
+    cwd: repoRoot,
+    env: {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+    },
+    encoding: "utf8",
+  });
+
+  const comparison = JSON.parse(output);
+  assert.equal(comparison.ok, true);
+  assert.equal(comparison.compareBackups, true);
+  assert.deepEqual(comparison.safety, buildBackupSafetyMetadata("compare-backups"));
+  assert.equal(comparison.totals.added, 1);
+  assert.equal(comparison.totals.changed, 1);
+  assert.equal(comparison.totals.removed, 0);
+  assert.deepEqual(comparison.changePreview.added.shown, ["Users/user-1/tasks/task-2"]);
+  assert.equal(output.includes("Task changed"), false);
 }
 
 {

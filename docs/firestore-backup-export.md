@@ -66,6 +66,12 @@ Build the same non-mutating restore plan from the latest valid local backup:
 npm run backup:planner -- --restore-latest backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22
 ```
 
+Compare two local backup files without printing document data:
+
+```bash
+npm run backup:planner -- --compare-backups backups/before.json backups/after.json --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22
+```
+
 Check whether the local backup inventory is fresh enough before risky QA or migration work:
 
 ```bash
@@ -90,6 +96,7 @@ Every command prints a `safety` object:
 - list-backups: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`
 - restore-plan: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`, `restorePlanOnly: true`
 - restore-latest: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`, `restorePlanOnly: true`
+- compare-backups: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`
 - safety-check: `firestoreRead: false`, `firestoreWrite: false`, `localFileRead: true`, `readyForRiskyQa: true/false`
 - real export: `firestoreRead: true`, `firestoreWrite: false`, `localFileWrite: true`, `verifiedReadback: true`
 
@@ -100,6 +107,8 @@ The export command never writes to Firestore.
 When taking the first live backup, record the printed `outputPath`, `totalDocs`, and `fileSha256` in the session log before doing risky QA.
 
 When resuming later, run `--list-backups` first. It reports `latest`, `validCount`, `invalidCount`, per-file checksums, and validation issues for broken JSON or wrong-user backups. It only reads local JSON files. If the latest valid backup is the intended recovery point, `--restore-latest` builds the restore review artifact without requiring you to paste the long backup filename.
+
+When you have two local backups, run `--compare-backups before.json after.json` before treating a newer export as the expected recovery point. The comparison validates both files, confirms the same user id, reports root/document hash deltas, and prints only counts plus path previews for added/removed/changed documents. It intentionally does not print document data.
 
 Before risky live QA, migration, or destructive repair work, run `--safety-check`. It validates the local backup inventory, checks the latest valid backup age against `--maxBackupAgeHours` (default: 72), applies optional `--minTotalDocs` and `--requireCollections` gates, and prints `readyForRiskyQa`. A failed safety check means take a fresh read-only export first.
 

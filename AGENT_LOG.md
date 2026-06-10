@@ -2319,6 +2319,9 @@ Entry template:
   - `node --check scripts/export-firestore-planner.js`
   - `node --check tests/firestore-backup-export.test.mjs`
   - `node tests/firestore-backup-export.test.mjs`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
   - `npm run test:contract`
   - `npm run verify:server`
   - `DISABLE_ESLINT_PLUGIN=true npm run build`
@@ -2735,3 +2738,19 @@ Entry template:
 - Live/data boundary:
   - This is local-only checker/docs work.
   - No network, Firestore, MCP, Telegram, OAuth, or production deploy action was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Added a local-only backup comparison command for safer recovery review.
+- Changed:
+  - `scripts/export-firestore-planner.js` — added `--compare-backups before.json after.json`, which validates both local backup files, confirms the same user id, compares root/document data hashes, reports per-collection counts, and prints path-only previews for added/removed/changed documents without printing document data.
+  - `tests/firestore-backup-export.test.mjs` — covered option parsing, safety metadata, direct comparison output, same-file comparison, CLI output, and no document-data leakage in the comparison report.
+  - `docs/firestore-backup-export.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented the local-only backup diff workflow.
+- Verified:
+  - `node --check scripts/export-firestore-planner.js`
+  - `node --check tests/firestore-backup-export.test.mjs`
+  - `node tests/firestore-backup-export.test.mjs`
+- Live/data boundary:
+  - This reads only local backup JSON files when used.
+  - No Firestore data was read or written.
+  - No MCP, Telegram, OAuth, Google API, or production deploy action was performed.

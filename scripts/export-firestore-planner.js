@@ -32,6 +32,21 @@ function getArgValue(name, argv = process.argv) {
   return "";
 }
 
+function getArgPair(name, argv = process.argv) {
+  const direct = argv.find((arg) => arg.startsWith(`${name}=`));
+  if (direct) {
+    const value = direct.slice(name.length + 1);
+    const [first = "", second = ""] = value.split(",");
+    return [first, second].map((item) => item.trim()).filter(Boolean);
+  }
+
+  const index = argv.indexOf(name);
+  if (index < 0) return [];
+  const first = argv[index + 1] && !argv[index + 1].startsWith("--") ? argv[index + 1] : "";
+  const second = argv[index + 2] && !argv[index + 2].startsWith("--") ? argv[index + 2] : "";
+  return [first, second].filter(Boolean);
+}
+
 function hasFlag(name, argv = process.argv) {
   return argv.includes(name);
 }
@@ -81,6 +96,8 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   const restoreLatestDir = restoreLatest ? (getArgValue("--restore-latest", argv) || "backups") : "";
   const safetyCheck = hasFlag("--safety-check", argv);
   const safetyCheckDir = safetyCheck ? (getArgValue("--safety-check", argv) || "backups") : "";
+  const compareBackups = hasFlag("--compare-backups", argv) || argv.some((arg) => arg.startsWith("--compare-backups="));
+  const compareBackupFiles = compareBackups ? getArgPair("--compare-backups", argv) : [];
   const maxBackupAgeHoursRaw = getArgValue("--maxBackupAgeHours", argv);
   const maxBackupAgeHours = maxBackupAgeHoursRaw ? Number.parseInt(maxBackupAgeHoursRaw, 10) : 72;
   const minTotalDocsRaw = getArgValue("--minTotalDocs", argv);
@@ -106,6 +123,9 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   if (safetyCheck && requireCollectionsRequested && !requireCollectionsArg) {
     throw new Error("Missing required collections. Pass --requireCollections tasks,plannerEvents.");
   }
+  if (compareBackups && compareBackupFiles.length !== 2) {
+    throw new Error("Pass exactly two backup files: --compare-backups <before.json> <after.json>.");
+  }
   if (hasFlag("--verify-file", argv) && !verifyFile) {
     throw new Error("Missing backup file. Pass --verify-file <path>.");
   }
@@ -124,6 +144,9 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   if (safetyCheck && (verifyFile || restorePlanFile || listBackups || restoreLatest)) {
     throw new Error("Use only one of --safety-check, --restore-latest, --list-backups, --verify-file, or --restore-plan.");
   }
+  if (compareBackups && (verifyFile || restorePlanFile || listBackups || restoreLatest || safetyCheck)) {
+    throw new Error("Use only one of --compare-backups, --safety-check, --restore-latest, --list-backups, --verify-file, or --restore-plan.");
+  }
   if (verifyFile && preflight) {
     throw new Error("Use either --verify-file or --preflight, not both.");
   }
@@ -139,6 +162,9 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   if (safetyCheck && preflight) {
     throw new Error("Use either --safety-check or --preflight, not both.");
   }
+  if (compareBackups && preflight) {
+    throw new Error("Use either --compare-backups or --preflight, not both.");
+  }
   if ((verifyFile || restorePlanFile) && dryRun) {
     throw new Error("--verify-file and --restore-plan are already non-mutating; do not combine them with --dry-run.");
   }
@@ -151,7 +177,10 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
   if (safetyCheck && dryRun) {
     throw new Error("--safety-check is already non-mutating; do not combine it with --dry-run.");
   }
-  if (verifyFile || restorePlanFile || listBackups || restoreLatest || safetyCheck) {
+  if (compareBackups && dryRun) {
+    throw new Error("--compare-backups is already non-mutating; do not combine it with --dry-run.");
+  }
+  if (verifyFile || restorePlanFile || listBackups || restoreLatest || safetyCheck || compareBackups) {
     const expectedUserId = getArgValue("--expectUserId", argv);
     if (expectedUserId && String(expectedUserId).includes("/")) {
       throw new Error("Expected user id cannot contain '/'.");
@@ -165,6 +194,7 @@ function parseBackupOptions(argv = process.argv, env = process.env) {
       listBackupsDir,
       restoreLatestDir,
       safetyCheckDir,
+      compareBackupFiles,
       maxBackupAgeHours,
       minTotalDocs,
       requiredCollections: requireCollectionsArg ? parseCollections(requireCollectionsArg) : [],
@@ -245,6 +275,7 @@ function getHelpText() {
     "  --restore-latest [backups-dir] [--expectUserId <uid>]",
     "  --safety-check [backups-dir] [--expectUserId <uid>] [--maxBackupAgeHours 72]",
     "  --safety-check [backups-dir] [--minTotalDocs 100] [--requireCollections tasks,plannerEvents]",
+    "  --compare-backups before.json after.json [--expectUserId <uid>]",
     "",
     "This script is read-only. It does not write to Firestore.",
   ].join("\n");
@@ -302,6 +333,15 @@ function buildBackupSafetyMetadata(mode) {
         restorePlanOnly: true,
       };
     case "safety-check":
+      return {
+        mode,
+        firestoreRead: false,
+        firestoreWrite: false,
+        localFileRead: true,
+        localFileWrite: false,
+        verifiedReadback: true,
+      };
+    case "compare-backups":
       return {
         mode,
         firestoreRead: false,
@@ -622,6 +662,152 @@ async function verifyBackupFile(filePath, { expectedUserId = "", cwd = process.c
   };
 }
 
+function stableJsonStringify(value) {
+  if (value === null || value === undefined) return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => stableJsonStringify(item)).join(",")}]`;
+  if (typeof value === "object") {
+    const entries = Object.entries(value)
+      .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+      .map(([key, nestedValue]) => `${JSON.stringify(key)}:${stableJsonStringify(nestedValue)}`);
+    return `{${entries.join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function hashBackupDocumentData(data) {
+  return createHash("sha256").update(stableJsonStringify(data || {})).digest("hex");
+}
+
+function buildBackupDocumentIndex(payload) {
+  const index = new Map();
+  for (const [collectionName, docs] of Object.entries(payload.collections || {})) {
+    for (const doc of docs || []) {
+      const key = `${collectionName}/${doc.id}`;
+      index.set(key, {
+        key,
+        collectionName,
+        id: doc.id,
+        path: doc.path,
+        dataHash: hashBackupDocumentData(doc.data || {}),
+      });
+    }
+  }
+  return index;
+}
+
+function summarizeBackupForComparison(file, summary) {
+  return {
+    outputPath: file.outputPath,
+    exportedAt: summary.exportedAt,
+    userId: summary.userId,
+    totalDocs: summary.totalDocs,
+    fileSha256: file.fileSha256,
+    collections: summary.collections,
+  };
+}
+
+function buildChangePreview(paths, limit = 20) {
+  const safePaths = paths.slice().sort();
+  return {
+    count: safePaths.length,
+    shown: safePaths.slice(0, limit),
+    truncated: safePaths.length > limit,
+  };
+}
+
+async function buildBackupComparison(
+  beforeFile,
+  afterFile,
+  { expectedUserId = "", cwd = process.cwd(), previewLimit = 20 } = {},
+) {
+  const before = await readVerifiedBackupPayload(beforeFile, { expectedUserId, cwd });
+  const after = await readVerifiedBackupPayload(afterFile, { expectedUserId, cwd });
+  if (before.summary.userId !== after.summary.userId) {
+    throw new Error(`Backup userId mismatch: ${before.summary.userId} vs ${after.summary.userId}.`);
+  }
+
+  const beforeIndex = buildBackupDocumentIndex(before.payload);
+  const afterIndex = buildBackupDocumentIndex(after.payload);
+  const beforeKeys = new Set(beforeIndex.keys());
+  const afterKeys = new Set(afterIndex.keys());
+  const allCollections = new Set([
+    ...Object.keys(before.summary.collections || {}),
+    ...Object.keys(after.summary.collections || {}),
+  ]);
+
+  const added = [];
+  const removed = [];
+  const changed = [];
+  let unchanged = 0;
+
+  for (const [key, afterDoc] of afterIndex.entries()) {
+    const beforeDoc = beforeIndex.get(key);
+    if (!beforeDoc) {
+      added.push(afterDoc.path);
+    } else if (beforeDoc.dataHash !== afterDoc.dataHash) {
+      changed.push(afterDoc.path);
+    } else {
+      unchanged += 1;
+    }
+  }
+  for (const [key, beforeDoc] of beforeIndex.entries()) {
+    if (!afterKeys.has(key)) {
+      removed.push(beforeDoc.path);
+    }
+  }
+
+  const collections = {};
+  for (const collectionName of Array.from(allCollections).sort()) {
+    const beforeCollectionDocs = Array.from(beforeIndex.values())
+      .filter((doc) => doc.collectionName === collectionName);
+    const afterCollectionDocs = Array.from(afterIndex.values())
+      .filter((doc) => doc.collectionName === collectionName);
+    const afterCollectionKeys = new Set(afterCollectionDocs.map((doc) => doc.key));
+    const beforeCollectionKeys = new Set(beforeCollectionDocs.map((doc) => doc.key));
+    collections[collectionName] = {
+      before: beforeCollectionDocs.length,
+      after: afterCollectionDocs.length,
+      added: afterCollectionDocs.filter((doc) => !beforeCollectionKeys.has(doc.key)).length,
+      removed: beforeCollectionDocs.filter((doc) => !afterCollectionKeys.has(doc.key)).length,
+      changed: afterCollectionDocs.filter((doc) => {
+        const beforeDoc = beforeIndex.get(doc.key);
+        return Boolean(beforeDoc && beforeDoc.dataHash !== doc.dataHash);
+      }).length,
+    };
+  }
+
+  const beforeRootHash = hashBackupDocumentData(before.payload.root || {});
+  const afterRootHash = hashBackupDocumentData(after.payload.root || {});
+
+  return {
+    ok: true,
+    compareBackups: true,
+    before: summarizeBackupForComparison(before, before.summary),
+    after: summarizeBackupForComparison(after, after.summary),
+    sameUserId: true,
+    rootChanged: beforeRootHash !== afterRootHash,
+    totals: {
+      beforeDocs: before.summary.totalDocs,
+      afterDocs: after.summary.totalDocs,
+      totalDocsDelta: after.summary.totalDocs - before.summary.totalDocs,
+      added: added.length,
+      removed: removed.length,
+      changed: changed.length,
+      unchanged,
+    },
+    collections,
+    changePreview: {
+      added: buildChangePreview(added, previewLimit),
+      removed: buildChangePreview(removed, previewLimit),
+      changed: buildChangePreview(changed, previewLimit),
+    },
+    safety: buildBackupSafetyMetadata("compare-backups"),
+    nextAction: added.length || removed.length || changed.length || beforeRootHash !== afterRootHash
+      ? "Review the counts and path-only preview before deciding whether the backup delta is expected."
+      : "Backups have the same root hash and document hashes.",
+  };
+}
+
 async function buildRestorePlan(filePath, { expectedUserId = "", cwd = process.cwd() } = {}) {
   const { payload, summary, ...file } = await readVerifiedBackupPayload(filePath, { expectedUserId, cwd });
   const collections = {};
@@ -911,6 +1097,14 @@ async function main() {
     return;
   }
 
+  if (options.compareBackupFiles?.length === 2) {
+    const comparison = await buildBackupComparison(options.compareBackupFiles[0], options.compareBackupFiles[1], {
+      expectedUserId: options.expectedUserId,
+    });
+    console.log(JSON.stringify(comparison, null, 2));
+    return;
+  }
+
   if (options.restorePlanFile) {
     const restorePlan = await buildRestorePlan(options.restorePlanFile, {
       expectedUserId: options.expectedUserId,
@@ -1009,6 +1203,7 @@ module.exports = {
   buildBackupSafetyMetadata,
   buildBackupPreflightReport,
   buildBackupSafetyCheck,
+  buildBackupComparison,
   buildFirebaseCredentialsPreflight,
   buildLatestRestorePlan,
   buildRestorePlan,

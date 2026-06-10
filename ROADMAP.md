@@ -82,6 +82,7 @@ The product should do three things well:
   - 2026-06-09: backup CLI now supports `--restore-latest [dir]`, which selects the latest valid local backup and builds the same non-mutating restore review artifact without requiring a pasted filename.
   - 2026-06-09: backup CLI now supports `--safety-check [dir]`, which validates local backup inventory freshness and reports `readyForRiskyQa` before risky QA/migration work without reading or writing Firestore.
   - 2026-06-10: `--safety-check` can also enforce `--minTotalDocs` and `--requireCollections`, so a fresh but incomplete backup blocks risky QA instead of passing on age alone.
+  - 2026-06-10: backup CLI now supports `--compare-backups before.json after.json`, a local-only diff that validates both files and reports root/document hash deltas, counts, and path previews without printing document data.
 - [x] Add operation logging for destructive task changes.
   - 2026-06-06: destructive/status-transition events include structured status transition payloads; bulk/delete/snapshot paths already write planner events.
   - 2026-06-07: subtask toggle events now use the canonical planner event type constant with regression coverage, keeping subtask activity traces consistent for MCP/Telegram/web-origin mutations.
