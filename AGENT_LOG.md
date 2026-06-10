@@ -2895,3 +2895,40 @@ Entry template:
   - Checker execution was local-only against an ignored backup file.
   - The attempted fresh backup would have been read-only, but it did not start because credentials were unavailable.
   - No Firestore write, MCP mutation, Telegram action, OAuth action, Google API mutation, browser-authenticated QA, or production deploy was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Added deadline year validation across planner write paths.
+- Changed:
+  - `api/_lib/planner-deadline.js` — added the shared server-side deadline validator for `YYYY-MM-DD` dates with supported years `2020..2100`.
+  - `api/_lib/planner-contract.js` — rejects invalid `deadlineAt` on `add_task`, `schedule_task`, and `set_deadline`, including `0020-02-07`.
+  - `api/_lib/planner-command-service.js` and `api/_lib/planner-store.js` — reject invalid explicit command deadlines before task creation/update and defensively avoid storing invalid deadlines.
+  - `api/_lib/capture-extractor.js` and `api/_lib/telegram-intent.js` — heuristic extraction now ignores invalid deadline years instead of writing them; capture normalization exposes an `ignored_invalid_deadlineAt` warning for testable evidence.
+  - `api/_lib/planner-action-executor.js` — validates schedule deadlines before passing them to Google Calendar and normalizes merge defense.
+  - `services/mcp-server/src/index.js` — rejects invalid `deadline_at` in standalone MCP `add_task` and `set_deadline`.
+  - `tests/planner-actions-contract.test.mjs`, `tests/planner-command-service-subtask.test.mjs`, `tests/captures-origin-contract.test.mjs`, and `tests/mcp-server-source.test.mjs` — added regression coverage for `0020-02-07` and the MCP year-range guard.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded the deadline-write guard.
+- Verified:
+  - `node --check api/_lib/planner-deadline.js`
+  - `node --check api/_lib/planner-store.js`
+  - `node --check api/_lib/planner-contract.js`
+  - `node --check api/_lib/planner-command-service.js`
+  - `node --check api/_lib/capture-extractor.js`
+  - `node --check api/_lib/telegram-intent.js`
+  - `node --check api/_lib/planner-action-executor.js`
+  - `node --check services/mcp-server/src/index.js`
+  - `node tests/planner-actions-contract.test.mjs`
+  - `node tests/planner-command-service-subtask.test.mjs`
+  - `node tests/captures-origin-contract.test.mjs`
+  - `node tests/mcp-server-source.test.mjs`
+  - `node tests/planner-telegram-readonly-actions.test.mjs`
+  - `node tests/telegram-intent-fallback.test.mjs`
+  - `node tests/planner-command-client.test.mjs`
+  - `node tests/planner-command-event-specs.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live/data boundary:
+  - No Firestore data was read or written.
+  - No MCP tool call, Telegram action, OAuth action, Google API mutation, browser-authenticated QA, or live user-data mutation was performed in this slice.
+  - This is production-behavior code and should be deployed to both Vercel API/web and the standalone MCP server mirror.

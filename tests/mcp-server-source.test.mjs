@@ -29,6 +29,9 @@ assert.match(captureClientSource, /idempotency_key is required when dry_run=fals
 assert.match(captureClientSource, /dryRun: request\.body\.dryRun/);
 assert.match(captureClientSource, /includeLiveTasks: request\.body\.includeLiveTasks/);
 assert.match(captureClientSource, /activeTasksCount: request\.activeTasksCount/);
+assert.match(source, /function validateDeadlineValue/);
+assert.match(source, /year < 2020 \|\| year > 2100/);
+assert.match(source, /year must be between 2020 and 2100/);
 const knownLiveUserId = ["U2geUdbv", "WyVRNLWn", "SZBnftOMSU22"].join("");
 assert.equal(source.includes(knownLiveUserId), false);
 

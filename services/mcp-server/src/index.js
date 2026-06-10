@@ -28,6 +28,7 @@ const MCP_SERVER_VERSION = "4.1.0";
 const DEFAULT_TASK_HEAT = 35;
 const TOUCH_HEAT_BONUS = 12;
 const SUBTASK_COMPLETION_CAP = 18;
+const DEADLINE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const config = {
   port: Number.parseInt(process.env.PORT ?? "3000", 10),
@@ -72,6 +73,31 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 const streamableSessions = new Map();
+
+function validateDeadlineValue(value, fieldName = "deadline_at") {
+  const deadlineValue = typeof value === "string" ? value.trim() : "";
+  if (!deadlineValue) return { ok: true, value: "" };
+
+  if (!DEADLINE_RE.test(deadlineValue)) {
+    return { ok: false, value: deadlineValue, error: `${fieldName} must be empty or in YYYY-MM-DD format` };
+  }
+
+  const [year, month, day] = deadlineValue.split("-").map(Number);
+  if (year < 2020 || year > 2100) {
+    return { ok: false, value: deadlineValue, error: `${fieldName} year must be between 2020 and 2100` };
+  }
+
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return { ok: false, value: deadlineValue, error: `${fieldName} must be a real calendar date` };
+  }
+
+  return { ok: true, value: deadlineValue };
+}
 
 function ensureParentDir(filePath) {
   mkdirSync(dirname(filePath), { recursive: true });
@@ -400,12 +426,16 @@ function createServer() {
     async ({ text, subtasks, urgency, resistance, is_today, deadline_at }) => {
       const cleanText = text.trim();
       const cleanSubtasks = Array.isArray(subtasks) ? subtasks.map(item => item.trim()).filter(Boolean) : [];
+      const deadlineValidation = validateDeadlineValue(deadline_at);
+      if (!deadlineValidation.ok) {
+        return asErrorResult(deadlineValidation.error);
+      }
       const task = normalizeTask({
         ...createTask(cleanText, cleanSubtasks),
         urgency,
         resistance,
         isToday: is_today,
-        deadlineAt: typeof deadline_at === "string" ? deadline_at.trim() : "",
+        deadlineAt: deadlineValidation.value,
       });
 
       const state = await mutateUserState(current => ({
@@ -984,11 +1014,12 @@ function createServer() {
       },
     },
     async ({ task_id, deadline_at }) => {
-      const deadlineValue = typeof deadline_at === "string" ? deadline_at.trim() : "";
+      const deadlineValidation = validateDeadlineValue(deadline_at);
 
-      if (deadlineValue && !/^\d{4}-\d{2}-\d{2}$/.test(deadlineValue)) {
-        return asErrorResult("deadline_at must be in YYYY-MM-DD format");
+      if (!deadlineValidation.ok) {
+        return asErrorResult(deadlineValidation.error);
       }
+      const deadlineValue = deadlineValidation.value;
 
       const state = await mutateUserState(current => {
         const taskIndex = current.tasks.findIndex(task => task.id === task_id);

@@ -3,6 +3,7 @@ const {
   ALLOWED_PLANNER_ACTION_SET,
   PLANNER_ACTIONS,
 } = require("./planner-action-types");
+const { validatePlannerDeadline } = require("./planner-deadline");
 const ACTIONS_REQUIRING_TASK_REF = new Set([
   PLANNER_ACTIONS.COMPLETE_TASK,
   PLANNER_ACTIONS.KILL_TASK,
@@ -37,7 +38,6 @@ const NOT_YOUR_MOVE_REASON_VALUES = new Set([
   "waiting_for_money",
   "other",
 ]);
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function isPlainObject(value) {
@@ -168,8 +168,13 @@ function buildRoute(action, payload, source, errors) {
 
   if (action === PLANNER_ACTIONS.ADD_TASK) {
     const taskText = pickFirstString(payload.taskText, payload.text, payload.rawText);
+    const deadlineAt = normalizeString(payload.deadlineAt);
     if (!taskText) {
       pushFieldError(errors, "payload.taskText", "taskText is required for add_task");
+    }
+    const deadlineValidation = validatePlannerDeadline(deadlineAt, { fieldName: "payload.deadlineAt" });
+    if (!deadlineValidation.ok) {
+      pushFieldError(errors, "payload.deadlineAt", deadlineValidation.error);
     }
 
     return {
@@ -181,7 +186,7 @@ function buildRoute(action, payload, source, errors) {
       resistance: normalizeEnum(payload.resistance, RESISTANCE_VALUES, "medium"),
       isToday: normalizeBoolean(payload.isToday),
       isVital: normalizeBoolean(payload.isVital),
-      deadlineAt: normalizeString(payload.deadlineAt),
+      deadlineAt,
       lifeArea: normalizeString(payload.lifeArea),
       commitmentIds: normalizeStringArray(payload.commitmentIds, 10),
       subtasks: normalizeStringArray(payload.subtasks, 20),
@@ -427,8 +432,14 @@ function buildRoute(action, payload, source, errors) {
     }
     if (!deadlineAt) {
       pushFieldError(errors, "payload.deadlineAt", "deadlineAt is required for schedule_task");
-    } else if (!ISO_DATE_RE.test(deadlineAt)) {
-      pushFieldError(errors, "payload.deadlineAt", "deadlineAt must be in YYYY-MM-DD format");
+    } else {
+      const deadlineValidation = validatePlannerDeadline(deadlineAt, {
+        allowEmpty: false,
+        fieldName: "payload.deadlineAt",
+      });
+      if (!deadlineValidation.ok) {
+        pushFieldError(errors, "payload.deadlineAt", deadlineValidation.error);
+      }
     }
     if (!startTime) {
       pushFieldError(errors, "payload.startTime", "startTime is required for schedule_task");
@@ -499,8 +510,9 @@ function buildRoute(action, payload, source, errors) {
     if (!taskRef) {
       pushFieldError(errors, "payload.taskRef", "taskRef is required for set_deadline");
     }
-    if (deadlineAt && !ISO_DATE_RE.test(deadlineAt)) {
-      pushFieldError(errors, "payload.deadlineAt", "deadlineAt must be empty or in YYYY-MM-DD format");
+    const deadlineValidation = validatePlannerDeadline(deadlineAt, { fieldName: "payload.deadlineAt" });
+    if (!deadlineValidation.ok) {
+      pushFieldError(errors, "payload.deadlineAt", deadlineValidation.error);
     }
     return {
       type: PLANNER_ACTIONS.SET_DEADLINE,

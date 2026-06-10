@@ -52,6 +52,14 @@ assertValid("valid add_task", {
   },
 });
 
+assertInvalid("invalid add_task deadlineAt year before 2020", {
+  action: "add_task",
+  payload: {
+    taskText: "Buy groceries",
+    deadlineAt: "0020-02-07",
+  },
+});
+
 assertInvalid("invalid reopen_task without taskRef", {
   action: "reopen_task",
   payload: {},
@@ -119,6 +127,23 @@ assertValid("valid schedule_task with date/time", {
     taskRef: "Plan sprint review",
     deadlineAt: "2026-04-16",
     startTime: "14:30",
+  },
+});
+
+assertInvalid("invalid schedule_task deadlineAt year before 2020", {
+  action: "schedule_task",
+  payload: {
+    taskRef: "Plan sprint review",
+    deadlineAt: "0020-02-07",
+    startTime: "14:30",
+  },
+});
+
+assertInvalid("invalid set_deadline deadlineAt year before 2020", {
+  action: "set_deadline",
+  payload: {
+    taskRef: "Plan sprint review",
+    deadlineAt: "0020-02-07",
   },
 });
 

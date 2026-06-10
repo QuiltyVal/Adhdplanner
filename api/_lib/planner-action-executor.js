@@ -9,6 +9,10 @@ const {
   sortTasksByPriority,
 } = require("./planner-store");
 const { PLANNER_ACTIONS } = require("./planner-action-types");
+const {
+  normalizePlannerDeadlineForStorage,
+  validatePlannerDeadline,
+} = require("./planner-deadline");
 const { executePlannerActionCommand } = require("./planner-command-runner");
 const {
   RESCUE_ROUTE_TYPES,
@@ -349,6 +353,7 @@ function buildSubtask(text, seed) {
 }
 
 function mergeIncomingIntoTask(task, incoming) {
+  const incomingDeadlineAt = normalizePlannerDeadlineForStorage(incoming.deadlineAt || "");
   const existingSubtasks = Array.isArray(task.subtasks) ? task.subtasks : [];
   const existingSubtaskTexts = new Set(existingSubtasks.map((subtask) => normalizeTaskText(subtask.text)));
 
@@ -370,7 +375,7 @@ function mergeIncomingIntoTask(task, incoming) {
     resistance: pickMergedResistance(task.resistance || "medium", incoming.resistance || task.resistance || "medium"),
     isToday: task.isToday || Boolean(incoming.isToday),
     isVital: task.isVital || Boolean(incoming.isVital),
-    deadlineAt: mergeDeadline(task.deadlineAt || "", incoming.deadlineAt || ""),
+    deadlineAt: mergeDeadline(task.deadlineAt || "", incomingDeadlineAt),
     lifeArea: incoming.lifeArea || task.lifeArea || "",
     commitmentIds: mergeCommitmentIds(task.commitmentIds || [], incoming.commitmentIds || []),
     subtasks: [...existingSubtasks, ...appendedSubtasks],
@@ -889,6 +894,11 @@ async function executePlannerAction({
       await adapter.sendText("For calendar scheduling I need a date and time. Example: schedule the thesis task tomorrow at 14:00.");
       return;
     }
+    const deadlineValidation = validatePlannerDeadline(route.deadlineAt, { allowEmpty: false });
+    if (!deadlineValidation.ok) {
+      await adapter.sendText(deadlineValidation.error);
+      return;
+    }
 
     const referencedTask = await resolveTaskReferenceIncludingNonActive(
       userId,
@@ -900,14 +910,14 @@ async function executePlannerAction({
 
     const createdEvent = await createCalendarEvent(userId, {
       title: eventTitle,
-      date: route.deadlineAt,
+      date: deadlineValidation.deadlineAt,
       startTime: route.startTime,
       durationMinutes: route.durationMinutes || 60,
       description: "Created from ADHD Planner Telegram bot",
     });
 
     await adapter.sendText(
-      `📅 Added to calendar: <b>${escapeHtml(createdEvent.summary || eventTitle)}</b>\n${escapeHtml(route.deadlineAt)} ${escapeHtml(route.startTime)}`,
+      `📅 Added to calendar: <b>${escapeHtml(createdEvent.summary || eventTitle)}</b>\n${escapeHtml(deadlineValidation.deadlineAt)} ${escapeHtml(route.startTime)}`,
     );
     return;
   }

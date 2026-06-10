@@ -1,5 +1,6 @@
 const { PLANNER_ACTIONS } = require("./planner-action-types");
 const { openRouterChatCompletion } = require("./openrouter");
+const { validatePlannerDeadline } = require("./planner-deadline");
 
 const DEFAULT_TELEGRAM_INTENT_MODEL = "google/gemma-3-27b-it";
 const DEFAULT_TELEGRAM_INTENT_TIMEOUT_MS = 12000;
@@ -41,6 +42,11 @@ function normalizeForIntent(text = "") {
     .replace(/[’‘`´]/g, "'")
     .replace(/[«»]/g, "\"")
     .replace(/\s+/g, " ");
+}
+
+function normalizeIntentDeadline(value) {
+  const validation = validatePlannerDeadline(value || "");
+  return validation.ok ? validation.deadlineAt || null : null;
 }
 
 function extractQuotedSegments(text = "") {
@@ -432,10 +438,7 @@ function normalizeIntent(payload = {}) {
           .filter(Boolean)
           .slice(0, 7)
       : [],
-    deadline_at:
-      typeof payload.deadline_at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(payload.deadline_at)
-        ? payload.deadline_at
-        : null,
+    deadline_at: normalizeIntentDeadline(payload.deadline_at),
     start_time:
       typeof payload.start_time === "string" && /^\d{2}:\d{2}$/.test(payload.start_time)
         ? payload.start_time

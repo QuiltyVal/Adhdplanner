@@ -1,5 +1,9 @@
 const { randomUUID } = require("node:crypto");
 const { getDb, admin } = require("./firebase-admin");
+const {
+  normalizePlannerDeadlineForStorage,
+  validatePlannerDeadline,
+} = require("./planner-deadline");
 const { writeEventDirect } = require("./planner-event-contract");
 const { shouldExcludeFromMissionPressure } = require("./planner-not-your-move-rules");
 
@@ -174,8 +178,9 @@ function getBerlinIsoDate(now = new Date()) {
 }
 
 function parseDeadline(deadlineAt) {
-  if (!deadlineAt || !/^\d{4}-\d{2}-\d{2}$/.test(deadlineAt)) return null;
-  const [year, month, day] = deadlineAt.split("-").map(Number);
+  const validation = validatePlannerDeadline(deadlineAt, { allowEmpty: true });
+  if (!validation.ok || !validation.deadlineAt) return null;
+  const [year, month, day] = validation.deadlineAt.split("-").map(Number);
   const deadline = new Date(year, month - 1, day);
   return Number.isNaN(deadline.getTime()) ? null : deadline;
 }
@@ -418,7 +423,7 @@ function createTask(text, options = {}) {
     resistance: options.resistance || "medium",
     isToday: Boolean(options.isToday),
     isVital: Boolean(options.isVital),
-    deadlineAt: options.deadlineAt || "",
+    deadlineAt: normalizePlannerDeadlineForStorage(options.deadlineAt || ""),
     lifeArea: options.lifeArea || "",
     commitmentIds: normalizeTaskCommitmentIds(options.commitmentIds),
     angelPinned: Boolean(options.angelPinned),

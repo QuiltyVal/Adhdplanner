@@ -1,6 +1,11 @@
 const { getDb, admin } = require("./firebase-admin");
 const { getCommitmentsByIds, upsertCommitmentsFromExtraction } = require("./commitment-store");
 const { getPlannerData } = require("./planner-store");
+const {
+  buildInvalidPlannerDeadlineWarning,
+  normalizePlannerDeadlineForStorage,
+  validatePlannerDeadline,
+} = require("./planner-deadline");
 const { executePlannerActionCommand } = require("./planner-command-runner");
 const { buildApplyExtractionHintsCommand } = require("./planner-command-builders");
 const { getTaskTextSimilarity } = require("./angel-lab-core");
@@ -158,13 +163,17 @@ function resolveCandidateCommitmentIds(candidate = {}, commitments = []) {
   return normalizeCommitmentIds((Array.isArray(commitments) ? commitments : []).map((commitment) => commitment.id));
 }
 
-function normalizeCandidatePatch(candidate = {}, commitments = []) {
+function normalizeCandidatePatch(candidate = {}, commitments = [], warnings = []) {
   const urgency = candidate.urgency === "high" ? "high" : "";
   const resistance = candidate.resistance === "high" ? "high" : "";
   const isVital = Boolean(candidate.isVital);
-  const deadlineAt = /^\d{4}-\d{2}-\d{2}$/.test(String(candidate.deadlineAt || ""))
-    ? String(candidate.deadlineAt)
-    : "";
+  const rawDeadlineAt = String(candidate.deadlineAt || "").trim();
+  const deadlineValidation = validatePlannerDeadline(rawDeadlineAt);
+  const deadlineAt = deadlineValidation.ok ? deadlineValidation.deadlineAt : "";
+  if (rawDeadlineAt && !deadlineValidation.ok) {
+    const warning = buildInvalidPlannerDeadlineWarning(rawDeadlineAt);
+    if (warning) warnings.push(warning);
+  }
   const lifeArea = String(candidate.lifeArea || "").trim();
   const commitmentIds = resolveCandidateCommitmentIds(candidate, commitments);
 
@@ -237,6 +246,7 @@ async function applyExtractionTaskHints(userId, extraction = {}, commitments = [
 
   const updatedTaskIds = new Set();
   const updatedTaskMeta = new Map();
+  const warnings = [];
   const plannerData = await getPlannerData(userId);
   const activeTasks = Array.isArray(plannerData?.tasks)
     ? plannerData.tasks.filter((task) => task?.status === "active")
@@ -255,7 +265,14 @@ async function applyExtractionTaskHints(userId, extraction = {}, commitments = [
     const candidateText = String(candidate?.text || "").trim();
     if (!candidateText) continue;
 
-    const patch = normalizeCandidatePatch(candidate, commitments);
+    const candidateWarnings = [];
+    const patch = normalizeCandidatePatch(candidate, commitments, candidateWarnings);
+    for (const warning of candidateWarnings) {
+      warnings.push({
+        ...warning,
+        candidateText,
+      });
+    }
     if (!patch) continue;
 
     const ranked = [...taskById.values()]
@@ -298,6 +315,13 @@ async function applyExtractionTaskHints(userId, extraction = {}, commitments = [
       text: String(updatedTask.text || targetTask.text || candidateText || "").trim(),
       changedFields: new Set(),
     };
+    for (const warning of (Array.isArray(commandResult.warnings) ? commandResult.warnings : [])) {
+      warnings.push({
+        ...warning,
+        taskId: best.id,
+        candidateText,
+      });
+    }
     for (const fieldName of (Array.isArray(commandResult.changedFields) ? commandResult.changedFields : [])) {
       if (fieldName) existingMeta.changedFields.add(fieldName);
     }
@@ -308,6 +332,7 @@ async function applyExtractionTaskHints(userId, extraction = {}, commitments = [
     updatedTaskIds: [...updatedTaskIds],
     updatedCount: updatedTaskIds.size,
     candidateCount: candidates.length,
+    warnings,
     updatedTasks: [...updatedTaskMeta.values()].map((item) => ({
       id: item.id,
       text: item.text,
@@ -464,7 +489,7 @@ function buildCandidateTasks(capture = {}, lifeAreaMatches = []) {
       resistance: meta.resistance || inferResistance(rawText),
       isVital: Boolean(meta.isVital),
       isToday: Boolean(meta.isToday),
-      deadlineAt: meta.deadlineAt || "",
+      deadlineAt: normalizePlannerDeadlineForStorage(meta.deadlineAt || ""),
       lifeArea: primaryArea?.kind || "",
       commitmentTempKeys: lifeAreaMatches.map((match) => match.tempKey),
       confidence: 0.92,
@@ -595,4 +620,7 @@ module.exports = {
   processCapture,
   failCaptureProcessing,
   applyExtractionTaskHints,
+  _test: {
+    normalizeCandidatePatch,
+  },
 };

@@ -125,6 +125,7 @@ Notes:
 - As of 2026-06-09, `npm run backup:planner -- --safety-check [dir] --expectUserId <uid>` validates local backup inventory freshness, reports `readyForRiskyQa`, and keeps `firestoreRead: false` / `firestoreWrite: false`.
 - As of 2026-06-10, `npm run backup:planner -- --compare-backups before.json after.json --expectUserId <uid>` validates two local backup files and reports root/document hash deltas, counts, and path previews without printing document data. It keeps `firestoreRead: false` and `firestoreWrite: false`.
 - As of 2026-06-10, `npm run check:planner-integrity -- --backup <backup.json>` runs a local-only semantic task integrity check against a generated backup. It reports findings for dead tasks without `deadAt`, unsupported `deadlineAt` values, stale not-your-move blocks, Angel pins on non-active tasks, overdue vital/Angel tasks, and QA/smoke task markers outside completed status. It keeps `networkRead: false`, `firestoreRead: false`, and `firestoreWrite: false`.
+- As of 2026-06-10, write paths validate planner deadlines against `YYYY-MM-DD` plus supported years `2020..2100`. `0020-02-07` is rejected in API/client commands, command-service task creation and deadline updates, and the standalone MCP `set_deadline`/`add_task` tools. Capture and Telegram heuristic extraction normalize invalid dates away instead of storing them.
 
 Done when:
 - a new agent can implement on top of this plan without guessing where state is allowed to live

@@ -21,6 +21,23 @@ const {
   shouldReadLiveActiveTasks,
   validateInput,
 } = capturesHandler._test;
+const captureExtractor = require("../api/_lib/capture-extractor.js");
+
+assert.equal(typeof captureExtractor._test?.normalizeCandidatePatch, "function");
+
+{
+  const warnings = [];
+  const patch = captureExtractor._test.normalizeCandidatePatch({
+    text: "Buy groceries",
+    deadlineAt: "0020-02-07",
+  }, [], warnings);
+
+  assert.equal(patch, null);
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].type, "ignored_invalid_deadlineAt");
+  assert.equal(warnings[0].value, "0020-02-07");
+  assert.match(warnings[0].message, /2020.*2100/);
+}
 
 assert.equal(normalizeCaptureSource("Claude MCP / Notes"), "claude_mcp___notes");
 assert.deepEqual(buildCaptureOrigin("mcp"), {

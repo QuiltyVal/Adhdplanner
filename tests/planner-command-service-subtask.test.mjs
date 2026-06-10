@@ -232,4 +232,34 @@ assert.equal(secondResult.eventId, null);
 assert.equal(fakeDb.get("Users/user-1/tasks/task-1").subtasks.length, 1);
 assert.equal(fakeDb.collectionDocs("Users/user-1/plannerEvents").length, 1);
 
+await assert.rejects(
+  () => runPlannerCommand({
+    userId: "user-1",
+    actor: { type: "agent", ref: "api" },
+    now: firstNow + 2,
+    command: {
+      type: PLANNER_COMMAND_TYPES.CREATE_OR_MERGE_TASK,
+      taskText: "Bad deadline task",
+      deadlineAt: "0020-02-07",
+      source: "contract_test",
+    },
+  }),
+  /deadlineAt.*2020.*2100/,
+);
+
+await assert.rejects(
+  () => runPlannerCommand({
+    userId: "user-1",
+    actor: { type: "agent", ref: "api" },
+    now: firstNow + 3,
+    command: {
+      type: PLANNER_COMMAND_TYPES.TASK_SET_DEADLINE,
+      taskId: "task-1",
+      deadlineAt: "0020-02-07",
+      source: "contract_test",
+    },
+  }),
+  /deadlineAt.*2020.*2100/,
+);
+
 console.log("planner command service subtask tests passed");

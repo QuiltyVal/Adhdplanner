@@ -11,6 +11,12 @@ const {
   getPlannerData,
 } = require("./planner-store");
 const {
+  assertValidPlannerDeadline,
+  buildInvalidPlannerDeadlineWarning,
+  normalizePlannerDeadlineForStorage,
+  validatePlannerDeadline,
+} = require("./planner-deadline");
+const {
   buildBulkCompletedToCemeteryReportSpec,
   buildProtectedTasksRepairedReportSpec,
   buildSingleTaskCommandReportSpec,
@@ -362,6 +368,7 @@ function mergeSubtasks(existingSubtasks = [], incomingSubtasks = [], taskId = "t
 }
 
 function mergeIncomingIntoTask(existingTask = {}, incoming = {}, now = Date.now()) {
+  const incomingDeadlineAt = normalizePlannerDeadlineForStorage(incoming.deadlineAt || "");
   const nextUrgency = getUrgencyRank(incoming.urgency) > getUrgencyRank(existingTask.urgency)
     ? incoming.urgency
     : existingTask.urgency;
@@ -379,7 +386,7 @@ function mergeIncomingIntoTask(existingTask = {}, incoming = {}, now = Date.now(
     resistance: nextResistance || existingTask.resistance || "medium",
     isToday: Boolean(existingTask.isToday || incoming.isToday),
     isVital: Boolean(existingTask.isVital || incoming.isVital),
-    deadlineAt: mergeDeadline(existingTask.deadlineAt || "", incoming.deadlineAt || ""),
+    deadlineAt: mergeDeadline(existingTask.deadlineAt || "", incomingDeadlineAt),
     lifeArea: existingTask.lifeArea || incoming.lifeArea || "",
     commitmentIds: nextCommitmentIds,
     subtasks: mergeSubtasks(existingTask.subtasks, incoming.subtasks, existingTask.id),
@@ -392,6 +399,7 @@ function mergeIncomingIntoTask(existingTask = {}, incoming = {}, now = Date.now(
 function buildExtractionHintsPatch(existingTask = {}, command = {}, now = Date.now()) {
   const next = { ...existingTask };
   const changedFields = [];
+  const warnings = [];
 
   const incomingUrgency = String(command.urgency || "").trim().toLowerCase();
   if (URGENCY_VALUES.has(incomingUrgency) && getUrgencyRank(incomingUrgency) > getUrgencyRank(existingTask.urgency)) {
@@ -411,11 +419,17 @@ function buildExtractionHintsPatch(existingTask = {}, command = {}, now = Date.n
   }
 
   const deadlineAt = String(command.deadlineAt || "").trim();
-  if (deadlineAt && /^\d{4}-\d{2}-\d{2}$/.test(deadlineAt)) {
-    const mergedDeadline = mergeDeadline(existingTask.deadlineAt || "", deadlineAt);
-    if (mergedDeadline !== (existingTask.deadlineAt || "")) {
-      next.deadlineAt = mergedDeadline;
-      changedFields.push("deadlineAt");
+  if (deadlineAt) {
+    const deadlineValidation = validatePlannerDeadline(deadlineAt);
+    if (deadlineValidation.ok) {
+      const mergedDeadline = mergeDeadline(existingTask.deadlineAt || "", deadlineValidation.deadlineAt);
+      if (mergedDeadline !== (existingTask.deadlineAt || "")) {
+        next.deadlineAt = mergedDeadline;
+        changedFields.push("deadlineAt");
+      }
+    } else {
+      const warning = buildInvalidPlannerDeadlineWarning(deadlineAt);
+      if (warning) warnings.push(warning);
     }
   }
 
@@ -435,13 +449,16 @@ function buildExtractionHintsPatch(existingTask = {}, command = {}, now = Date.n
     changedFields.push("commitmentIds");
   }
 
-  if (changedFields.length === 0) return null;
+  if (changedFields.length === 0 && warnings.length === 0) return null;
   return {
-    task: {
-      ...next,
-      lastUpdated: now,
-    },
+    task: changedFields.length > 0
+      ? {
+          ...next,
+          lastUpdated: now,
+        }
+      : null,
     changedFields,
+    warnings,
   };
 }
 
@@ -475,12 +492,13 @@ async function createOrMergeTaskCommand({ userId, command = {}, actor = {}, now 
     (task) => task.status === "active" && normalizeCommandTaskTitle(task.text) === normalizedTitle,
   ) || null;
   const source = String(command.source || actor?.ref || "command_service");
+  const deadlineAt = assertValidPlannerDeadline(command.deadlineAt || "");
   const incoming = {
     urgency: command.urgency || "medium",
     resistance: command.resistance || "medium",
     isToday: Boolean(command.isToday),
     isVital: Boolean(command.isVital),
-    deadlineAt: command.deadlineAt || "",
+    deadlineAt,
     lifeArea: command.lifeArea || "",
     commitmentIds: command.commitmentIds || [],
     subtasks: command.subtasks || [],
@@ -525,7 +543,7 @@ async function createOrMergeTaskCommand({ userId, command = {}, actor = {}, now 
       task = createTask(taskText, {
         source,
         position: getNextStatusPosition(current.tasks, "active"),
-        deadlineAt: command.deadlineAt || "",
+        deadlineAt,
         urgency: command.urgency || "medium",
         resistance: command.resistance || "medium",
         isToday: command.isToday,
@@ -1288,10 +1306,7 @@ async function mutateSingleTaskCommand({ userId, command = {}, actor = {}, now =
         extra = { resistance };
       }
     } else if (commandType === PLANNER_COMMAND_TYPES.TASK_SET_DEADLINE) {
-      const deadlineAt = String(command.deadlineAt || "").trim();
-      if (deadlineAt && !/^\d{4}-\d{2}-\d{2}$/.test(deadlineAt)) {
-        throw new Error("deadlineAt must be empty or YYYY-MM-DD");
-      }
+      const deadlineAt = assertValidPlannerDeadline(command.deadlineAt || "");
       if (existingTask.status !== "active" || String(existingTask.deadlineAt || "") === deadlineAt) {
         outcome = "noop";
       } else {
@@ -1569,9 +1584,11 @@ async function applyExtractionHintsCommand({ userId, command = {}, actor = {}, n
     let task = existingTask;
     let outcome = "noop";
     let changedFields = [];
+    let warnings = [];
 
     if (existingTask.status === "active") {
       const patch = buildExtractionHintsPatch(existingTask, command, now);
+      warnings = Array.isArray(patch?.warnings) ? patch.warnings : [];
       if (patch?.task) {
         task = patch.task;
         changedFields = patch.changedFields;
@@ -1602,6 +1619,7 @@ async function applyExtractionHintsCommand({ userId, command = {}, actor = {}, n
       outcome,
       task,
       changedFields,
+      warnings,
       eventId: outcome === "noop" ? "" : eventId,
       reused: false,
     };
