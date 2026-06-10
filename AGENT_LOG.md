@@ -2674,3 +2674,25 @@ Entry template:
   - This read only local ignored backup JSON files.
   - No Firestore data was read or written.
   - No MCP, Telegram, OAuth, or production deploy action was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Added Decision Trace freshness proof to copied QA packets.
+- Changed:
+  - `src/App.js` — `Copy QA packet` / `Copy decision trace` now include `decisionTraceFingerprint` and `decisionTraceRows` computed from the visible Decision Trace rows.
+  - `scripts/check-qa-packet.mjs` — parsed the new decision fields and added `--expectDecisionStable` for packet pairs where refresh should preserve the visible Decision Trace.
+  - `tests/qa-packet-check.test.mjs` — covered decision fingerprint parsing, changed/stable comparisons, CLI option parsing, and `--expectDecisionStable` CLI output.
+  - `docs/mcp-live-smoke-checklist.md`, `docs/live-angel-verification-checklist.md`, `docs/angel-engagement-loop.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented when to capture and compare decision trace fingerprints.
+- Verified:
+  - `node --check src/App.js`
+  - `node --check scripts/check-qa-packet.mjs`
+  - `node --check tests/qa-packet-check.test.mjs`
+  - `node tests/qa-packet-check.test.mjs`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live/data boundary:
+  - No Firestore data was read or written.
+  - No MCP, Telegram, OAuth, or browser-authenticated QA action was performed.
+  - Production deploy is required after full repo checks because `src/App.js` changes the web QA packet output.

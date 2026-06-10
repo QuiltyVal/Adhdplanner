@@ -94,6 +94,7 @@ Expected:
 - A local packet diff passes:
   - `npm run check:qa-packet -- --before qa-before.txt --after qa-after-mcp-write.txt --expectTaskTitle "QA MCP smoke" --expectSubtaskPreview "QA MCP subtask write"`
   - after hard refresh: `npm run check:qa-packet -- --before qa-after-mcp-write.txt --after qa-after-refresh.txt --expectStable`
+  - if no Engine/Telegram action ran between the two packet captures, add `--expectDecisionStable` to prove the visible decision trace did not change across refresh.
 
 Cleanup:
 
@@ -142,6 +143,7 @@ Record:
 - MCP success result;
 - web screenshot or QA packet showing the subtask;
 - if using a QA packet for web proof, keep `taskDataFingerprint`, `latestTaskUpdatedAt`, `latestTaskUpdatedTitle`, `latestTaskUpdatedSubtasks`, and `latestTaskUpdatedSubtaskPreview`;
+- for decision visibility proof, keep `decisionTraceFingerprint` and `decisionTraceRows`;
 - if using packet files, keep the `npm run check:qa-packet` JSON report or paste its `ok`, `comparison`, and `safety` fields into the log;
 - cleanup evidence;
 - any anomaly or mismatch.

@@ -153,6 +153,7 @@ The product should do three things well:
   - 2026-06-09: QA packets now include task-data freshness fields, so the pending web refresh proof can record a task fingerprint and latest task/subtask preview after MCP writes without opening Firestore.
   - 2026-06-09: `npm run check:qa-packet` now validates copied QA packets and diffs baseline/post-write/post-refresh packet files locally, so MCP/web consistency evidence can fail fast without reading Firestore or comparing fingerprints manually.
   - 2026-06-10: live `capture_note` dry-run plus disposable `get_tasks` / `add_task` / `add_subtask` / `delete_task` smoke passed through an authenticated MCP client, and the web QA packet proof showed the MCP write survived hard refresh. Final cleanup packets were copied during bootstrap loading, but their task-data fingerprint returned to the baseline and MCP cleanup confirmed the QA task absent.
+  - 2026-06-10: QA packets now include `decisionTraceFingerprint` and `decisionTraceRows`, and the local packet checker can assert `--expectDecisionStable` when a refresh should preserve the visible Decision Trace.
 
 ## Next Product Features
 

@@ -6452,6 +6452,17 @@ export default function App() {
     ];
   };
 
+  const buildDecisionTraceFingerprint = (decisionRows = []) => {
+    const fingerprintSource = decisionRows
+      .map((row) => [
+        row.key || "",
+        row.label || "",
+        row.text || "",
+      ].join(":"))
+      .join("|");
+    return buildTaskQaFingerprint(fingerprintSource);
+  };
+
   const copyDecisionSafetyText = async (text, successMessage, fallbackMessage, warningLabel = "decision safety text") => {
     setDecisionQaBaseline(text);
     try {
@@ -10585,6 +10596,7 @@ export default function App() {
   const buildDecisionTraceText = (capturedAt = new Date().toISOString()) => {
     const latestHumanEventAt = resolvePlannerTimestamp(humanPlannerEvents[0]?.createdAt);
     const decisionRows = buildDecisionTraceRowsForCurrentState();
+    const decisionTraceFingerprint = buildDecisionTraceFingerprint(decisionRows);
     const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
     const lines = [
       "ADHD Planner decision trace",
@@ -10598,6 +10610,8 @@ export default function App() {
       `userId: ${user?.id || "missing"}`,
       `mission: ${missionTitle || "none"}`,
       `missionReason: ${missionReason || "none"}`,
+      `decisionTraceFingerprint: ${decisionTraceFingerprint}`,
+      `decisionTraceRows: ${decisionRows.length}`,
       `engineDecisions: ${plannerEngineDecisions.length}`,
       `engineInbox: ${plannerEngineInbox.length}`,
       `reportItems: ${plannerReportHistoryEvents.length}`,

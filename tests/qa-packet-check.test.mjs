@@ -28,6 +28,8 @@ function makePacket({
   latestTaskUpdatedSubtasks = 1,
   latestTaskUpdatedSubtaskPreview = "Old step",
   activeTaskPreview = "Old task | Another task",
+  decisionTraceFingerprint = "decision-before",
+  decisionTraceRows = 6,
 } = {}) {
   return [
     "ADHD Planner live QA packet",
@@ -50,6 +52,8 @@ function makePacket({
     "=== Decision trace ===",
     "mission: Existing task",
     "missionReason: hard_deadline",
+    `decisionTraceFingerprint: ${decisionTraceFingerprint}`,
+    `decisionTraceRows: ${decisionTraceRows}`,
     "",
   ].join("\n");
 }
@@ -63,6 +67,7 @@ const afterPacketText = makePacket({
   latestTaskUpdatedSubtasks: 2,
   latestTaskUpdatedSubtaskPreview: "QA MCP subtask write - delete after test",
   activeTaskPreview: "QA MCP smoke - delete after test | Old task",
+  decisionTraceFingerprint: "decision-after",
 });
 const refreshPacketText = makePacket({
   capturedAt: "2026-06-09T12:04:00.000Z",
@@ -72,6 +77,7 @@ const refreshPacketText = makePacket({
   latestTaskUpdatedSubtasks: 2,
   latestTaskUpdatedSubtaskPreview: "QA MCP subtask write - delete after test",
   activeTaskPreview: "QA MCP smoke - delete after test | Old task",
+  decisionTraceFingerprint: "decision-after",
 });
 const guestPacketText = makePacket({
   mode: "guest-or-local",
@@ -86,6 +92,8 @@ const guestPacketText = makePacket({
   assert.equal(packet.summary.taskDataFingerprint, "fingerprint-after");
   assert.equal(packet.summary.latestTaskUpdatedSubtasks, 2);
   assert.equal(packet.summary.latestTaskUpdatedTitle, "QA MCP smoke - delete after test");
+  assert.equal(packet.summary.decisionTraceFingerprint, "decision-after");
+  assert.equal(packet.summary.decisionTraceRows, 6);
 }
 
 {
@@ -127,6 +135,8 @@ const guestPacketText = makePacket({
   assert.equal(report.ok, true);
   assert.equal(report.comparison.fingerprintChanged, true);
   assert.equal(report.comparison.fingerprintStable, false);
+  assert.equal(report.comparison.decisionFingerprintChanged, true);
+  assert.equal(report.comparison.decisionFingerprintStable, false);
   assert.equal(report.comparison.expectedTaskTitleFound, true);
   assert.equal(report.comparison.expectedSubtaskPreviewFound, true);
 }
@@ -134,11 +144,14 @@ const guestPacketText = makePacket({
 {
   const report = diffQaPackets(parseQaPacketText(afterPacketText), parseQaPacketText(refreshPacketText), {
     expectStable: true,
+    expectDecisionStable: true,
   });
 
   assert.equal(report.ok, true);
   assert.equal(report.comparison.fingerprintChanged, false);
   assert.equal(report.comparison.fingerprintStable, true);
+  assert.equal(report.comparison.decisionFingerprintChanged, false);
+  assert.equal(report.comparison.decisionFingerprintStable, true);
 }
 
 {
@@ -161,6 +174,7 @@ const guestPacketText = makePacket({
     "--expectTaskTitle",
     "QA MCP smoke",
     "--expectSubtaskPreview=QA MCP subtask write",
+    "--expectDecisionStable",
   ]);
 
   assert.equal(options.mode, "diff");
@@ -168,6 +182,7 @@ const guestPacketText = makePacket({
   assert.equal(path.basename(options.afterPath), "qa-after.txt");
   assert.equal(options.expectTaskTitle, "QA MCP smoke");
   assert.equal(options.expectSubtaskPreview, "QA MCP subtask write");
+  assert.equal(options.expectDecisionStable, true);
 }
 
 {
@@ -217,10 +232,12 @@ const guestPacketText = makePacket({
       "--after",
       refreshPath,
       "--expectStable",
+      "--expectDecisionStable",
     ], { encoding: "utf8" });
     const stableReport = JSON.parse(stableOutput);
     assert.equal(stableReport.ok, true);
     assert.equal(stableReport.comparison.fingerprintStable, true);
+    assert.equal(stableReport.comparison.decisionFingerprintStable, true);
 
     assert.throws(
       () => {

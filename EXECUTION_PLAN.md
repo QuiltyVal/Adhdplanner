@@ -352,6 +352,7 @@ Notes:
 - As of 2026-06-09, QA packets include task-data freshness evidence (`taskDataFingerprint`, latest task update, latest task title/status/subtask count/subtask preview, and a short active-task preview) so MCP/web refresh consistency can be proven without opening Firestore.
 - As of 2026-06-09, `npm run check:qa-packet` validates one copied QA packet or diffs baseline/post-write/post-refresh packet files locally. The authenticated live pass ran on 2026-06-10 and used this checker to prove MCP/web refresh consistency.
 - As of 2026-06-10, client-side planner bootstrap has a 15s timeout. Repeated cleanup packets should no longer stay in `planner-bootstrap-pending` forever if the bootstrap request hangs; the UI should expose a failed bootstrap state instead.
+- As of 2026-06-10, QA packets also include `decisionTraceFingerprint` and `decisionTraceRows`, and `npm run check:qa-packet` supports `--expectDecisionStable` for refresh checks where no Engine/Telegram action should have changed the visible Decision Trace.
 
 Done when:
 - new memory/angel behavior can be tested without guessing

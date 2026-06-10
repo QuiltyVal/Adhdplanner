@@ -145,7 +145,8 @@ Companion file:
 - As of 2026-06-06, Telegram fallback intent parsing also recognizes `I'm stuck` / `я застряла` variants and task-specific forms like `I'm stuck on "Pay rent"` as panic actions. This prevents visible bot-button language from becoming an accidental new task when OpenRouter is unavailable. Live Telegram smoke is still required for real free-text messages.
 - As of 2026-06-02, Progress Decision Safety shows the auth boundary visibly, disables the live safety snapshot action in guest/local sessions, and writes `liveQaReady` / `stopReason` into copied baseline and trace exports.
 - As of 2026-06-09, Progress Decision Safety QA packets include task-data freshness evidence: `taskDataFingerprint`, latest task update timestamp/title/status/subtask count/subtask preview, and a short active-task preview. Use those fields as web-refresh proof after MCP task/subtask writes when a screenshot is not enough.
-- As of 2026-06-09, `npm run check:qa-packet` validates copied QA packets and compares baseline/post-write/post-refresh packet files locally. It is intentionally no-network/no-Firestore and should be used for the pending MCP/web refresh proof before closing MCP consistency.
+- As of 2026-06-09, `npm run check:qa-packet` validates copied QA packets and compares baseline/post-write/post-refresh packet files locally. It is intentionally no-network/no-Firestore and should be used for MCP/web refresh proof instead of manual fingerprint comparison.
+- As of 2026-06-10, QA packets also include `decisionTraceFingerprint` and `decisionTraceRows`. Use `--expectDecisionStable` only for packet pairs where no Engine/Telegram action should have changed the visible Decision Trace between captures.
 - As of 2026-05-31, public `/demo` is a portfolio entrypoint for Today Mission -> Rescue -> one tiny step, with demo Angel Lab parsing tuned for the portfolio story.
 - This is only the first ingestion slice:
   - no daily angel decision job yet

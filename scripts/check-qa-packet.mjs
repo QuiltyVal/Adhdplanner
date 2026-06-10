@@ -56,6 +56,10 @@ function parseQaPacketText(text = "") {
     /^-?\d+$/.test(fields.latestTaskUpdatedSubtasks)
     ? Number.parseInt(fields.latestTaskUpdatedSubtasks, 10)
     : null;
+  const decisionTraceRows = fields.decisionTraceRows &&
+    /^-?\d+$/.test(fields.decisionTraceRows)
+    ? Number.parseInt(fields.decisionTraceRows, 10)
+    : null;
 
   return {
     fields,
@@ -76,6 +80,8 @@ function parseQaPacketText(text = "") {
       latestTaskUpdatedSubtasks,
       latestTaskUpdatedSubtaskPreview: fields.latestTaskUpdatedSubtaskPreview || "",
       activeTaskPreview: fields.activeTaskPreview || "",
+      decisionTraceFingerprint: fields.decisionTraceFingerprint || "",
+      decisionTraceRows,
     },
   };
 }
@@ -180,6 +186,23 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
     issues.push("fingerprint_not_changed");
   }
 
+  const beforeDecisionFingerprint = beforePacket?.summary?.decisionTraceFingerprint || "";
+  const afterDecisionFingerprint = afterPacket?.summary?.decisionTraceFingerprint || "";
+  const decisionFingerprintChanged = Boolean(
+    beforeDecisionFingerprint &&
+    afterDecisionFingerprint &&
+    beforeDecisionFingerprint !== afterDecisionFingerprint,
+  );
+  const decisionFingerprintStable = Boolean(
+    beforeDecisionFingerprint &&
+    afterDecisionFingerprint &&
+    beforeDecisionFingerprint === afterDecisionFingerprint,
+  );
+
+  if (options.expectDecisionStable && !decisionFingerprintStable) {
+    issues.push("decision_fingerprint_not_stable");
+  }
+
   return {
     ok: issues.length === 0,
     issues,
@@ -191,6 +214,11 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
       fingerprintAfter: afterFingerprint,
       fingerprintChanged,
       fingerprintStable,
+      decisionFingerprintBefore: beforeDecisionFingerprint,
+      decisionFingerprintAfter: afterDecisionFingerprint,
+      decisionFingerprintChanged,
+      decisionFingerprintStable,
+      expectDecisionStable: Boolean(options.expectDecisionStable),
       expectedTaskTitle: options.expectTaskTitle || "",
       expectedTaskTitleFound: includesExpectation(
         afterPacket?.summary?.latestTaskUpdatedTitle || "",
@@ -220,6 +248,7 @@ function getHelpText() {
     "  --packet <file>                 Validate one copied QA packet.",
     "  --before <file> --after <file>  Compare two copied QA packets.",
     "  --expectStable                  Expect fingerprints to match, used for post-refresh stability proof.",
+    "  --expectDecisionStable          Expect decisionTraceFingerprint to match when both packets include it.",
     "  --expectTaskTitle <text>        Require latestTaskUpdatedTitle in the after packet to include text.",
     "  --expectSubtaskPreview <text>   Require latestTaskUpdatedSubtaskPreview in the after packet to include text.",
     "  --allowGuest                    Do not require cloud-authenticated/liveQaReady=yes.",
@@ -255,6 +284,7 @@ function parseQaPacketCheckOptions(argv = process.argv) {
     afterPath,
     allowGuest: hasFlag("--allowGuest", argv),
     expectStable: hasFlag("--expectStable", argv),
+    expectDecisionStable: hasFlag("--expectDecisionStable", argv),
     expectTaskTitle: getArgValue("--expectTaskTitle", argv),
     expectSubtaskPreview: getArgValue("--expectSubtaskPreview", argv),
   };

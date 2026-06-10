@@ -28,7 +28,8 @@ This checklist covers the real end-to-end path:
 - Use `Copy QA packet` in Progress -> Decision Safety, then keep that copied or displayed text with the test notes. It combines the QA baseline and Decision Trace in one block with one timestamp.
 - Confirm the copied QA packet says `mode: cloud-authenticated` and `liveQaReady: yes`. If it says `guest-or-local` or `liveQaReady: no`, stop; the browser is not in the real live account.
 - For cross-client or MCP consistency checks, also keep the packet's `taskDataFingerprint`, `latestTaskUpdatedAt`, `latestTaskUpdatedTitle`, `latestTaskUpdatedSubtasks`, and `latestTaskUpdatedSubtaskPreview` fields.
-- When comparing copied QA packets, save them as local text files and run `npm run check:qa-packet` instead of comparing fingerprints by eye. Use normal diff mode for baseline -> post-write and `--expectStable` for post-refresh stability.
+- For decision visibility checks, also keep `decisionTraceFingerprint` and `decisionTraceRows`.
+- When comparing copied QA packets, save them as local text files and run `npm run check:qa-packet` instead of comparing fingerprints by eye. Use normal diff mode for baseline -> post-write and `--expectStable` for post-refresh stability. Add `--expectDecisionStable` only when no Engine/Telegram action ran between packet captures.
 - Treat `visibleHumanEvents` inside the packet as a recent-window diagnostic, not an append-only total. Compare `latestHumanEventAt`, `eventWindowLimit`, and the report/event rows when deciding whether an event trace is healthy.
 - Use `More copy options` / `Ещё копировать` only when you need a narrower `Copy QA baseline` or `Copy decision trace` diagnostic.
 - Use one deliberately named QA task/capture so cleanup is unambiguous, for example `QA angel verification <date>`.
@@ -152,7 +153,7 @@ Expected evidence:
 - The QA task remains in the same world with the same selected subtask state.
 - Today Mission and Decision Trace stay consistent after reload.
 - Telegram `/today` agrees with the web Today Mission unless a documented rule explains the difference.
-- For packet-based proof, `npm run check:qa-packet -- --before qa-after-write.txt --after qa-after-refresh.txt --expectStable` passes.
+- For packet-based proof, `npm run check:qa-packet -- --before qa-after-write.txt --after qa-after-refresh.txt --expectStable` passes. If the Decision Trace should be unchanged across refresh, the same command also passes with `--expectDecisionStable`.
 
 Stop if reload resurrects deleted tasks, loses the QA task, or shows legacy array-state artifacts.
 
