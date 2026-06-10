@@ -2776,6 +2776,23 @@ Entry template:
 
 ## 2026-06-10 - Codex
 
+- Summary: Added route-level coverage for Telegram panic fallback text.
+- Changed:
+  - `tests/telegram-intent-fallback.test.mjs` — now verifies that, with OpenRouter unavailable, `routePlannerAgentInput` routes `🆘 I’m stuck` to `panic` with no task-memory enrichment and routes `SOS I’m stuck on "Pay rent"` to `panic_task`.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded that the panic fallback is covered at router level, not only parser level.
+- Verified:
+  - `node --check tests/telegram-intent-fallback.test.mjs`
+  - `node tests/telegram-intent-fallback.test.mjs`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
+- Live/data boundary:
+  - This is tests/docs only.
+  - No Firestore data was read or written.
+  - No MCP, Telegram, OAuth, Google API, or production deploy action was performed.
+
+## 2026-06-10 - Codex
+
 - Summary: Hardened Telegram fallback panic parsing for real button-style text.
 - Changed:
   - `api/_lib/telegram-intent.js` — normalizes curly apostrophes, strips leading panic button/SOS markers, and routes emoji/SOS panic text such as `🆘 I’m stuck`, `SOS I’m stuck`, and `sos` to plain `PANIC` instead of `PANIC_TASK` with the whole button text as `task_ref`.

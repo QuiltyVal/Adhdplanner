@@ -18,6 +18,7 @@ require.cache[openRouterPath] = {
 };
 
 const { parseTelegramIntent } = require("../api/_lib/telegram-intent.js");
+const { routePlannerAgentInput } = require("../api/_lib/planner-agent-router.js");
 const { PLANNER_ACTIONS } = require("../api/_lib/planner-action-types.js");
 
 async function assertIntent(text, expected = {}) {
@@ -149,6 +150,34 @@ await assertIntent("застряла по задаче «Pay rent»", {
   intent: PLANNER_ACTIONS.PANIC_TASK,
   task_ref: "Pay rent",
 });
+
+{
+  const route = await routePlannerAgentInput({
+    text: "🆘 I’m stuck",
+    plannerData: {
+      tasks: [{ id: "task-1", text: "Pay rent", status: "active" }],
+    },
+  });
+
+  assert.equal(route.type, PLANNER_ACTIONS.PANIC);
+  assert.equal(route.taskText, "");
+  assert.equal(route.taskRef, "");
+  assert.equal(route.requiresTaskMemoryEnrichment, undefined);
+}
+
+{
+  const route = await routePlannerAgentInput({
+    text: "SOS I’m stuck on «Pay rent»",
+    plannerData: {
+      tasks: [{ id: "task-1", text: "Pay rent", status: "active" }],
+    },
+  });
+
+  assert.equal(route.type, PLANNER_ACTIONS.PANIC_TASK);
+  assert.equal(route.taskRef, "Pay rent");
+  assert.equal(route.taskText, "");
+  assert.equal(route.requiresTaskMemoryEnrichment, undefined);
+}
 
 await assertIntent("приготовить ужин", {
   intent: PLANNER_ACTIONS.ADD_TASK,
