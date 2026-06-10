@@ -2850,3 +2850,22 @@ Entry template:
   - This is local-only checker/docs work.
   - No Firestore data was read or written.
   - No MCP, Telegram, OAuth, Google API, or production deploy action was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Logged Claude/Fable authenticated MCP `capture_note` smoke evidence.
+- Changed:
+  - `docs/mcp-live-smoke-checklist.md` — recorded the Claude Code / Fable 5 remote MCP dry-run `capture_note` evidence, read-only task counts, no-mutation boundary, and the remaining browser-authenticated QA-packet refresh proof.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — recorded that the authenticated `capture_note` tool-call smoke is closed across a Claude client and clarified that remaining MCP consistency work is web refresh / QA-packet proof, not another capture call.
+- Evidence recorded:
+  - Remote MCP: `https://mcp.valquilty.com/mcp`.
+  - Read-only `get_tasks`: canonical subcollection, `count=61`, `score=506` before manual cleanup; `count=60`, `score=521` after manual cleanup.
+  - `capture_note` dry-run: `origin.channel=mcp`, `origin.via=captures_api`, `origin.source=mcp:live-smoke`, `activeTasksSource=none`, `activeTasksCount=0`, `captureId=dryrun-1781101401729`.
+- Verified:
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+- Live/data boundary:
+  - This is docs-only evidence logging.
+  - No Firestore data was read or written by this Codex pass.
+  - No MCP, Telegram, OAuth, Google API, browser-authenticated QA, or production deploy action was performed.

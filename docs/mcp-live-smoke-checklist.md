@@ -37,14 +37,20 @@ Live client evidence:
   - post-write web QA packet: `active=9`, `taskDataFingerprint=c6faf840`, latest task `QA MCP smoke — delete after test`, latest subtask `QA MCP subtask write — delete after test`;
   - hard-refresh web QA packet kept `taskDataFingerprint=c6faf840`, proving the MCP write did not bounce after refresh;
   - cleanup returned MCP task count `62 -> 61`, confirmed QA task ref `ab3825f0` absent, and web task-data fields returned to baseline fingerprint `972e7261`.
+- 2026-06-10: Claude Code / Fable 5 completed the pending authenticated `capture_note` tool-call smoke against `https://mcp.valquilty.com/mcp`:
+  - read-only `get_tasks`: `ok=true`, `documentExists=true`, canonical tasks subcollection, `count=61`, `score=506` before manual cleanup; `count=60`, `score=521` after manual cleanup;
+  - request: text `MCP live-smoke dry run: verify capture tool origin only`, `dry_run=true`, `source_label=live-smoke`;
+  - result: `ok=true`, `captureApi.status=200`, `response.dryRun=true`, `origin.channel=mcp`, `origin.via=captures_api`, `origin.source=mcp:live-smoke`, `activeTasksSource=none`, `activeTasksCount=0`, `captureId=dryrun-1781101401729`, `idempotencyKeyPresent=false`;
+  - this was the first live MCP evidence from a Claude client; no MCP mutation was performed. User cleanup was manual in the UI: `Buy groceries` deleted, divorce task completed, `Anerkennungszuschuss` resurrected.
 
 Still remaining:
 
-- non-dry-run `capture_note` remains intentionally untested;
+- for the current MCP-consistency follow-up, only the browser-authenticated web refresh / QA-packet proof remains. It needs the user's logged-in browser and `npm run check:qa-packet`;
+- non-dry-run `capture_note` remains intentionally untested and is not required for the current consistency smoke;
 - destructive Yes/Cemetery on a real task remains outside safe smoke;
 - Google Calendar OAuth completion remains a separate live smoke.
 
-Codex can keep strengthening repo-side contracts without touching live data. The authenticated MCP task/subtask write, web hard-refresh persistence, cleanup, and dry-run capture-note paths are now proven.
+Codex can keep strengthening repo-side contracts without touching live data. The authenticated MCP task/subtask write, web hard-refresh persistence, cleanup, and dry-run capture-note paths are now proven across Codex and Claude clients.
 
 ## Preconditions
 
