@@ -2600,6 +2600,9 @@ Entry template:
   - `node --check scripts/check-qa-packet.mjs`
   - `node --check tests/qa-packet-check.test.mjs`
   - `node tests/qa-packet-check.test.mjs`
+  - `git diff --check`
+  - `npm run test:contract`
+  - `npm run verify:server`
   - `npm run check:qa-packet -- --help`
   - `git diff --check`
   - `npm run test:contract`
@@ -2717,3 +2720,18 @@ Entry template:
 - Live/data boundary:
   - No Google OAuth flow was opened or completed.
   - No Google API, Firestore, MCP, Telegram, or production deploy action was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Hardened local QA packet diffs against reversed or duplicated packet files.
+- Changed:
+  - `scripts/check-qa-packet.mjs` — diff mode now compares `capturedAt` values and fails with `captured_at_not_after` when `--after` is not newer than `--before`.
+  - `tests/qa-packet-check.test.mjs` — covered normal chronological diffs, reversed packet diffs, and CLI failure output.
+  - `docs/mcp-live-smoke-checklist.md`, `docs/live-angel-verification-checklist.md`, `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — documented `capturedAt` ordering as part of packet evidence.
+- Verified:
+  - `node --check scripts/check-qa-packet.mjs`
+  - `node --check tests/qa-packet-check.test.mjs`
+  - `node tests/qa-packet-check.test.mjs`
+- Live/data boundary:
+  - This is local-only checker/docs work.
+  - No network, Firestore, MCP, Telegram, OAuth, or production deploy action was performed.

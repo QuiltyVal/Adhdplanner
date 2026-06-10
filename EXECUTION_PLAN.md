@@ -354,6 +354,7 @@ Notes:
 - As of 2026-06-09, `npm run check:qa-packet` validates one copied QA packet or diffs baseline/post-write/post-refresh packet files locally. The authenticated live pass ran on 2026-06-10 and used this checker to prove MCP/web refresh consistency.
 - As of 2026-06-10, client-side planner bootstrap has a 15s timeout. Repeated cleanup packets should no longer stay in `planner-bootstrap-pending` forever if the bootstrap request hangs; the UI should expose a failed bootstrap state instead.
 - As of 2026-06-10, QA packets also include `decisionTraceFingerprint` and `decisionTraceRows`, and `npm run check:qa-packet` supports `--expectDecisionStable` for refresh checks where no Engine/Telegram action should have changed the visible Decision Trace.
+- As of 2026-06-10, `npm run check:qa-packet` also checks copied packet chronology in diff mode. If `--after` is not newer than `--before`, it fails with `captured_at_not_after` before the fingerprint result can be mistaken for a real stability proof.
 
 Done when:
 - new memory/angel behavior can be tested without guessing

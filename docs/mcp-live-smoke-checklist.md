@@ -60,6 +60,7 @@ Codex can keep strengthening repo-side contracts without touching live data. The
   - `qa-before.txt`
   - `qa-after-mcp-write.txt`
   - `qa-after-refresh.txt`
+- Keep the filenames aligned with capture order. `npm run check:qa-packet` now fails if the `--after` packet's `capturedAt` is not newer than `--before`, which catches swapped files or accidentally comparing a packet with itself.
 - Use one deliberately disposable active task, for example `QA MCP smoke — delete after test`.
 - Do not use an important live task for the first mutation smoke.
 
@@ -95,6 +96,7 @@ Expected:
   - `npm run check:qa-packet -- --before qa-before.txt --after qa-after-mcp-write.txt --expectTaskTitle "QA MCP smoke" --expectSubtaskPreview "QA MCP subtask write"`
   - after hard refresh: `npm run check:qa-packet -- --before qa-after-mcp-write.txt --after qa-after-refresh.txt --expectStable`
   - if no Engine/Telegram action ran between the two packet captures, add `--expectDecisionStable` to prove the visible decision trace did not change across refresh.
+- In the JSON report, `comparison.capturedAtOrder` is `after_is_newer`.
 
 Cleanup:
 

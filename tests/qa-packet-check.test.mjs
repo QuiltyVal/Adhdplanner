@@ -133,6 +133,7 @@ const guestPacketText = makePacket({
   });
 
   assert.equal(report.ok, true);
+  assert.equal(report.comparison.capturedAtOrder, "after_is_newer");
   assert.equal(report.comparison.fingerprintChanged, true);
   assert.equal(report.comparison.fingerprintStable, false);
   assert.equal(report.comparison.decisionFingerprintChanged, true);
@@ -148,10 +149,22 @@ const guestPacketText = makePacket({
   });
 
   assert.equal(report.ok, true);
+  assert.equal(report.comparison.capturedAtOrder, "after_is_newer");
   assert.equal(report.comparison.fingerprintChanged, false);
   assert.equal(report.comparison.fingerprintStable, true);
   assert.equal(report.comparison.decisionFingerprintChanged, false);
   assert.equal(report.comparison.decisionFingerprintStable, true);
+}
+
+{
+  const report = diffQaPackets(parseQaPacketText(refreshPacketText), parseQaPacketText(afterPacketText), {
+    expectStable: true,
+    expectDecisionStable: true,
+  });
+
+  assert.equal(report.ok, false);
+  assert.equal(report.comparison.capturedAtOrder, "after_not_newer");
+  assert.match(report.issues.join("\n"), /captured_at_not_after/);
 }
 
 {
@@ -236,6 +249,7 @@ const guestPacketText = makePacket({
     ], { encoding: "utf8" });
     const stableReport = JSON.parse(stableOutput);
     assert.equal(stableReport.ok, true);
+    assert.equal(stableReport.comparison.capturedAtOrder, "after_is_newer");
     assert.equal(stableReport.comparison.fingerprintStable, true);
     assert.equal(stableReport.comparison.decisionFingerprintStable, true);
 
@@ -259,6 +273,25 @@ const guestPacketText = makePacket({
     ], { encoding: "utf8" });
     const guestReport = JSON.parse(guestOutput);
     assert.equal(guestReport.ok, true);
+
+    assert.throws(
+      () => {
+        try {
+          execFileSync(process.execPath, [
+            scriptPath,
+            "--before",
+            refreshPath,
+            "--after",
+            afterPath,
+            "--expectStable",
+          ], { encoding: "utf8" });
+        } catch (error) {
+          assert.match(error.stdout, /captured_at_not_after/);
+          throw error;
+        }
+      },
+      /Command failed/,
+    );
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

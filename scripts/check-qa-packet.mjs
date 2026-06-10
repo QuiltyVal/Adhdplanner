@@ -92,6 +92,11 @@ function includesExpectation(value = "", expected = "") {
   return String(value || "").includes(expectedText);
 }
 
+function parseTimestampMs(value = "") {
+  const timestamp = Date.parse(String(value || ""));
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
 function buildSafetyMetadata() {
   return {
     mode: "local_qa_packet_check",
@@ -173,12 +178,25 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
 
   const beforeFingerprint = beforePacket?.summary?.taskDataFingerprint || "";
   const afterFingerprint = afterPacket?.summary?.taskDataFingerprint || "";
+  const beforeCapturedAt = beforePacket?.summary?.capturedAt || "";
+  const afterCapturedAt = afterPacket?.summary?.capturedAt || "";
+  const beforeCapturedAtMs = parseTimestampMs(beforeCapturedAt);
+  const afterCapturedAtMs = parseTimestampMs(afterCapturedAt);
+  const capturedAtOrder = Number.isFinite(beforeCapturedAtMs) && Number.isFinite(afterCapturedAtMs)
+    ? afterCapturedAtMs > beforeCapturedAtMs
+      ? "after_is_newer"
+      : "after_not_newer"
+    : "unknown";
   const fingerprintChanged = Boolean(beforeFingerprint && afterFingerprint && beforeFingerprint !== afterFingerprint);
   const fingerprintStable = Boolean(beforeFingerprint && afterFingerprint && beforeFingerprint === afterFingerprint);
   const issues = [
     ...beforeValidation.issues.map((issue) => `before:${issue}`),
     ...afterValidation.issues.map((issue) => `after:${issue}`),
   ];
+
+  if (capturedAtOrder === "after_not_newer") {
+    issues.push("captured_at_not_after");
+  }
 
   if (options.expectStable) {
     if (!fingerprintStable) issues.push("fingerprint_not_stable");
@@ -210,6 +228,9 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
       expectation: options.expectStable ? "stable_after_refresh" : "changed_after_write",
       before: beforePacket?.summary || {},
       after: afterPacket?.summary || {},
+      capturedAtBefore: beforeCapturedAt,
+      capturedAtAfter: afterCapturedAt,
+      capturedAtOrder,
       fingerprintBefore: beforeFingerprint,
       fingerprintAfter: afterFingerprint,
       fingerprintChanged,

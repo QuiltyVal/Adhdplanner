@@ -30,6 +30,7 @@ This checklist covers the real end-to-end path:
 - For cross-client or MCP consistency checks, also keep the packet's `taskDataFingerprint`, `latestTaskUpdatedAt`, `latestTaskUpdatedTitle`, `latestTaskUpdatedSubtasks`, and `latestTaskUpdatedSubtaskPreview` fields.
 - For decision visibility checks, also keep `decisionTraceFingerprint` and `decisionTraceRows`.
 - When comparing copied QA packets, save them as local text files and run `npm run check:qa-packet` instead of comparing fingerprints by eye. Use normal diff mode for baseline -> post-write and `--expectStable` for post-refresh stability. Add `--expectDecisionStable` only when no Engine/Telegram action ran between packet captures.
+- The packet checker also verifies capture order: `--after` must have a newer `capturedAt` than `--before`. If it reports `captured_at_not_after`, fix the file order before interpreting fingerprint results.
 - Treat `visibleHumanEvents` inside the packet as a recent-window diagnostic, not an append-only total. Compare `latestHumanEventAt`, `eventWindowLimit`, and the report/event rows when deciding whether an event trace is healthy.
 - Use `More copy options` / `Ещё копировать` only when you need a narrower `Copy QA baseline` or `Copy decision trace` diagnostic.
 - Use one deliberately named QA task/capture so cleanup is unambiguous, for example `QA angel verification <date>`.
