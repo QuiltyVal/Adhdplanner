@@ -42,13 +42,23 @@ Live client evidence:
   - request: text `MCP live-smoke dry run: verify capture tool origin only`, `dry_run=true`, `source_label=live-smoke`;
   - result: `ok=true`, `captureApi.status=200`, `response.dryRun=true`, `origin.channel=mcp`, `origin.via=captures_api`, `origin.source=mcp:live-smoke`, `activeTasksSource=none`, `activeTasksCount=0`, `captureId=dryrun-1781101401729`, `idempotencyKeyPresent=false`;
   - this was the first live MCP evidence from a Claude client; no MCP mutation was performed. User cleanup was manual in the UI: `Buy groceries` deleted, divorce task completed, `Anerkennungszuschuss` resurrected.
+- 2026-06-10: MCP/web refresh consistency smoke is fully closed through Claude Code / Fable 5 plus the user's authenticated Chrome QA packets, at repo HEAD `0d8903a` and production deployment `dpl_8md2CxUakCAZd68Ajp3NJVxsCgxs`:
+  - baseline QA packet `2026-06-10T20:06:00.204Z`: `active=7`, `taskDataFingerprint=33c25b0b`, outbox all zero, mission `Выставить свитер Stone Island на продажу`, `missionReason=hard_deadline`; `check:qa-packet --packet` returned `ok=true`;
+  - MCP `add_task`: created `QA MCP smoke — delete after test`, id `5b4dc666-4793-45cd-8641-0ebc92398450`, `lastUpdated=1781122124547`;
+  - MCP `add_subtask`: created `QA MCP subtask write — delete after test`, id `29f9b30d-c7a4-4953-9e2d-9df8b6e0502b`, task `lastUpdated=1781122136350`;
+  - premature packet at `20:10:22` had `plannerBootstrapStatus=loading` and was correctly rejected by `check:qa-packet` with `live_qa_not_ready`, exit `1`;
+  - post-write packet at `20:11:57` after user hard refresh and full bootstrap: `active=8`, `taskDataFingerprint=c12bc40c`, latest task/subtask preview exactly matched the QA task/subtask, Engine healthy, outbox all zero;
+  - baseline-to-post-write diff with `--expectTaskTitle "QA MCP smoke" --expectSubtaskPreview "QA MCP subtask write" --expectOutboxEmpty` returned `ok=true`, `fingerprintChanged=true`;
+  - MCP `delete_task 5b4dc666-4793-45cd-8641-0ebc92398450` returned `ok`;
+  - final packet at `20:14:06`: `active=7`, `taskDataFingerprint=33c25b0b`, identical to baseline;
+  - post-write-to-final diff returned `ok=true`, `fingerprintChanged=true`, proving cleanup became visible;
+  - baseline-to-final diff with `--expectStable --expectOutboxEmpty` returned `ok=true`, `fingerprintStable=true`, proving exact state restoration.
 
-Still remaining:
+MCP/web consistency status:
 
-- for the current MCP-consistency follow-up, only the browser-authenticated web refresh / QA-packet proof remains. It needs the user's logged-in browser and `npm run check:qa-packet`;
-- non-dry-run `capture_note` remains intentionally untested and is not required for the current consistency smoke;
-- destructive Yes/Cemetery on a real task remains outside safe smoke;
-- Google Calendar OAuth completion remains a separate live smoke.
+- Fully closed as of 2026-06-10. Pass criteria are met: canonical task read, disposable MCP write, web hard-refresh persistence, cleanup, and logged evidence.
+- Mutation boundary: exactly one disposable QA task was created and deleted by the MCP client with the user's explicit permission; no other task was mutated and no capture was written.
+- Remaining intentionally open items are outside this MCP/web consistency smoke: fresh read-only backup when Firebase credentials are available, Google Calendar OAuth live smoke with the user, and non-dry-run `capture_note` only with explicit approval plus an idempotency key.
 
 Codex can keep strengthening repo-side contracts without touching live data. The authenticated MCP task/subtask write, web hard-refresh persistence, cleanup, and dry-run capture-note paths are now proven across Codex and Claude clients.
 
@@ -167,3 +177,5 @@ The MCP live smoke passes when:
 - cleanup is completed;
 - no important live task is mutated;
 - evidence is logged in `AGENT_LOG.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md`.
+
+As of 2026-06-10, all pass criteria above are met for the Claude Code / Fable 5 MCP client plus authenticated Chrome QA-packet chain.

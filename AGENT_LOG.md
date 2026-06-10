@@ -2979,3 +2979,32 @@ Entry template:
   - Docs-only change.
   - No Firestore data was read or written.
   - No Telegram action, Google OAuth action, Google API call, MCP tool call, browser-authenticated QA, production deploy, or live user-data mutation was performed.
+
+## 2026-06-10 - Codex
+
+- Summary: Logged full closure of the MCP/web refresh consistency smoke.
+- Changed:
+  - `docs/mcp-live-smoke-checklist.md` — moved the MCP/web refresh consistency status to fully closed, added the Claude Code / Fable 5 plus authenticated Chrome evidence chain, and updated pass criteria status.
+  - `ROADMAP.md`, `EXECUTION_PLAN.md`, and `SESSION_HANDOFF.md` — removed the stale "browser-authenticated web refresh proof remains" wording and recorded that no MCP/web consistency follow-up remains open.
+- Evidence:
+  - Session: Claude Code / Fable 5 as MCP client via `https://mcp.valquilty.com/mcp`, plus the user's authenticated Chrome session for QA packets.
+  - Repo/deploy: HEAD `0d8903a`, production deployment `dpl_8md2CxUakCAZd68Ajp3NJVxsCgxs`.
+  - Baseline packet `2026-06-10T20:06:00.204Z`: `active=7`, `taskDataFingerprint=33c25b0b`, outbox all zero, mission `Выставить свитер Stone Island на продажу`, `missionReason=hard_deadline`; `check:qa-packet --packet` returned `ok=true`.
+  - MCP created disposable task `QA MCP smoke — delete after test` (`5b4dc666-4793-45cd-8641-0ebc92398450`, `lastUpdated=1781122124547`) and subtask `QA MCP subtask write — delete after test` (`29f9b30d-c7a4-4953-9e2d-9df8b6e0502b`, task `lastUpdated=1781122136350`).
+  - Premature packet at `20:10:22` with `plannerBootstrapStatus=loading` was correctly rejected by `check:qa-packet` with `live_qa_not_ready`, exit `1`.
+  - Post-write packet at `20:11:57` after user hard refresh and full bootstrap: `active=8`, `taskDataFingerprint=c12bc40c`, exact QA task/subtask latest, Engine healthy, outbox all zero. Baseline-to-post-write diff with expected task/subtask/outbox returned `ok=true`, `fingerprintChanged=true`.
+  - MCP `delete_task 5b4dc666-4793-45cd-8641-0ebc92398450` returned `ok`.
+  - Final packet at `20:14:06`: `active=7`, `taskDataFingerprint=33c25b0b`. Post-write-to-final diff returned `ok=true`, `fingerprintChanged=true`; baseline-to-final diff with `--expectStable --expectOutboxEmpty` returned `ok=true`, `fingerprintStable=true`.
+- Mutation boundary:
+  - Exactly one disposable QA task was created and deleted by the MCP client with the user's explicit permission.
+  - No other task was mutated.
+  - No capture was written.
+- Remaining intentionally open items:
+  - Fresh read-only backup when Firebase credentials are available.
+  - Google Calendar OAuth live smoke with the user.
+  - Non-dry-run `capture_note` only with explicit approval plus an idempotency key.
+- Verified:
+  - `git diff --check`
+- Live/data boundary:
+  - Docs-only change by Codex.
+  - Codex did not read or write Firestore, run MCP tools, trigger Telegram, complete OAuth, call Google APIs, run browser-authenticated QA, deploy production, or mutate live user data while logging this evidence.
