@@ -14,6 +14,16 @@ const REQUIRED_FRESHNESS_FIELDS = [
   "activeTaskPreview",
 ];
 
+const REQUIRED_DAILY_DECISION_FIELDS = [
+  "dailyDecisionDateKey",
+  "dailyDecisionSource",
+  "dailyDecisionDecidedAt",
+  "dailyDecisionMissionTaskId",
+  "dailyDecisionMissionReason",
+  "dailyDecisionRescueTaskId",
+  "dailyDecisionFingerprint",
+];
+
 const OUTBOX_FIELDS = [
   "outboxPending",
   "outboxRetry",
@@ -106,6 +116,13 @@ function parseQaPacketText(text = "") {
       activeTaskPreview: fields.activeTaskPreview || "",
       decisionTraceFingerprint: fields.decisionTraceFingerprint || "",
       decisionTraceRows,
+      dailyDecisionDateKey: fields.dailyDecisionDateKey || "",
+      dailyDecisionSource: fields.dailyDecisionSource || "",
+      dailyDecisionDecidedAt: fields.dailyDecisionDecidedAt || "",
+      dailyDecisionMissionTaskId: fields.dailyDecisionMissionTaskId || "",
+      dailyDecisionMissionReason: fields.dailyDecisionMissionReason || "",
+      dailyDecisionRescueTaskId: fields.dailyDecisionRescueTaskId || "",
+      dailyDecisionFingerprint: fields.dailyDecisionFingerprint || "",
     },
   };
 }
@@ -163,8 +180,18 @@ function validateQaPacket(packet, options = {}) {
     }
   }
 
+  for (const field of REQUIRED_DAILY_DECISION_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(fields, field)) {
+      issues.push(`missing_field:${field}`);
+    }
+  }
+
   if (!summary.taskDataFingerprint || ["missing", "unknown", "none"].includes(summary.taskDataFingerprint)) {
     issues.push(`invalid_taskDataFingerprint:${summary.taskDataFingerprint || "missing"}`);
+  }
+
+  if (!summary.dailyDecisionFingerprint || ["missing", "unknown", "none"].includes(summary.dailyDecisionFingerprint)) {
+    issues.push(`invalid_dailyDecisionFingerprint:${summary.dailyDecisionFingerprint || "missing"}`);
   }
 
   if (
@@ -200,6 +227,20 @@ function validateQaPacket(packet, options = {}) {
 
   if (options.expectMissionReason && !includesExpectation(summary.missionReason, options.expectMissionReason)) {
     issues.push(`expected_mission_reason_not_found:${options.expectMissionReason}`);
+  }
+
+  if (
+    options.expectDailyDecisionSource &&
+    summary.dailyDecisionSource !== options.expectDailyDecisionSource
+  ) {
+    issues.push(`expected_daily_decision_source_not_found:${options.expectDailyDecisionSource}`);
+  }
+
+  if (
+    options.expectDailyDecisionDateKey &&
+    summary.dailyDecisionDateKey !== options.expectDailyDecisionDateKey
+  ) {
+    issues.push(`expected_daily_decision_date_key_not_found:${options.expectDailyDecisionDateKey}`);
   }
 
   if (options.expectOutboxEmpty) {
@@ -238,6 +279,8 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
     expectPlannerBootstrapStatus: options.expectPlannerBootstrapStatus,
     expectMission: options.expectMission,
     expectMissionReason: options.expectMissionReason,
+    expectDailyDecisionSource: options.expectDailyDecisionSource,
+    expectDailyDecisionDateKey: options.expectDailyDecisionDateKey,
     expectOutboxEmpty: options.expectOutboxEmpty,
   });
 
@@ -281,9 +324,24 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
     afterDecisionFingerprint &&
     beforeDecisionFingerprint === afterDecisionFingerprint,
   );
+  const beforeDailyDecisionFingerprint = beforePacket?.summary?.dailyDecisionFingerprint || "";
+  const afterDailyDecisionFingerprint = afterPacket?.summary?.dailyDecisionFingerprint || "";
+  const dailyDecisionFingerprintChanged = Boolean(
+    beforeDailyDecisionFingerprint &&
+    afterDailyDecisionFingerprint &&
+    beforeDailyDecisionFingerprint !== afterDailyDecisionFingerprint,
+  );
+  const dailyDecisionFingerprintStable = Boolean(
+    beforeDailyDecisionFingerprint &&
+    afterDailyDecisionFingerprint &&
+    beforeDailyDecisionFingerprint === afterDailyDecisionFingerprint,
+  );
 
   if (options.expectDecisionStable && !decisionFingerprintStable) {
     issues.push("decision_fingerprint_not_stable");
+  }
+  if (options.expectDailyDecisionStable && !dailyDecisionFingerprintStable) {
+    issues.push("daily_decision_fingerprint_not_stable");
   }
 
   return {
@@ -305,6 +363,11 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
       decisionFingerprintChanged,
       decisionFingerprintStable,
       expectDecisionStable: Boolean(options.expectDecisionStable),
+      dailyDecisionFingerprintBefore: beforeDailyDecisionFingerprint,
+      dailyDecisionFingerprintAfter: afterDailyDecisionFingerprint,
+      dailyDecisionFingerprintChanged,
+      dailyDecisionFingerprintStable,
+      expectDailyDecisionStable: Boolean(options.expectDailyDecisionStable),
       expectedTaskTitle: options.expectTaskTitle || "",
       expectedTaskTitleFound: includesExpectation(
         afterPacket?.summary?.latestTaskUpdatedTitle || "",
@@ -324,6 +387,14 @@ function diffQaPackets(beforePacket, afterPacket, options = {}) {
         afterPacket?.summary?.missionReason || "",
         options.expectMissionReason || "",
       ),
+      expectedDailyDecisionSource: options.expectDailyDecisionSource || "",
+      expectedDailyDecisionSourceFound: options.expectDailyDecisionSource
+        ? afterPacket?.summary?.dailyDecisionSource === options.expectDailyDecisionSource
+        : true,
+      expectedDailyDecisionDateKey: options.expectDailyDecisionDateKey || "",
+      expectedDailyDecisionDateKeyFound: options.expectDailyDecisionDateKey
+        ? afterPacket?.summary?.dailyDecisionDateKey === options.expectDailyDecisionDateKey
+        : true,
       expectOutboxEmpty: Boolean(options.expectOutboxEmpty),
       expectedOutboxEmptyFound: options.expectOutboxEmpty
         ? OUTBOX_FIELDS.every((field) => Number.isInteger(afterPacket?.summary?.[field]) && afterPacket.summary[field] === 0)
@@ -359,10 +430,15 @@ function getHelpText() {
     "  --before <file> --after <file>  Compare two copied QA packets.",
     "  --expectStable                  Expect fingerprints to match, used for post-refresh stability proof.",
     "  --expectDecisionStable          Expect decisionTraceFingerprint to match when both packets include it.",
+    "  --expectDailyDecisionStable     Expect dailyDecisionFingerprint to match when both packets include it.",
     "  --expectPlannerBootstrapStatus <status>",
     "                                  Require plannerBootstrapStatus in the after packet to exactly match status.",
     "  --expectMission <text>          Require mission in the after packet to include text.",
     "  --expectMissionReason <text>    Require missionReason in the after packet to include text.",
+    "  --expectDailyDecisionSource <source>",
+    "                                  Require dailyDecisionSource in the after packet to exactly match source.",
+    "  --expectDailyDecisionDateKey <dateKey>",
+    "                                  Require dailyDecisionDateKey in the after packet to exactly match dateKey.",
     "  --expectOutboxEmpty             Require outboxPending/retry/dead/sending to all be 0.",
     "  --expectTaskTitle <text>        Require latestTaskUpdatedTitle in the after packet to include text.",
     "  --expectSubtaskPreview <text>   Require latestTaskUpdatedSubtaskPreview in the after packet to include text.",
@@ -400,9 +476,12 @@ function parseQaPacketCheckOptions(argv = process.argv) {
     allowGuest: hasFlag("--allowGuest", argv),
     expectStable: hasFlag("--expectStable", argv),
     expectDecisionStable: hasFlag("--expectDecisionStable", argv),
+    expectDailyDecisionStable: hasFlag("--expectDailyDecisionStable", argv),
     expectPlannerBootstrapStatus: getArgValue("--expectPlannerBootstrapStatus", argv),
     expectMission: getArgValue("--expectMission", argv),
     expectMissionReason: getArgValue("--expectMissionReason", argv),
+    expectDailyDecisionSource: getArgValue("--expectDailyDecisionSource", argv),
+    expectDailyDecisionDateKey: getArgValue("--expectDailyDecisionDateKey", argv),
     expectOutboxEmpty: hasFlag("--expectOutboxEmpty", argv),
     expectTaskTitle: getArgValue("--expectTaskTitle", argv),
     expectSubtaskPreview: getArgValue("--expectSubtaskPreview", argv),
@@ -458,6 +537,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === currentFile) {
 
 export {
   REQUIRED_FRESHNESS_FIELDS,
+  REQUIRED_DAILY_DECISION_FIELDS,
   buildQaPacketCheckReport,
   buildSafetyMetadata,
   diffQaPackets,

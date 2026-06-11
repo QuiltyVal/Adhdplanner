@@ -38,6 +38,13 @@ function makePacket({
   activeTaskPreview = "Old task | Another task",
   decisionTraceFingerprint = "decision-before",
   decisionTraceRows = 6,
+  dailyDecisionDateKey = "2026-06-09",
+  dailyDecisionSource = "reused",
+  dailyDecisionDecidedAt = "2026-06-09T10:00:00.000Z",
+  dailyDecisionMissionTaskId = "mission-task",
+  dailyDecisionMissionReason = "hard_deadline",
+  dailyDecisionRescueTaskId = "rescue-task",
+  dailyDecisionFingerprint = "daily-decision-before",
 } = {}) {
   return [
     "ADHD Planner live QA packet",
@@ -65,6 +72,13 @@ function makePacket({
     `latestTaskUpdatedSubtasks: ${latestTaskUpdatedSubtasks}`,
     `latestTaskUpdatedSubtaskPreview: ${latestTaskUpdatedSubtaskPreview}`,
     `activeTaskPreview: ${activeTaskPreview}`,
+    `dailyDecisionDateKey: ${dailyDecisionDateKey}`,
+    `dailyDecisionSource: ${dailyDecisionSource}`,
+    `dailyDecisionDecidedAt: ${dailyDecisionDecidedAt}`,
+    `dailyDecisionMissionTaskId: ${dailyDecisionMissionTaskId}`,
+    `dailyDecisionMissionReason: ${dailyDecisionMissionReason}`,
+    `dailyDecisionRescueTaskId: ${dailyDecisionRescueTaskId}`,
+    `dailyDecisionFingerprint: ${dailyDecisionFingerprint}`,
     "",
     "=== Decision trace ===",
     `mission: ${mission}`,
@@ -85,6 +99,7 @@ const afterPacketText = makePacket({
   latestTaskUpdatedSubtaskPreview: "QA MCP subtask write - delete after test",
   activeTaskPreview: "QA MCP smoke - delete after test | Old task",
   decisionTraceFingerprint: "decision-after",
+  dailyDecisionFingerprint: "daily-decision-after",
 });
 const refreshPacketText = makePacket({
   capturedAt: "2026-06-09T12:04:00.000Z",
@@ -95,6 +110,7 @@ const refreshPacketText = makePacket({
   latestTaskUpdatedSubtaskPreview: "QA MCP subtask write - delete after test",
   activeTaskPreview: "QA MCP smoke - delete after test | Old task",
   decisionTraceFingerprint: "decision-after",
+  dailyDecisionFingerprint: "daily-decision-after",
 });
 const guestPacketText = makePacket({
   mode: "guest-or-local",
@@ -120,6 +136,13 @@ const guestPacketText = makePacket({
   assert.equal(packet.summary.latestTaskUpdatedTitle, "QA MCP smoke - delete after test");
   assert.equal(packet.summary.decisionTraceFingerprint, "decision-after");
   assert.equal(packet.summary.decisionTraceRows, 6);
+  assert.equal(packet.summary.dailyDecisionDateKey, "2026-06-09");
+  assert.equal(packet.summary.dailyDecisionSource, "reused");
+  assert.equal(packet.summary.dailyDecisionDecidedAt, "2026-06-09T10:00:00.000Z");
+  assert.equal(packet.summary.dailyDecisionMissionTaskId, "mission-task");
+  assert.equal(packet.summary.dailyDecisionMissionReason, "hard_deadline");
+  assert.equal(packet.summary.dailyDecisionRescueTaskId, "rescue-task");
+  assert.equal(packet.summary.dailyDecisionFingerprint, "daily-decision-after");
 }
 
 {
@@ -128,6 +151,8 @@ const guestPacketText = makePacket({
     expectPlannerBootstrapStatus: "success",
     expectMission: "Existing",
     expectMissionReason: "hard_deadline",
+    expectDailyDecisionSource: "reused",
+    expectDailyDecisionDateKey: "2026-06-09",
     expectOutboxEmpty: true,
     expectTaskTitle: "QA MCP smoke",
     expectSubtaskPreview: "QA MCP subtask write",
@@ -150,6 +175,16 @@ const guestPacketText = makePacket({
   assert.match(report.issues.join("\n"), /expected_planner_bootstrap_status_not_found:failed/);
   assert.match(report.issues.join("\n"), /expected_mission_not_found:Wrong mission/);
   assert.match(report.issues.join("\n"), /expected_mission_reason_not_found:calendar/);
+}
+
+{
+  const report = validateQaPacket(parseQaPacketText(afterPacketText), {
+    expectDailyDecisionSource: "override:hard_deadline_new",
+    expectDailyDecisionDateKey: "2026-06-10",
+  });
+  assert.equal(report.ok, false);
+  assert.match(report.issues.join("\n"), /expected_daily_decision_source_not_found:override:hard_deadline_new/);
+  assert.match(report.issues.join("\n"), /expected_daily_decision_date_key_not_found:2026-06-10/);
 }
 
 {
@@ -178,10 +213,19 @@ const guestPacketText = makePacket({
 }
 
 {
+  const missing = parseQaPacketText(afterPacketText.replace(/^dailyDecisionFingerprint:.*\n/m, ""));
+  const report = validateQaPacket(missing);
+  assert.equal(report.ok, false);
+  assert.match(report.issues.join("\n"), /missing_field:dailyDecisionFingerprint/);
+}
+
+{
   const report = diffQaPackets(parseQaPacketText(beforePacketText), parseQaPacketText(afterPacketText), {
     expectPlannerBootstrapStatus: "success",
     expectMission: "Existing",
     expectMissionReason: "hard_deadline",
+    expectDailyDecisionSource: "reused",
+    expectDailyDecisionDateKey: "2026-06-09",
     expectOutboxEmpty: true,
     expectTaskTitle: "QA MCP smoke",
     expectSubtaskPreview: "QA MCP subtask write",
@@ -193,9 +237,13 @@ const guestPacketText = makePacket({
   assert.equal(report.comparison.fingerprintStable, false);
   assert.equal(report.comparison.decisionFingerprintChanged, true);
   assert.equal(report.comparison.decisionFingerprintStable, false);
+  assert.equal(report.comparison.dailyDecisionFingerprintChanged, true);
+  assert.equal(report.comparison.dailyDecisionFingerprintStable, false);
   assert.equal(report.comparison.expectedPlannerBootstrapStatusFound, true);
   assert.equal(report.comparison.expectedMissionFound, true);
   assert.equal(report.comparison.expectedMissionReasonFound, true);
+  assert.equal(report.comparison.expectedDailyDecisionSourceFound, true);
+  assert.equal(report.comparison.expectedDailyDecisionDateKeyFound, true);
   assert.equal(report.comparison.expectedOutboxEmptyFound, true);
   assert.deepEqual(report.comparison.outboxCountsAfter, {
     outboxPending: 0,
@@ -211,6 +259,7 @@ const guestPacketText = makePacket({
   const report = diffQaPackets(parseQaPacketText(afterPacketText), parseQaPacketText(refreshPacketText), {
     expectStable: true,
     expectDecisionStable: true,
+    expectDailyDecisionStable: true,
   });
 
   assert.equal(report.ok, true);
@@ -219,12 +268,15 @@ const guestPacketText = makePacket({
   assert.equal(report.comparison.fingerprintStable, true);
   assert.equal(report.comparison.decisionFingerprintChanged, false);
   assert.equal(report.comparison.decisionFingerprintStable, true);
+  assert.equal(report.comparison.dailyDecisionFingerprintChanged, false);
+  assert.equal(report.comparison.dailyDecisionFingerprintStable, true);
 }
 
 {
   const report = diffQaPackets(parseQaPacketText(refreshPacketText), parseQaPacketText(afterPacketText), {
     expectStable: true,
     expectDecisionStable: true,
+    expectDailyDecisionStable: true,
   });
 
   assert.equal(report.ok, false);
@@ -259,6 +311,10 @@ const guestPacketText = makePacket({
     "--expectMissionReason=hard_deadline",
     "--expectOutboxEmpty",
     "--expectDecisionStable",
+    "--expectDailyDecisionStable",
+    "--expectDailyDecisionSource",
+    "reused",
+    "--expectDailyDecisionDateKey=2026-06-09",
   ]);
 
   assert.equal(options.mode, "diff");
@@ -271,6 +327,9 @@ const guestPacketText = makePacket({
   assert.equal(options.expectMissionReason, "hard_deadline");
   assert.equal(options.expectOutboxEmpty, true);
   assert.equal(options.expectDecisionStable, true);
+  assert.equal(options.expectDailyDecisionStable, true);
+  assert.equal(options.expectDailyDecisionSource, "reused");
+  assert.equal(options.expectDailyDecisionDateKey, "2026-06-09");
 }
 
 {
@@ -299,12 +358,17 @@ const guestPacketText = makePacket({
       "Existing",
       "--expectMissionReason",
       "hard_deadline",
+      "--expectDailyDecisionSource",
+      "reused",
+      "--expectDailyDecisionDateKey",
+      "2026-06-09",
       "--expectOutboxEmpty",
     ], { encoding: "utf8" });
     const singleReport = JSON.parse(singleOutput);
     assert.equal(singleReport.ok, true);
     assert.equal(singleReport.type, "qa_packet_validation");
     assert.equal(singleReport.packet.outboxPending, 0);
+    assert.equal(singleReport.packet.dailyDecisionSource, "reused");
 
     const diffOutput = execFileSync(process.execPath, [
       scriptPath,
@@ -322,6 +386,10 @@ const guestPacketText = makePacket({
       "Existing",
       "--expectMissionReason",
       "hard_deadline",
+      "--expectDailyDecisionSource",
+      "reused",
+      "--expectDailyDecisionDateKey",
+      "2026-06-09",
       "--expectOutboxEmpty",
     ], { encoding: "utf8" });
     const diffReport = JSON.parse(diffOutput);
@@ -329,6 +397,8 @@ const guestPacketText = makePacket({
     assert.equal(diffReport.comparison.fingerprintChanged, true);
     assert.equal(diffReport.comparison.expectedMissionFound, true);
     assert.equal(diffReport.comparison.expectedOutboxEmptyFound, true);
+    assert.equal(diffReport.comparison.expectedDailyDecisionSourceFound, true);
+    assert.equal(diffReport.comparison.expectedDailyDecisionDateKeyFound, true);
 
     const stableOutput = execFileSync(process.execPath, [
       scriptPath,
@@ -338,12 +408,14 @@ const guestPacketText = makePacket({
       refreshPath,
       "--expectStable",
       "--expectDecisionStable",
+      "--expectDailyDecisionStable",
     ], { encoding: "utf8" });
     const stableReport = JSON.parse(stableOutput);
     assert.equal(stableReport.ok, true);
     assert.equal(stableReport.comparison.capturedAtOrder, "after_is_newer");
     assert.equal(stableReport.comparison.fingerprintStable, true);
     assert.equal(stableReport.comparison.decisionFingerprintStable, true);
+    assert.equal(stableReport.comparison.dailyDecisionFingerprintStable, true);
 
     assert.throws(
       () => {

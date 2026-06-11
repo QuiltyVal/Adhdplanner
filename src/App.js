@@ -10556,6 +10556,23 @@ export default function App() {
     const missionTitle = rescueTask ? getTaskDisplayTitle(rescueTask) : "";
     const latestHumanEventAt = resolvePlannerTimestamp(humanPlannerEvents[0]?.createdAt);
     const taskFreshness = buildTaskQaFreshnessEvidence();
+    const dailyDecision = plannerMeta?.daily_decision && typeof plannerMeta.daily_decision === "object"
+      ? plannerMeta.daily_decision
+      : {};
+    const dailyDecisionDateKey = String(dailyDecision.dateKey || dailyDecision.date_key || "none");
+    const dailyDecisionSource = String(dailyDecision.source || "none");
+    const dailyDecisionDecidedAtMs = resolvePlannerTimestamp(dailyDecision.decidedAt || dailyDecision.decided_at);
+    const dailyDecisionMissionTaskId = String(dailyDecision.missionTaskId || dailyDecision.mission_task_id || "none");
+    const dailyDecisionMissionReason = String(dailyDecision.missionReason || dailyDecision.mission_reason || "none");
+    const dailyDecisionRescueTaskId = String(dailyDecision.rescueTaskId || dailyDecision.rescue_task_id || "none");
+    const dailyDecisionFingerprint = buildTaskQaFingerprint([
+      dailyDecisionDateKey,
+      dailyDecisionSource,
+      dailyDecisionDecidedAtMs || 0,
+      dailyDecisionMissionTaskId,
+      dailyDecisionMissionReason,
+      dailyDecisionRescueTaskId,
+    ].join("|"));
     return [
       "ADHD Planner live QA baseline",
       `capturedAt: ${capturedAt}`,
@@ -10590,6 +10607,13 @@ export default function App() {
       `latestTaskUpdatedSubtasks: ${taskFreshness.latestTaskUpdatedSubtasks}`,
       `latestTaskUpdatedSubtaskPreview: ${taskFreshness.latestTaskUpdatedSubtaskPreview}`,
       `activeTaskPreview: ${taskFreshness.activeTaskPreview}`,
+      `dailyDecisionDateKey: ${dailyDecisionDateKey}`,
+      `dailyDecisionSource: ${dailyDecisionSource}`,
+      `dailyDecisionDecidedAt: ${dailyDecisionDecidedAtMs ? new Date(dailyDecisionDecidedAtMs).toISOString() : "none"}`,
+      `dailyDecisionMissionTaskId: ${dailyDecisionMissionTaskId}`,
+      `dailyDecisionMissionReason: ${dailyDecisionMissionReason}`,
+      `dailyDecisionRescueTaskId: ${dailyDecisionRescueTaskId}`,
+      `dailyDecisionFingerprint: ${dailyDecisionFingerprint}`,
     ].join("\n");
   };
 
