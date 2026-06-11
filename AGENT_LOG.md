@@ -3086,3 +3086,26 @@ Entry template:
   - Codex ran only local packet checking.
   - No Firestore data was read or written by Codex.
   - No Telegram action, Google OAuth action, Google API call, MCP tool call, production deploy, or live user-data mutation was performed in this evidence logging step.
+
+## 2026-06-11 - Codex
+
+- Summary: Added explicit daily-decision evidence to copied QA packets and local packet checks.
+- Changed:
+  - `src/App.js` — `Copy QA packet` now includes `dailyDecisionDateKey`, `dailyDecisionSource`, `dailyDecisionDecidedAt`, `dailyDecisionMissionTaskId`, `dailyDecisionMissionReason`, `dailyDecisionRescueTaskId`, and `dailyDecisionFingerprint`.
+  - `scripts/check-qa-packet.mjs` — validates those fields and supports `--expectDailyDecisionSource`, `--expectDailyDecisionDateKey`, and `--expectDailyDecisionStable`.
+  - `tests/qa-packet-check.test.mjs` — added parser, validation, diff, CLI, and stable-fingerprint coverage for daily decision evidence.
+  - `EXECUTION_PLAN.md` and `SESSION_HANDOFF.md` — recorded the new QA packet evidence surface.
+- Verified:
+  - `node tests/qa-packet-check.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `npm run backup:planner -- --safety-check backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22` returned `ok: true`, `readyForRiskyQa: true`, `firestoreRead: false`, `firestoreWrite: false`; latest backup remained `2026-06-11T08:37:02.338Z`, SHA-256 `687cae220a937e6ff952683f23ac6f8962b74deb21b11073e6249c065e9b4b50`.
+- Deployment:
+  - Web/API only via `./deploy-prod-safe.sh`.
+  - Vercel deployment `dpl_HWG4vrgV8SaJmsZCL679u9VMZb4c`, production URL `https://adhdplanner-oo64znq1o-quiltyvals-projects.vercel.app`, aliased to `https://planner.valquilty.com`.
+  - `curl -I -L --max-time 20 https://planner.valquilty.com/main` returned HTTP `200`.
+- Live/data boundary:
+  - No Firestore data was read or written by Codex.
+  - No Telegram action, Google OAuth action, Google API call, MCP tool call, MCP deploy, or live user-data mutation was performed.
+  - Remaining user-assisted proof: copy one fresh QA packet from the deployed browser and run `check:qa-packet` with daily-decision expectations.
