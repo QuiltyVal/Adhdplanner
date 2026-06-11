@@ -3071,3 +3071,18 @@ Entry template:
   - No Firestore write was performed by Codex.
   - No MCP server deploy, Telegram action, Google OAuth action, Google API call, MCP tool call, or browser-authenticated QA was performed in this step.
   - Remaining evidence: user should copy one authenticated QA packet, run `Run engine now`, copy a second authenticated QA packet, then run `check:qa-packet` locally.
+
+## 2026-06-11 - Codex
+
+- Summary: Closed the browser-authenticated live QA packet proof for deployed Engine slice 1.
+- Evidence:
+  - User-provided before packet: `capturedAt=2026-06-11T09:06:30.073Z`, `mode=cloud-authenticated`, `liveQaReady=yes`, `plannerBootstrapStatus=success`, mission `Выставить свитер Stone Island на продажу`, `missionReason=hard_deadline`, task fingerprint `33c25b0b`, outbox all zero, delivery `Last engine Jun 11, 11:04 AM`.
+  - User clicked `Run engine now`.
+  - User-provided after packet: `capturedAt=2026-06-11T09:08:56.065Z`, `mode=cloud-authenticated`, `liveQaReady=yes`, `plannerBootstrapStatus=success`, same mission/reason, same task fingerprint `33c25b0b`, outbox all zero, delivery advanced to `Last engine Jun 11, 11:06 AM`.
+  - `npm run check:qa-packet -- --before <before> --after <after> --expectStable --expectOutboxEmpty --expectPlannerBootstrapStatus success --expectMission "Выставить свитер Stone Island на продажу" --expectMissionReason hard_deadline` returned `ok: true`, `issues: []`, `capturedAtOrder: after_is_newer`, `fingerprintStable: true`, and `expectedOutboxEmptyFound: true`.
+- Note:
+  - `decisionTraceFingerprint` changed from `9af5b09c` to `21792b62` because this was an Engine-run comparison and the visible delivery/last-engine line changed. `--expectDecisionStable` was intentionally not used.
+- Live/data boundary:
+  - Codex ran only local packet checking.
+  - No Firestore data was read or written by Codex.
+  - No Telegram action, Google OAuth action, Google API call, MCP tool call, production deploy, or live user-data mutation was performed in this evidence logging step.
