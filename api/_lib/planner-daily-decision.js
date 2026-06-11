@@ -94,6 +94,26 @@ function buildNewDecision(tasks = [], now = Date.now(), source = "new") {
   };
 }
 
+function reuseStoredDecision(storedDecision = null, now = Date.now()) {
+  return {
+    dateKey: storedDecision.dateKey,
+    missionTaskId: storedDecision.missionTaskId,
+    missionReason: storedDecision.missionReason || "empty",
+    rescueTaskId: storedDecision.rescueTaskId,
+    decidedAt: storedDecision.decidedAt || now,
+    source: "reused",
+  };
+}
+
+function adoptOverrideDecisionOrReuseStored(tasks = [], storedDecision = null, now = Date.now(), overrideRule = "") {
+  const candidateDecision = buildNewDecision(tasks, now, `override:${overrideRule}`);
+  const missionUnchanged = String(candidateDecision.missionTaskId || "") === String(storedDecision?.missionTaskId || "");
+  const rescueUnchanged = String(candidateDecision.rescueTaskId || "") === String(storedDecision?.rescueTaskId || "");
+  return missionUnchanged && rescueUnchanged
+    ? reuseStoredDecision(storedDecision, now)
+    : candidateDecision;
+}
+
 function selectDailyDecision({ tasks = [], existingDecision = null, now = Date.now() } = {}) {
   const dateKey = getBerlinParts(now).dateKey;
   const storedDecision = normalizeDecision(existingDecision);
@@ -104,21 +124,24 @@ function selectDailyDecision({ tasks = [], existingDecision = null, now = Date.n
 
   const storedMissionTask = findActiveTaskById(tasks, storedDecision.missionTaskId, now);
   if (!storedMissionTask) {
-    return buildNewDecision(tasks, now, `override:${DAILY_DECISION_OVERRIDE_RULES.MISSION_TASK_GONE}`);
+    return adoptOverrideDecisionOrReuseStored(
+      tasks,
+      storedDecision,
+      now,
+      DAILY_DECISION_OVERRIDE_RULES.MISSION_TASK_GONE,
+    );
   }
 
   if (hasHardDeadlineOutsideStoredDecision(tasks, storedDecision, dateKey)) {
-    return buildNewDecision(tasks, now, `override:${DAILY_DECISION_OVERRIDE_RULES.HARD_DEADLINE_NEW}`);
+    return adoptOverrideDecisionOrReuseStored(
+      tasks,
+      storedDecision,
+      now,
+      DAILY_DECISION_OVERRIDE_RULES.HARD_DEADLINE_NEW,
+    );
   }
 
-  return {
-    dateKey: storedDecision.dateKey,
-    missionTaskId: storedDecision.missionTaskId,
-    missionReason: storedDecision.missionReason || "empty",
-    rescueTaskId: storedDecision.rescueTaskId,
-    decidedAt: storedDecision.decidedAt || now,
-    source: "reused",
-  };
+  return reuseStoredDecision(storedDecision, now);
 }
 
 function getDailyDecisionRule(source = "") {

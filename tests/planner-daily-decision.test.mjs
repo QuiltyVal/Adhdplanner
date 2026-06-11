@@ -7,6 +7,7 @@ const {
   buildDailyDecisionChangedEventSpec,
   selectDailyDecision,
 } = require("../api/_lib/planner-daily-decision.js");
+const { buildPlannerReasonExplanation } = require("../api/_lib/planner-engine-rules.js");
 const { PLANNER_EVENT_TYPES } = require("../api/_lib/planner-event-types.js");
 
 const NOW = Date.parse("2026-06-10T10:00:00.000Z");
@@ -90,6 +91,44 @@ function stored(overrides = {}) {
   assert.equal(decision.source, `override:${DAILY_DECISION_OVERRIDE_RULES.HARD_DEADLINE_NEW}`);
   assert.equal(decision.missionTaskId, "deadline");
   assert.equal(decision.missionReason, "hard_deadline");
+}
+
+{
+  const tasks = [
+    task("deadline-a", { deadlineAt: "2026-06-10", heatCurrent: 40, lastUpdated: NOW - 1000 }),
+    task("deadline-b", { deadlineAt: "2026-06-10", heatCurrent: 40, lastUpdated: NOW }),
+  ];
+  const firstTick = selectDailyDecision({
+    tasks,
+    existingDecision: null,
+    now: NOW,
+  });
+  const secondTick = selectDailyDecision({
+    tasks,
+    existingDecision: firstTick,
+    now: NOW + 1000,
+  });
+
+  assert.equal(firstTick.source, "new");
+  assert.equal(secondTick.source, "reused");
+  assert.equal(secondTick.missionTaskId, firstTick.missionTaskId);
+  assert.equal(secondTick.rescueTaskId, firstTick.rescueTaskId);
+  assert.equal(secondTick.decidedAt, firstTick.decidedAt);
+}
+
+{
+  const decision = selectDailyDecision({
+    tasks: [
+      task("mission", { status: "completed", deadlineAt: "2026-06-10" }),
+      task("deadline", { deadlineAt: "2026-06-10" }),
+    ],
+    existingDecision: stored({ missionTaskId: "mission", rescueTaskId: "mission", missionReason: "hard_deadline" }),
+    now: NOW,
+  });
+
+  assert.equal(decision.source, `override:${DAILY_DECISION_OVERRIDE_RULES.MISSION_TASK_GONE}`);
+  assert.equal(decision.missionTaskId, "deadline");
+  assert.equal(decision.decidedAt, NOW);
 }
 
 {
@@ -192,6 +231,11 @@ function stored(overrides = {}) {
   assert.equal(event.payload.rule, DAILY_DECISION_OVERRIDE_RULES.HARD_DEADLINE_NEW);
   assert.equal(event.payload.previous.missionTaskId, "mission");
   assert.equal(event.payload.next.missionTaskId, "deadline");
+}
+
+{
+  const explanation = buildPlannerReasonExplanation("daily_decision", task("rescue"), "rescue");
+  assert.match(explanation, /current planner state/i);
 }
 
 console.log("planner daily decision tests passed");
