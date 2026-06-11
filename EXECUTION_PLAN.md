@@ -271,6 +271,7 @@ Notes:
 - Manual dismissal and emergency override are still pending, as well as a dedicated scheduler.
 - As of 2026-05-31, `api/_lib/angel-decision-store.js` is explicitly marked legacy. The remaining work is to make Planner Engine decisions stable and inspectable enough for daily behavior, not to expand the legacy store.
 - As of 2026-06-11, Planner Engine writes `plannerMeta.daily_decision` and reuses it for same-Berlin-day ticks. It recalculates only for a new Berlin day, `hard_deadline_new`, or `mission_task_gone`, and emits `ENGINE_DAILY_DECISION_CHANGED` with previous/next/rule payload when the stored daily decision changes. Deploy still requires a fresh read-only backup first.
+- As of 2026-06-11, the unused `api/_lib/angel-decision-store.js` source module was removed. The `angelDecisions` Firestore collection remains historical data and stays in backup/export coverage.
 
 Done when:
 - the system can explain why it is pushing exactly these tasks today

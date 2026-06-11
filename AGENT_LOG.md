@@ -3029,3 +3029,20 @@ Entry template:
 - Live/data boundary:
   - No Firestore data was read or written.
   - No Telegram action, Google OAuth action, Google API call, MCP tool call, browser-authenticated QA, production deploy, or live user-data mutation was performed.
+
+## 2026-06-11 - Codex
+
+- Summary: Removed the unused legacy daily angel decision source module.
+- Changed:
+  - Deleted `api/_lib/angel-decision-store.js`.
+  - `EXECUTION_PLAN.md` and `SESSION_HANDOFF.md` now explicitly state that the source module is gone while `Users/{uid}/angelDecisions` remains historical data and must stay in backup/export coverage.
+- Verified:
+  - `rg -n "angel-decision-store|resolveDailyAngelDecision|angelDecisions" api src services scripts tests` now returns only `scripts/export-firestore-planner.js:23`, the expected export collection list entry.
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `git diff --check`
+- Live/data boundary:
+  - Source cleanup only.
+  - No Firestore data was read or written.
+  - The Firestore `angelDecisions` collection was not deleted or modified.
