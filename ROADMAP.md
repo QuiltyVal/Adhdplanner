@@ -1,6 +1,6 @@
 # ADHD Planner Roadmap
 
-Last updated: 2026-06-10
+Last updated: 2026-06-11
 
 ## Product Direction
 
@@ -29,6 +29,7 @@ The product should do three things well:
 ## What Exists Already
 
 - Today mission / rescue target
+- Stable server daily decision in `plannerMeta.daily_decision` (one mission + one rescue per Berlin day, with override trace)
 - Panic mode
 - Deadlines
 - Urgency / resistance / vital flags

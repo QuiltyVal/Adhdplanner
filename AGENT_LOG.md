@@ -3008,3 +3008,24 @@ Entry template:
 - Live/data boundary:
   - Docs-only change by Codex.
   - Codex did not read or write Firestore, run MCP tools, trigger Telegram, complete OAuth, call Google APIs, run browser-authenticated QA, deploy production, or mutate live user data while logging this evidence.
+
+## 2026-06-11 - Codex
+
+- Summary: Implemented Engine slice 1 stable daily decision locally.
+- Changed:
+  - `api/_lib/planner-daily-decision.js` — added pure Berlin-day decision selection for `plannerMeta.daily_decision`, with same-day reuse, new-day recalculation, `hard_deadline_new`, and `mission_task_gone` override sources.
+  - `api/_lib/planner-engine.js` — `runPlannerTick` now persists `plannerMeta.daily_decision`; mission/rescue projections read from that stored decision instead of recomputing directly every tick.
+  - `api/_lib/planner-event-types.js` — added canonical `ENGINE_DAILY_DECISION_CHANGED`.
+  - `tests/planner-daily-decision.test.mjs` and `package.json` — added required contract coverage and wired it into `test:contract` / `verify:server`.
+  - `EXECUTION_PLAN.md`, `ROADMAP.md`, and `SESSION_HANDOFF.md` — recorded Phase 5 stable daily decision status and the remaining manual-dismissal/emergency override gap.
+- Verified:
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `git diff --check`
+- Deploy boundary:
+  - No production deploy was run. `npm run backup:planner -- --preflight --userId U2geUdbvWyVRNLWnSZBnftOMSU22` failed safely with `ok: false`, `firestoreRead: false`, `firestoreWrite: false`, and `credentials.ready: false` because `FIREBASE_CREDENTIALS` is not set.
+  - A fresh read-only backup is still required before deploying this Engine behavior.
+- Live/data boundary:
+  - No Firestore data was read or written.
+  - No Telegram action, Google OAuth action, Google API call, MCP tool call, browser-authenticated QA, production deploy, or live user-data mutation was performed.

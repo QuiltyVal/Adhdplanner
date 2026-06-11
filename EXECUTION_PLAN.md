@@ -254,22 +254,23 @@ Done when:
 
 Goal: make one stable daily decision instead of constantly re-deciding and thrashing.
 
-- [~] Add/reconcile persisted daily decision state (`Users/{uid}/angelDecisions/{dateKey}` exists, but active Engine decision snapshots now live in `plannerMeta`).
-- [~] Generate at most 1-2 primary angel picks per day; 3 is the hard cap.
+- [x] Add/reconcile persisted daily decision state (`plannerMeta.daily_decision` is the active Engine state; `Users/{uid}/angelDecisions/{dateKey}` remains historical/export data only).
+- [x] Generate at most 1 mission + 1 rescue per Berlin day.
 - [x] Persist reasons for each selected task.
 - [ ] Persist the outbound morning message body or message template inputs.
-- [~] Prevent decision thrash by reusing the stored decision for the day unless a real override condition happens.
+- [x] Prevent decision thrash by reusing the stored decision for the day unless a real override condition happens.
 - [~] Add explicit override rules for:
-  - hard new deadline
-  - completed angel task
-  - user manual dismissal
-  - emergency mode
+  - [x] hard new deadline (`hard_deadline_new`)
+  - [x] mission task completed/dead/deleted/blocked not-your-move (`mission_task_gone`)
+  - [ ] user manual dismissal
+  - [ ] emergency mode
 
 Notes:
 - As of 2026-04-19, server now writes/reuses `Users/{uid}/angelDecisions/{dateKey}` when `/today` runs and syncs `angelPinned/angelReason/angelScore` into active tasks.
 - As of 2026-04-19, override rule now refreshes day-decision when a hard-deadline task is outside current selection or when selected pins become fewer than expected (`pin_gap`).
 - Manual dismissal and emergency override are still pending, as well as a dedicated scheduler.
 - As of 2026-05-31, `api/_lib/angel-decision-store.js` is explicitly marked legacy. The remaining work is to make Planner Engine decisions stable and inspectable enough for daily behavior, not to expand the legacy store.
+- As of 2026-06-11, Planner Engine writes `plannerMeta.daily_decision` and reuses it for same-Berlin-day ticks. It recalculates only for a new Berlin day, `hard_deadline_new`, or `mission_task_gone`, and emits `ENGINE_DAILY_DECISION_CHANGED` with previous/next/rule payload when the stored daily decision changes. Deploy still requires a fresh read-only backup first.
 
 Done when:
 - the system can explain why it is pushing exactly these tasks today

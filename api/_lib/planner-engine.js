@@ -2,7 +2,6 @@ const { createHash, randomUUID } = require("node:crypto");
 const { getDb, admin } = require("./firebase-admin");
 const {
   getFirstOpenSubtask,
-  getMissionSelection,
   getPlannerData,
   getTaskHeat,
 } = require("./planner-store");
@@ -68,6 +67,10 @@ const {
   isAutoDeathProtected,
   pickSuggestedRescueTask,
 } = require("./planner-engine-rules");
+const {
+  buildDailyDecisionChangedEventSpec,
+  selectDailyDecision,
+} = require("./planner-daily-decision");
 const {
   getBerlinParts,
   getScheduledNudgeSlot,
@@ -332,16 +335,51 @@ async function runPlannerTick({ userId, now = Date.now(), trigger = "cron", forc
 
     const nextTasks = tasks.map((task) => updatedById.get(String(task.id)) || task);
     const activeTasks = nextTasks.filter((task) => task?.status === "active");
-    const mission = getMissionSelection(activeTasks);
-    const rescue = pickSuggestedRescueTask(activeTasks, mission.task);
+    const previousMeta = rootData.plannerMeta || {};
+    const previousDailyDecision = previousMeta.daily_decision || null;
+    const dailyDecision = selectDailyDecision({
+      tasks: nextTasks,
+      existingDecision: previousDailyDecision,
+      now,
+    });
+    const missionTask = dailyDecision.missionTaskId
+      ? activeTasks.find((task) => String(task.id || "") === String(dailyDecision.missionTaskId)) || null
+      : null;
+    const rescueTask = dailyDecision.rescueTaskId
+      ? activeTasks.find((task) => String(task.id || "") === String(dailyDecision.rescueTaskId)) || null
+      : null;
+    const rescueCandidate = pickSuggestedRescueTask(activeTasks, missionTask);
+    const previousRescueReason =
+      previousDailyDecision?.dateKey === dailyDecision.dateKey &&
+      String(previousDailyDecision?.rescueTaskId || "") === String(dailyDecision.rescueTaskId || "")
+        ? String(previousMeta.suggested_rescue_reason || "")
+        : "";
+    const rescueReason = rescueTask
+      ? previousRescueReason ||
+        (String(rescueCandidate?.task?.id || "") === String(rescueTask.id || "")
+          ? rescueCandidate.reason || "auto_priority"
+          : String(rescueTask.id || "") === String(missionTask?.id || "")
+            ? "mission"
+            : "daily_decision")
+      : "empty";
+    const mission = {
+      task: missionTask,
+      reason: missionTask ? dailyDecision.missionReason || "empty" : "empty",
+      dailyDecision,
+    };
+    const rescue = {
+      task: rescueTask,
+      reason: rescueReason,
+      dailyDecision,
+    };
     const missionExplanation = buildPlannerReasonExplanation(mission.reason || "empty", mission.task, "mission");
     const rescueExplanation = buildPlannerReasonExplanation(rescue.reason || "empty", rescue.task, "rescue");
     const counts = buildCounts(nextTasks);
     const atRiskTasks = getAtRiskTasks(nextTasks);
     const atRiskTaskIds = atRiskTasks.map((task) => String(task.id || "")).filter(Boolean).slice(0, 12);
-    const previousMeta = rootData.plannerMeta || {};
     const plannerMeta = {
       ...(previousMeta || {}),
+      daily_decision: dailyDecision,
       mission_task_id: mission.task?.id || null,
       mission_reason: mission.reason || "empty",
       mission_explanation: missionExplanation,
@@ -397,6 +435,21 @@ async function runPlannerTick({ userId, now = Date.now(), trigger = "cron", forc
         createdAt: task.deadAt || now,
       },
     }));
+    const dailyDecisionChanged =
+      !previousDailyDecision ||
+      String(previousDailyDecision.dateKey || "") !== String(dailyDecision.dateKey || "") ||
+      String(previousDailyDecision.missionTaskId || "") !== String(dailyDecision.missionTaskId || "") ||
+      String(previousDailyDecision.missionReason || "") !== String(dailyDecision.missionReason || "") ||
+      String(previousDailyDecision.rescueTaskId || "") !== String(dailyDecision.rescueTaskId || "") ||
+      String(dailyDecision.source || "").startsWith("override:");
+    const dailyDecisionEventSpec = dailyDecisionChanged
+      ? buildDailyDecisionChangedEventSpec({
+          previousDecision: previousDailyDecision || null,
+          nextDecision: dailyDecision,
+          missionTask: mission.task,
+          now,
+        })
+      : null;
     const missionEventSpec =
       previousMeta.mission_task_id !== plannerMeta.mission_task_id && plannerMeta.mission_task_id
         ? {
@@ -531,6 +584,11 @@ async function runPlannerTick({ userId, now = Date.now(), trigger = "cron", forc
         source,
         now,
       }));
+    }
+
+    if (dailyDecisionEventSpec) {
+      const event = writeEvent(transaction, baseUserRef, dailyDecisionEventSpec);
+      events.push(event);
     }
 
     if (missionEventSpec) {

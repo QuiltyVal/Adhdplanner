@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md
 
-Last updated: 2026-06-10
+Last updated: 2026-06-11
 
 This file exists so the project can survive context loss and switching between Codex, Claude, or another coding agent.
 
@@ -15,6 +15,7 @@ As of 2026-06-10, MCP/web refresh consistency smoke is **fully closed**. The cur
 - Fresh read-only backup: useful before the next risky live QA session, but Codex cannot take it from the current shell because no `FIREBASE_CREDENTIALS`, `FIREBASE_CREDENTIALS_FILE`, or `GOOGLE_APPLICATION_CREDENTIALS` is available. The latest local backup safety-check still passed at `2026-06-10T19:52:49.044Z` using `backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-08T12-26-06-380Z.json` (`ageHours: 55.45`, `readyForRiskyQa: true`).
 - Google Calendar OAuth live test: requires the user's real Telegram client and browser/Google account. Use `docs/google-calendar-live-smoke-checklist.md`; run OAuth-only first, and do not create a real calendar event unless the user explicitly approves the optional disposable event smoke.
 - Non-dry-run `capture_note`: intentionally untested. Dry-run `capture_note` is proven through authenticated MCP clients; non-dry-run creates a real capture and requires explicit approval plus an idempotency key.
+- Engine stable daily decision slice: implemented locally for `plannerMeta.daily_decision`, with same-Berlin-day reuse and `hard_deadline_new` / `mission_task_gone` overrides. It is not deployed yet; take a fresh read-only backup before Vercel deploy.
 
 The frequent `planner-sprint-heartbeat` automation was deleted after the stabilization/deploy work because the remaining useful checks are user-assisted or credential-dependent.
 
@@ -66,6 +67,7 @@ The frequent `planner-sprint-heartbeat` automation was deleted after the stabili
 - As of 2026-04-19, daily decision reuse has basic override refresh: if a hard-deadline active task is outside selection (`hard_deadline`) or selected pins became fewer than expected (`pin_gap`), day-decision is recalculated.
 - As of 2026-05-31, the recovered big plan is reconciled in `EXECUTION_PLAN.md`. The plan is still the angel/memory roadmap, now aligned with later Planner Engine, public demo, Angel Entry, Quest Relation Director, Not Your Move, report/outbox, and Angel Lab draft-quality work.
 - As of 2026-05-31, active mission/rescue decisions should be treated as Planner Engine projections in `plannerMeta`. `api/_lib/angel-decision-store.js` is legacy and should not receive new mission/rescue behavior.
+- As of 2026-06-11, Planner Engine stable daily decision code persists `plannerMeta.daily_decision` and reuses it for same-Berlin-day ticks. It changes only on new day, `hard_deadline_new`, or `mission_task_gone`, and writes `ENGINE_DAILY_DECISION_CHANGED` planner events with previous/next/rule payload. Manual dismissal and emergency override are still pending.
 - As of 2026-05-31, the next safest product slice is decision visibility and safety: show what the Engine/angel chose, why, when it changed, and whether it left an event/report/outbox/delivery trace before adding more autonomous pressure.
 - As of 2026-05-31, Progress Decision Trace is the main user-facing decision/safety surface. Normal sessions show the compact decision explanation, a collapsed latest-engine-evidence section, and Decision Safety actions for creating a safety snapshot, jumping to backups, or opening the report log.
 - As of 2026-06-01, Angel Lab draft cards have a non-mutating parse-repair action: `Fix parse` / `Исправить разбор` appends a focused correction prompt back into the dump textarea so bad extraction can be retried without creating a task.
