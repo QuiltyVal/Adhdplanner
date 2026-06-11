@@ -3109,3 +3109,15 @@ Entry template:
   - No Firestore data was read or written by Codex.
   - No Telegram action, Google OAuth action, Google API call, MCP tool call, MCP deploy, or live user-data mutation was performed.
   - Remaining user-assisted proof: copy one fresh QA packet from the deployed browser and run `check:qa-packet` with daily-decision expectations.
+
+## 2026-06-11 - Codex
+
+- Summary: Closed live proof that deployed QA packets include explicit daily-decision evidence.
+- Evidence:
+  - User-provided packet `capturedAt=2026-06-11T11:38:48.583Z`, `mode=cloud-authenticated`, `liveQaReady=yes`, `plannerBootstrapStatus=success`.
+  - Production packet included `dailyDecisionDateKey=2026-06-11`, `dailyDecisionSource=reused`, `dailyDecisionDecidedAt=2026-06-11T09:04:55.676Z`, `dailyDecisionMissionReason=hard_deadline`, and `dailyDecisionFingerprint=95568833`.
+  - `npm run check:qa-packet -- --packet <packet> --expectPlannerBootstrapStatus success --expectMission "Выставить свитер Stone Island на продажу" --expectMissionReason hard_deadline --expectOutboxEmpty --expectDailyDecisionSource reused --expectDailyDecisionDateKey 2026-06-11` returned `ok: true`, `issues: []`.
+- Live/data boundary:
+  - Codex ran only local packet validation.
+  - No Firestore data was read or written by Codex.
+  - No Telegram action, Google OAuth action, Google API call, MCP tool call, production deploy, or live user-data mutation was performed in this evidence logging step.
