@@ -3046,3 +3046,28 @@ Entry template:
   - Source cleanup only.
   - No Firestore data was read or written.
   - The Firestore `angelDecisions` collection was not deleted or modified.
+
+## 2026-06-11 - Codex
+
+- Summary: Applied Claude's required stable daily-decision override-loop fix and deployed Engine slice 1 to Vercel production.
+- Changed:
+  - `api/_lib/planner-daily-decision.js` — override rebuilds now adopt only when the rebuilt `missionTaskId` or `rescueTaskId` materially differs from the stored decision. If both ids are unchanged, the Engine returns the stored decision as `source: "reused"` and preserves the original `decidedAt`.
+  - `tests/planner-daily-decision.test.mjs` — added regression coverage for two overdue/today-deadline tasks across two ticks, plus material override adoption when the stored mission is completed and another overdue task remains.
+  - `EXECUTION_PLAN.md` and `SESSION_HANDOFF.md` — recorded deployed stable daily-decision status and the remaining browser-authenticated QA-packet evidence step.
+- Verified before deploy:
+  - `node tests/planner-daily-decision.test.mjs`
+  - `npm run test:contract`
+  - `npm run verify:server`
+  - `DISABLE_ESLINT_PLUGIN=true npm run build`
+  - `npm run backup:planner -- --safety-check backups --expectUserId U2geUdbvWyVRNLWnSZBnftOMSU22`
+- Backup safety:
+  - Local-only safety-check returned `ok: true`, `readyForRiskyQa: true`, `firestoreRead: false`, `firestoreWrite: false`.
+  - Latest backup: `backups/firestore-planner-U2geUdbvWyVRNLWnSZBnftOMSU22-2026-06-11T08-37-02-338Z.json`, exported `2026-06-11T08:37:02.338Z`, `totalDocs: 7207`, SHA-256 `687cae220a937e6ff952683f23ac6f8962b74deb21b11073e6249c065e9b4b50`.
+- Deployment:
+  - Web/API only via `./deploy-prod-safe.sh`.
+  - Vercel deployment `dpl_2pxCZBSd6eTLQhh3mAPs3JPhpjUW`, production URL `https://adhdplanner-4nn2knnxp-quiltyvals-projects.vercel.app`, aliased to `https://planner.valquilty.com`.
+  - `curl -I -L --max-time 20 https://planner.valquilty.com/main` returned HTTP `200`.
+- Live/data boundary:
+  - No Firestore write was performed by Codex.
+  - No MCP server deploy, Telegram action, Google OAuth action, Google API call, MCP tool call, or browser-authenticated QA was performed in this step.
+  - Remaining evidence: user should copy one authenticated QA packet, run `Run engine now`, copy a second authenticated QA packet, then run `check:qa-packet` locally.
