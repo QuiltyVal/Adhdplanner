@@ -93,7 +93,19 @@ Add to `src/TaskColumn.css`:
 ```
 Verification note for Codex: confirm `task.angelPinned` (and `angelReason`) are present on the task objects `TaskColumn` receives in the authenticated app. They are stored on canonical task docs and synced by the engine. If `angelPinned` is not reliably populated on the client task object, STOP and ask before switching the trigger to a `plannerMeta.daily_decision.missionTaskId` comparison — do not invent a new client data path.
 
-## Change 3 — rename + re-theme the mission panel kicker (`src/TodayMissionPanel.js` + `src/App.css`)
+## CORRECTION (2026-06-11): the live mission panel is the Apus shell
+
+`src/App.js` has `const USE_APUS_SHELL = true` (line ~147), so the live authenticated app renders `src/apus/ApusPlannerShell.js` → `src/apus/ApusTodayMission.js` for the mission panel. The classic `src/TodayMissionPanel.js` (Change 3 below) is currently DEAD code and not visible to the user. The board (`src/TaskColumn.js`) renders OUTSIDE the shell ternary, so its chip changes (Changes 1 & 2) ARE live in the Apus shell.
+
+Therefore the live mission-panel kicker fix is in `src/apus/ApusTodayMission.js` line 23:
+```jsx
+<div className="apus-section-kicker">🎯 {isEnglish ? "angel's quest" : "ангел держит квест"}</div>
+```
+`.apus-section-kicker` is shared with `ApusStatusBar` and uses the warm parchment Apus palette — text-only change, do NOT recolor it (the cool/blue family is a board-chip concept; the Apus mission panel keeps its own aesthetic, and 🎯 + text carries the meaning). ApusTodayMission is also the demo's mission component, so this one edit covers both live and `/demo`.
+
+Change 3 below is kept for parity if `USE_APUS_SHELL` is ever turned off.
+
+## Change 3 — rename + re-theme the mission panel kicker (`src/TodayMissionPanel.js` + `src/App.css`) [classic shell, currently disabled]
 
 The kicker must stop saying "today" and must read as the angel's choice, in the cool/blue family, localized.
 

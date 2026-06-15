@@ -20,7 +20,7 @@ function ApusTodayMission({ mission, onRescue, demoMode = false, nudgeStatus = "
       } : undefined}
       title={rescueEnabled ? (isEnglish ? "Open rescue session" : "Открыть rescue-сессию") : undefined}
     >
-      <div className="apus-section-kicker">today mission</div>
+      <div className="apus-section-kicker">🎯 {isEnglish ? "angel's quest" : "ангел держит квест"}</div>
       <h2 className="apus-mission__title">
         {task ? task.text : (isEnglish ? "Everything is under control today" : "Сегодня всё под контролем")}
       </h2>
