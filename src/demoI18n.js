@@ -4,7 +4,7 @@ const originalAttrs = new WeakMap();
 const EXACT_TEXT = new Map([
   ["состояние планера", "planner status"],
   ["Состояние планера", "Planner status"],
-  ["today mission", "today mission"],
+  ["ангел держит квест", "angel's quest"],
   ["Сегодня всё под контролем", "Everything is under control today"],
   ["нажми, если застряла", "click when stuck"],
   ["streak", "streak"],

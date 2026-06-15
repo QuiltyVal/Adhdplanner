@@ -316,6 +316,7 @@ export default function TaskColumn({
     deleteForever: isEnglish ? "💥 Delete forever" : "💥 В небытие",
     resurrect: isEnglish ? "🔄 Restore" : "🔄 Воскресить",
     today: isEnglish ? "today" : "сегодня",
+    angelQuest: isEnglish ? "angel's quest" : "квест ангела",
     critical: isEnglish ? "critical" : "критично",
     urgencyHigh: isEnglish ? "urgent" : "срочно",
     urgencyMedium: isEnglish ? "normal" : "норм",
@@ -685,7 +686,15 @@ export default function TaskColumn({
       {!isTuneOpen && (
         <>
           <div className="task-passive-row">
-            {task.isToday && <span className="task-passive-chip">☀️ {copy.today}</span>}
+            {task.isToday && <span className="task-passive-chip today-chip">☀️ {copy.today}</span>}
+            {task.angelPinned && (
+              <span
+                className="task-passive-chip angel-pick-chip"
+                title={task.angelReason || undefined}
+              >
+                🎯 {copy.angelQuest}
+              </span>
+            )}
             {task.isVital && <span className="task-passive-chip">🚨 {copy.critical}</span>}
             {notYourMove && (
               <span className={`task-passive-chip not-your-move-chip${checkInDue ? " is-due" : ""}`}>

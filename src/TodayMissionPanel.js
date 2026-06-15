@@ -18,6 +18,7 @@ function TodayMissionPanel({
   const rescueEnabled = Boolean(rescueTask);
   const isEnglish = language === "en";
   const copy = {
+    kicker: isEnglish ? "angel's quest" : "ангел держит квест",
     openRescue: isEnglish ? "Open rescue session" : "Открыть rescue-сессию",
     emptyTitle: isEnglish ? "Today is under control" : "Сегодня всё под контролем",
     defaultNudge: isEnglish
@@ -45,7 +46,7 @@ function TodayMissionPanel({
         } : undefined}
         title={rescueEnabled ? copy.openRescue : undefined}
       >
-        <div className="daily-pulse-kicker">today mission</div>
+        <div className="daily-pulse-kicker">🎯 {copy.kicker}</div>
         <h2 className="daily-pulse-title">
           {rescueTask ? rescueTask.text : copy.emptyTitle}
         </h2>

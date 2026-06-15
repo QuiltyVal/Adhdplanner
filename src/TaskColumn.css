@@ -371,6 +371,18 @@
   background: rgba(239, 246, 255, 0.86);
 }
 
+.task-passive-chip.today-chip {
+  border-color: rgba(239, 159, 39, 0.40);
+  color: #854F0B;
+  background: rgba(250, 238, 218, 0.9);
+}
+
+.task-passive-chip.angel-pick-chip {
+  border-color: rgba(55, 138, 221, 0.45);
+  color: #0C447C;
+  background: rgba(230, 241, 251, 0.92);
+}
+
 .task-passive-chip.not-your-move-chip.is-due {
   border-color: rgba(245, 158, 11, 0.42);
   color: #92400e;
@@ -2101,6 +2113,18 @@ div:has(> .drag-handle):hover .drag-handle { opacity: 1; color: rgba(255, 255, 2
   border-color: rgba(96, 165, 250, 0.34);
   color: #bfdbfe;
   background: rgba(30, 64, 175, 0.22);
+}
+
+[data-theme="dark"] .task-card .task-passive-chip.today-chip {
+  border-color: rgba(239, 159, 39, 0.34);
+  color: #fde6c0;
+  background: rgba(146, 64, 14, 0.24);
+}
+
+[data-theme="dark"] .task-card .task-passive-chip.angel-pick-chip {
+  border-color: rgba(96, 165, 250, 0.40);
+  color: #dbeafe;
+  background: rgba(37, 99, 235, 0.28);
 }
 
 [data-theme="dark"] .task-card .task-passive-chip.quest-relation-chip {
